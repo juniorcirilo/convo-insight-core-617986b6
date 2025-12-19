@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { InstancesList, AddInstanceDialog, TeamMembersList, AssignmentRulesManager, InstanceSetupCollapsible, SetupGuideCollapsible, SecuritySettings } from "@/components/settings";
+import { InstancesList, AddInstanceDialog, TeamMembersList, AssignmentRulesManager, InstanceSetupCollapsible, SetupGuideCollapsible, SecuritySettings, WebhooksManager, ApiTokensManager } from "@/components/settings";
 import { MacrosManager } from "@/components/macros";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -42,11 +42,13 @@ const WhatsAppSettings = () => {
 
         {/* Tabs */}
         <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList>
+          <TabsList className="flex-wrap h-auto gap-1">
             <TabsTrigger value="setup">Setup</TabsTrigger>
             <TabsTrigger value="instances">Instâncias</TabsTrigger>
             <TabsTrigger value="macros">Macros</TabsTrigger>
             <TabsTrigger value="assignment">Atribuição</TabsTrigger>
+            {isAdmin && <TabsTrigger value="webhooks">Webhooks</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="api">API</TabsTrigger>}
             {isAdmin && <TabsTrigger value="team">Equipe</TabsTrigger>}
             {isAdmin && <TabsTrigger value="security">Segurança</TabsTrigger>}
           </TabsList>
@@ -76,6 +78,18 @@ const WhatsAppSettings = () => {
           <TabsContent value="assignment" className="mt-6">
             <AssignmentRulesManager />
           </TabsContent>
+
+          {isAdmin && (
+            <TabsContent value="webhooks" className="mt-6">
+              <WebhooksManager />
+            </TabsContent>
+          )}
+
+          {isAdmin && (
+            <TabsContent value="api" className="mt-6">
+              <ApiTokensManager />
+            </TabsContent>
+          )}
 
           {isAdmin && (
             <TabsContent value="team" className="mt-6">

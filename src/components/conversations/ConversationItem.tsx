@@ -113,13 +113,14 @@ const ConversationItem = ({
             flex items-center gap-3 p-3 cursor-pointer transition-colors
             hover:bg-sidebar-accent
             ${isSelected ? "bg-sidebar-accent" : ""}
+            ${contact?.is_group ? "border-l-2 border-l-primary/50" : ""}
           `}
         >
           {/* Avatar */}
-          <Avatar className="h-10 w-10 shrink-0">
+          <Avatar className={`h-10 w-10 shrink-0 ${contact?.is_group ? "rounded-lg" : ""}`}>
             <AvatarImage src={profilePicture || undefined} alt={contactName} />
-            <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
-              {getInitials(contactName)}
+            <AvatarFallback className={`bg-primary/10 text-primary text-xs font-medium ${contact?.is_group ? "rounded-lg" : ""}`}>
+              {contact?.is_group ? "👥" : getInitials(contactName)}
             </AvatarFallback>
           </Avatar>
 
@@ -128,13 +129,16 @@ const ConversationItem = ({
             {/* Name and timestamp row */}
             <div className="flex items-center justify-between gap-2 mb-1">
               <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                {contact?.is_group && (
+                  <span className="text-xs text-muted-foreground">👥</span>
+                )}
                 <span className={cn(
                   "font-medium text-sm truncate",
                   nameIsMissing && "text-muted-foreground italic"
                 )}>
                   {contactName}
                 </span>
-                {nameIsMissing && (
+                {nameIsMissing && !contact?.is_group && (
                   <Button 
                     variant="ghost" 
                     size="sm" 
