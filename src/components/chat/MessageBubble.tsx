@@ -139,6 +139,23 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
                 <source src={message.media_url} type={message.media_mimetype || 'audio/ogg'} />
               </audio>
             )}
+            {message.transcription_status === 'processing' && (
+              <p className={cn(
+                "text-xs italic",
+                isFromMe ? "text-primary-foreground/70" : "text-muted-foreground"
+              )}>
+                Transcrevendo...
+              </p>
+            )}
+            {message.audio_transcription && (
+              <div className={cn(
+                "text-xs p-2 rounded-md",
+                isFromMe ? "bg-primary-foreground/10" : "bg-muted"
+              )}>
+                <p className="font-medium mb-0.5 text-[10px] uppercase tracking-wide opacity-70">Transcrição</p>
+                <p>{message.audio_transcription}</p>
+              </div>
+            )}
           </div>
         );
       
