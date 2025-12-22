@@ -17,6 +17,7 @@ import WhatsAppRelatorio from "./pages/WhatsAppRelatorio";
 import WhatsAppContatos from "./pages/WhatsAppContatos";
 import SalesDashboard from "./pages/SalesDashboard";
 import AdminConversations from "./pages/AdminConversations";
+import PermissionsCenter from "./pages/PermissionsCenter";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();

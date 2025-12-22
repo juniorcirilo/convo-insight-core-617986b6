@@ -584,6 +584,86 @@ export type Database = {
           },
         ]
       }
+      permission_audit_logs: {
+        Row: {
+          changed_by: string
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          new_value: boolean | null
+          old_value: boolean | null
+          permission_key: string
+          reason: string | null
+          target_id: string
+          target_type: string
+        }
+        Insert: {
+          changed_by: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          new_value?: boolean | null
+          old_value?: boolean | null
+          permission_key: string
+          reason?: string | null
+          target_id: string
+          target_type: string
+        }
+        Update: {
+          changed_by?: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          new_value?: boolean | null
+          old_value?: boolean | null
+          permission_key?: string
+          reason?: string | null
+          target_id?: string
+          target_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permission_audit_logs_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      permission_types: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          default_for_admin: boolean | null
+          default_for_agent: boolean | null
+          default_for_supervisor: boolean | null
+          description: string | null
+          key: string
+          name: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          default_for_admin?: boolean | null
+          default_for_agent?: boolean | null
+          default_for_supervisor?: boolean | null
+          description?: string | null
+          key: string
+          name: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          default_for_admin?: boolean | null
+          default_for_agent?: boolean | null
+          default_for_supervisor?: boolean | null
+          description?: string | null
+          key?: string
+          name?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -685,6 +765,48 @@ export type Database = {
           },
         ]
       }
+      sector_permissions: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_enabled: boolean | null
+          permission_key: string
+          sector_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          permission_key: string
+          sector_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          permission_key?: string
+          sector_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sector_permissions_permission_key_fkey"
+            columns: ["permission_key"]
+            isOneToOne: false
+            referencedRelation: "permission_types"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "sector_permissions_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sectors: {
         Row: {
           created_at: string | null
@@ -722,6 +844,61 @@ export type Database = {
             columns: ["instance_id"]
             isOneToOne: false
             referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_permission_overrides: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_enabled: boolean
+          permission_key: string
+          reason: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_enabled: boolean
+          permission_key: string
+          reason?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_enabled?: boolean
+          permission_key?: string
+          reason?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_permission_overrides_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_permission_overrides_permission_key_fkey"
+            columns: ["permission_key"]
+            isOneToOne: false
+            referencedRelation: "permission_types"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "user_permission_overrides_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1542,6 +1719,18 @@ export type Database = {
         Args: { _conversation_id: string; _user_id: string }
         Returns: boolean
       }
+      get_user_effective_permissions: {
+        Args: { _user_id: string }
+        Returns: {
+          is_enabled: boolean
+          permission_key: string
+          source: string
+        }[]
+      }
+      has_permission: {
+        Args: { _permission_key: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1576,6 +1765,14 @@ export type Database = {
         | "negotiation"
         | "won"
         | "lost"
+      permission_key:
+        | "can_access_conversations"
+        | "can_respond_conversations"
+        | "can_access_kanban"
+        | "can_view_global_data"
+        | "can_access_admin_panel"
+        | "can_send_internal_messages"
+        | "can_transfer_conversations"
       sentiment_type: "positive" | "neutral" | "negative"
     }
     CompositeTypes: {
@@ -1721,6 +1918,15 @@ export const Constants = {
         "negotiation",
         "won",
         "lost",
+      ],
+      permission_key: [
+        "can_access_conversations",
+        "can_respond_conversations",
+        "can_access_kanban",
+        "can_view_global_data",
+        "can_access_admin_panel",
+        "can_send_internal_messages",
+        "can_transfer_conversations",
       ],
       sentiment_type: ["positive", "neutral", "negative"],
     },
