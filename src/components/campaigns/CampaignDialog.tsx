@@ -1,13 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Users, Search, Image, FileText, X, Upload } from "lucide-react";
@@ -280,15 +279,28 @@ export const CampaignDialog = ({ open, onOpenChange, campaign }: CampaignDialogP
     return "";
   };
 
-  return (
-    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{campaign ? "Editar Campanha" : "Nova Campanha"}</DialogTitle>
-          <DialogDescription>
+  if (!open) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-50">
+      <div
+        className="fixed inset-0 bg-background/80 backdrop-blur-sm"
+        onClick={() => handleDialogOpenChange(false)}
+        aria-hidden="true"
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="fixed left-1/2 top-1/2 z-50 w-[min(48rem,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-background p-6 shadow-lg"
+      >
+        <div className="mb-4 space-y-1.5">
+          <h2 className="text-lg font-semibold leading-none tracking-tight">
+            {campaign ? "Editar Campanha" : "Nova Campanha"}
+          </h2>
+          <p className="text-sm text-muted-foreground">
             Configure os detalhes da campanha e selecione os destinatários
-          </DialogDescription>
-        </DialogHeader>
+          </p>
+        </div>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -313,34 +325,26 @@ export const CampaignDialog = ({ open, onOpenChange, campaign }: CampaignDialogP
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Instância</FormLabel>
-                    <Select
-                      value={field.value ? field.value : "__none"}
-                      onValueChange={(v) => {
-                        if (v === "__none") return;
-                        field.onChange(v);
-                      }}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione uma instância" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="__none">
-                          Selecione uma instância
-                        </SelectItem>
-                        {instances?.filter(instance => instance.id).map((instance) => (
-                          <SelectItem key={instance.id} value={instance.id}>
+                    <FormControl>
+                      <select
+                        value={field.value}
+                        onChange={(e) => field.onChange(e.target.value)}
+                        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      >
+                        <option value="">Selecione uma instância</option>
+                        {instances?.filter((instance) => instance.id).map((instance) => (
+                          <option key={instance.id} value={instance.id}>
                             {instance.name}
-                          </SelectItem>
+                          </option>
                         ))}
-                      </SelectContent>
-                    </Select>
+                      </select>
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
+
 
             <FormField
               control={form.control}
@@ -363,33 +367,17 @@ export const CampaignDialog = ({ open, onOpenChange, campaign }: CampaignDialogP
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Tipo de Mensagem</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="text">
-                        <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4" />
-                          Texto
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="image">
-                        <div className="flex items-center gap-2">
-                          <Image className="h-4 w-4" />
-                          Imagem
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="document">
-                        <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4" />
-                          Documento
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                    <select
+                      value={field.value}
+                      onChange={(e) => field.onChange(e.target.value as any)}
+                      className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    >
+                      <option value="text">Texto</option>
+                      <option value="image">Imagem</option>
+                      <option value="document">Documento</option>
+                    </select>
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -591,7 +579,8 @@ export const CampaignDialog = ({ open, onOpenChange, campaign }: CampaignDialogP
             </div>
           </form>
         </Form>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>,
+    document.body,
   );
 };
