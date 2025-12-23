@@ -294,7 +294,10 @@ export const CampaignDialog = ({ open, onOpenChange, campaign }: CampaignDialogP
                     <FormLabel>Instância</FormLabel>
                     <Select
                       value={field.value ? field.value : "__none"}
-                      onValueChange={(v) => field.onChange(v === "__none" ? "" : v)}
+                      onValueChange={(v) => {
+                        if (v === "__none") return;
+                        field.onChange(v);
+                      }}
                     >
                       <FormControl>
                         <SelectTrigger>

@@ -163,7 +163,10 @@ export function AssignmentRuleDialog({
             <Label htmlFor="instance">Instância</Label>
             <Select
               value={watch("instance_id") ? watch("instance_id") : "__none"}
-              onValueChange={(value) => setValue("instance_id", value === "__none" ? "" : value)}
+              onValueChange={(value) => {
+                if (value === "__none") return;
+                setValue("instance_id", value);
+              }}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecionar instância..." />
@@ -244,7 +247,10 @@ export function AssignmentRuleDialog({
               <Label htmlFor="agent">Agente</Label>
               <Select
                 value={watch("fixed_agent_id") ? watch("fixed_agent_id") : "__none_agent"}
-                onValueChange={(value) => setValue("fixed_agent_id", value === "__none_agent" ? "" : value)}
+                onValueChange={(value) => {
+                  if (value === "__none_agent") return;
+                  setValue("fixed_agent_id", value);
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecionar agente..." />
