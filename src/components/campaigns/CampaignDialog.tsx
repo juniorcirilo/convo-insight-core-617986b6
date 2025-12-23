@@ -41,7 +41,8 @@ export const CampaignDialog = ({ open, onOpenChange, campaign }: CampaignDialogP
   const [isUploading, setIsUploading] = useState(false);
   const [existingMediaUrl, setExistingMediaUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const initGuardRef = useRef<string>("");
+  const prevOpenRef = useRef(false);
+  const lastInitIdRef = useRef<string | null>(null);
   const { toast } = useToast();
   
   const { createCampaign, updateCampaign, isCreating, isUpdating } = useCampaigns();
@@ -97,12 +98,13 @@ export const CampaignDialog = ({ open, onOpenChange, campaign }: CampaignDialogP
   });
 
   useEffect(() => {
-    // Guard: prevent repeated resets that can cause Radix/Dialog ref loops
-    const key = `${open ? "open" : "closed"}:${campaignId ?? "new"}`;
-    if (initGuardRef.current === key) return;
-    initGuardRef.current = key;
+    const wasOpen = prevOpenRef.current;
+    prevOpenRef.current = open;
 
+    // Only (re)initialize when opening OR when switching campaign while open
     if (!open) return;
+    if (wasOpen && lastInitIdRef.current === campaignId) return;
+    lastInitIdRef.current = campaignId;
 
     if (campaign) {
       form.reset({
@@ -119,7 +121,11 @@ export const CampaignDialog = ({ open, onOpenChange, campaign }: CampaignDialogP
       if (mediaUrl) {
         setExistingMediaUrl(mediaUrl);
         setMediaPreview(mediaUrl);
+      } else {
+        setExistingMediaUrl(null);
+        setMediaPreview(null);
       }
+      setMediaFile(null);
     } else {
       form.reset({
         name: "",
@@ -135,7 +141,7 @@ export const CampaignDialog = ({ open, onOpenChange, campaign }: CampaignDialogP
       setExistingMediaUrl(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [campaignId, open]);
+  }, [open, campaignId]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
