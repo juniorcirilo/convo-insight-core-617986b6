@@ -76,6 +76,8 @@ export function AssignmentRuleDialog({
   });
 
   const initGuardRef = useRef<string>("");
+  const prevOpenRef = useRef(false);
+  const lastInitIdRef = useRef<string | undefined>(undefined);
 
   const selectedInstanceId = watch("instance_id");
   const selectedSectorId = watch("sector_id");
@@ -104,11 +106,12 @@ export function AssignmentRuleDialog({
 
   // Reset form when rule changes
   useEffect(() => {
-    if (!open) return;
+    const wasOpen = prevOpenRef.current;
+    prevOpenRef.current = open;
 
-    const key = `${open ? "open" : "closed"}:${rule?.id ?? "new"}`;
-    if (initGuardRef.current === key) return;
-    initGuardRef.current = key;
+    if (!open) return;
+    if (wasOpen && lastInitIdRef.current === rule?.id) return;
+    lastInitIdRef.current = rule?.id;
 
     if (rule) {
       reset({
@@ -134,7 +137,7 @@ export function AssignmentRuleDialog({
       setRoundRobinAgents([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rule?.id, open]);
+  }, [open, rule?.id]);
 
   const onSubmit = (data: FormData) => {
     const payload = {
