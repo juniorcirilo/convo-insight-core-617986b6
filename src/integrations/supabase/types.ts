@@ -892,35 +892,125 @@ export type Database = {
           },
         ]
       }
+      sla_config: {
+        Row: {
+          created_at: string | null
+          id: string
+          prioridade: string
+          tempo_primeira_resposta_minutos: number
+          tempo_resolucao_minutos: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          prioridade: string
+          tempo_primeira_resposta_minutos: number
+          tempo_resolucao_minutos: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          prioridade?: string
+          tempo_primeira_resposta_minutos?: number
+          tempo_resolucao_minutos?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      sla_violations: {
+        Row: {
+          created_at: string | null
+          expected_at: string
+          id: string
+          ticket_id: string
+          violated_at: string
+          violation_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          expected_at: string
+          id?: string
+          ticket_id: string
+          violated_at: string
+          violation_type: string
+        }
+        Update: {
+          created_at?: string | null
+          expected_at?: string
+          id?: string
+          ticket_id?: string
+          violated_at?: string
+          violation_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sla_violations_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tickets: {
         Row: {
+          atendente_id: string | null
+          canal: string | null
+          categoria: string | null
           closed_at: string | null
           closed_by: string | null
           conversation_id: string
           created_at: string
+          first_response_at: string | null
           id: string
+          prioridade: string | null
           sector_id: string
+          sla_violated_at: string | null
           status: string
+          updated_at: string | null
         }
         Insert: {
+          atendente_id?: string | null
+          canal?: string | null
+          categoria?: string | null
           closed_at?: string | null
           closed_by?: string | null
           conversation_id: string
           created_at?: string
+          first_response_at?: string | null
           id?: string
+          prioridade?: string | null
           sector_id: string
+          sla_violated_at?: string | null
           status?: string
+          updated_at?: string | null
         }
         Update: {
+          atendente_id?: string | null
+          canal?: string | null
+          categoria?: string | null
           closed_at?: string | null
           closed_by?: string | null
           conversation_id?: string
           created_at?: string
+          first_response_at?: string | null
           id?: string
+          prioridade?: string | null
           sector_id?: string
+          sla_violated_at?: string | null
           status?: string
+          updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "tickets_atendente_id_fkey"
+            columns: ["atendente_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tickets_closed_by_fkey"
             columns: ["closed_by"]
@@ -1552,6 +1642,7 @@ export type Database = {
           id: string
           is_from_me: boolean | null
           is_internal: boolean
+          is_supervisor_message: boolean | null
           media_mimetype: string | null
           media_url: string | null
           message_id: string
@@ -1575,6 +1666,7 @@ export type Database = {
           id?: string
           is_from_me?: boolean | null
           is_internal?: boolean
+          is_supervisor_message?: boolean | null
           media_mimetype?: string | null
           media_url?: string | null
           message_id: string
@@ -1598,6 +1690,7 @@ export type Database = {
           id?: string
           is_from_me?: boolean | null
           is_internal?: boolean
+          is_supervisor_message?: boolean | null
           media_mimetype?: string | null
           media_url?: string | null
           message_id?: string
