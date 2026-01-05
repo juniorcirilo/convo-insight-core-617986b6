@@ -10,6 +10,14 @@ export interface Ticket {
   created_at: string;
   closed_at: string | null;
   closed_by: string | null;
+  // SLA fields
+  canal: string | null;
+  categoria: string | null;
+  prioridade: 'alta' | 'media' | 'baixa';
+  atendente_id: string | null;
+  updated_at: string;
+  first_response_at: string | null;
+  sla_violated_at: string | null;
 }
 
 export interface Feedback {

@@ -13,6 +13,9 @@ interface SendMessageParams {
   mediaMimetype?: string;
   fileName?: string;
   quotedMessageId?: string;
+  // Supervisor message support
+  isSupervisorMessage?: boolean;
+  supervisorId?: string;
 }
 
 export const useWhatsAppSend = () => {
