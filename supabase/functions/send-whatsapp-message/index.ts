@@ -14,6 +14,9 @@ interface SendMessageRequest {
   mediaMimetype?: string;
   fileName?: string;
   quotedMessageId?: string;
+  // Supervisor message support
+  isSupervisorMessage?: boolean;
+  supervisorId?: string;
 }
 
 // Helper function to get Evolution API auth headers based on provider type
@@ -193,8 +196,10 @@ Deno.serve(async (req) => {
         is_from_me: true,
         timestamp: new Date().toISOString(),
         quoted_message_id: body.quotedMessageId || null,
+        is_supervisor_message: body.isSupervisorMessage || false,
         metadata: {
           fileName: body.fileName,
+          supervisorId: body.isSupervisorMessage ? body.supervisorId : null,
         },
       })
       .select()

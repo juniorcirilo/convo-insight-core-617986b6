@@ -462,6 +462,63 @@ async function applyAutoAssignment(
   }
 }
 
+// Update first_response_at and ticket status when agent responds
+async function updateFirstResponseIfNeeded(
+  supabase: any,
+  ticketId: string
+): Promise<void> {
+  try {
+    // Check if ticket already has first_response_at
+    const { data: ticket } = await supabase
+      .from('tickets')
+      .select('first_response_at, status')
+      .eq('id', ticketId)
+      .single();
+
+    if (!ticket) {
+      console.log('[evolution-webhook] Ticket not found for first response update:', ticketId);
+      return;
+    }
+
+    // Only update if first_response_at is not set
+    if (!ticket.first_response_at) {
+      const updateData: any = {
+        first_response_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      // Also update status to em_atendimento if it was aberto
+      if (ticket.status === 'aberto') {
+        updateData.status = 'em_atendimento';
+      }
+
+      await supabase
+        .from('tickets')
+        .update(updateData)
+        .eq('id', ticketId);
+
+      console.log('[evolution-webhook] First response recorded for ticket:', ticketId);
+    }
+  } catch (error) {
+    console.error('[evolution-webhook] Error updating first response:', error);
+  }
+}
+
+// Update ticket updated_at timestamp
+async function updateTicketTimestamp(
+  supabase: any,
+  ticketId: string
+): Promise<void> {
+  try {
+    await supabase
+      .from('tickets')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', ticketId);
+  } catch (error) {
+    console.error('[evolution-webhook] Error updating ticket timestamp:', error);
+  }
+}
+
 // Create ticket for conversation if sector requires it
 async function createTicketIfNeeded(
   supabase: any,
@@ -498,13 +555,16 @@ async function createTicketIfNeeded(
       return { ticketId: existingTicket.id, welcomeMessage: null };
     }
 
-    // Create new ticket
+    // Create new ticket with SLA defaults
     const { data: newTicket, error } = await supabase
       .from('tickets')
       .insert({
         conversation_id: conversationId,
         sector_id: sectorId,
         status: 'aberto',
+        canal: 'whatsapp',
+        prioridade: 'media',
+        categoria: 'outro',
       })
       .select('id')
       .single();
@@ -937,6 +997,16 @@ async function processMessageUpsert(payload: EvolutionWebhookPayload, supabase: 
     }
 
     console.log('[evolution-webhook] Message saved successfully');
+
+    // SLA tracking: If agent responds to a ticket, track first response
+    if (key.fromMe && currentTicketId) {
+      await updateFirstResponseIfNeeded(supabase, currentTicketId);
+    }
+
+    // Update ticket timestamp when any message is associated with it
+    if (currentTicketId) {
+      await updateTicketTimestamp(supabase, currentTicketId);
+    }
 
     // Trigger automatic audio transcription for audio messages (fire-and-forget)
     if (messageType === 'audio' && mediaUrl) {
