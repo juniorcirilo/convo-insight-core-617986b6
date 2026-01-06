@@ -18,6 +18,7 @@ import WhatsAppRelatorio from "./pages/WhatsAppRelatorio";
 import WhatsAppContatos from "./pages/WhatsAppContatos";
 import SalesDashboard from "./pages/SalesDashboard";
 import AdminConversations from "./pages/AdminConversations";
+import AdminTickets from "./pages/AdminTickets";
 import PermissionsCenter from "./pages/PermissionsCenter";
 import NotFound from "./pages/NotFound";
 
@@ -99,6 +100,16 @@ const App = () => {
                       <ProtectedRoute>
                         <AdminRoute>
                           <AdminConversations />
+                        </AdminRoute>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/tickets"
+                    element={
+                      <ProtectedRoute>
+                        <AdminRoute>
+                          <AdminTickets />
                         </AdminRoute>
                       </ProtectedRoute>
                     }

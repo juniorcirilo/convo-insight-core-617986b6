@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Ticket, X, CheckCircle2 } from 'lucide-react';
+import { Ticket, CheckCircle2, Edit2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,6 +13,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useTickets } from '@/hooks/useTickets';
+import { useSLAConfig } from '@/hooks/admin/useSLAConfig';
+import { SLAIndicator } from '@/components/admin/SLAIndicator';
+import { TicketEditModal } from './TicketEditModal';
 import { cn } from '@/lib/utils';
 
 interface TicketIndicatorProps {
@@ -34,12 +37,16 @@ const statusLabels = {
 
 export function TicketIndicator({ conversationId, sectorGeraTicket }: TicketIndicatorProps) {
   const { ticket, closeTicket, updateTicketStatus } = useTickets(conversationId);
+  const { data: slaConfigMap } = useSLAConfig();
   const [showCloseDialog, setShowCloseDialog] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   // Don't show if sector doesn't generate tickets
   if (!sectorGeraTicket || !ticket) {
     return null;
   }
+  
+  const slaConfig = slaConfigMap?.[ticket.prioridade || 'media'];
 
   const handleStartAttending = async () => {
     if (ticket.status === 'aberto') {
@@ -57,7 +64,7 @@ export function TicketIndicator({ conversationId, sectorGeraTicket }: TicketIndi
 
   return (
     <>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <Badge 
           variant="outline" 
           className={cn(
@@ -70,6 +77,11 @@ export function TicketIndicator({ conversationId, sectorGeraTicket }: TicketIndi
             {statusLabels[ticket.status]}
           </span>
         </Badge>
+
+        {/* SLA Indicator */}
+        {ticket.status !== 'finalizado' && slaConfig && (
+          <SLAIndicator ticket={ticket} slaConfig={slaConfig} />
+        )}
 
         {ticket.status === 'aberto' && (
           <Button
@@ -84,15 +96,26 @@ export function TicketIndicator({ conversationId, sectorGeraTicket }: TicketIndi
         )}
 
         {ticket.status === 'em_atendimento' && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs gap-1 text-green-600 border-green-600/30 hover:bg-green-500/10"
-            onClick={() => setShowCloseDialog(true)}
-          >
-            <CheckCircle2 className="h-3 w-3" />
-            Finalizar Ticket
-          </Button>
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs gap-1"
+              onClick={() => setShowEditModal(true)}
+            >
+              <Edit2 className="h-3 w-3" />
+              Editar
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1 text-green-600 border-green-600/30 hover:bg-green-500/10"
+              onClick={() => setShowCloseDialog(true)}
+            >
+              <CheckCircle2 className="h-3 w-3" />
+              Finalizar
+            </Button>
+          </>
         )}
       </div>
 
@@ -116,6 +139,18 @@ export function TicketIndicator({ conversationId, sectorGeraTicket }: TicketIndi
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {showEditModal && (
+        <TicketEditModal
+          open={showEditModal}
+          onOpenChange={setShowEditModal}
+          ticket={{
+            id: ticket.id,
+            prioridade: ticket.prioridade,
+            categoria: ticket.categoria,
+          }}
+        />
+      )}
     </>
   );
 }
