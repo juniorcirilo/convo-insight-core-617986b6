@@ -1,4 +1,4 @@
-import { MessageSquare, Users, Clock, UserX, Bell } from 'lucide-react';
+import { MessageSquare, Users, Clock, UserX, Bell, AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface ConversationMonitorStatsProps {
@@ -8,6 +8,7 @@ interface ConversationMonitorStatsProps {
     waiting: number;
     unassigned: number;
     withUnread: number;
+    slaViolated: number;
   };
 }
 
@@ -48,10 +49,17 @@ export function ConversationMonitorStats({ stats }: ConversationMonitorStatsProp
       color: 'text-blue-500',
       bgColor: 'bg-blue-500/10',
     },
+    {
+      label: 'SLA Violado',
+      value: stats.slaViolated,
+      icon: AlertTriangle,
+      color: 'text-red-600',
+      bgColor: 'bg-red-500/10',
+    },
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
       {statItems.map((item) => (
         <Card key={item.label}>
           <CardContent className="p-4">

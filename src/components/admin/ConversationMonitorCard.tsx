@@ -6,7 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { AdminConversation } from '@/hooks/admin/useAdminConversations';
-
+import { SLAIndicator } from './SLAIndicator';
+import { useSLAConfig, getSLAConfigForPriority } from '@/hooks/admin/useSLAConfig';
 interface ConversationMonitorCardProps {
   conversation: AdminConversation;
   onView: (conversationId: string) => void;
@@ -22,6 +23,10 @@ export function ConversationMonitorCard({
   onTransfer,
   isAssuming,
 }: ConversationMonitorCardProps) {
+  const { data: slaConfigs } = useSLAConfig();
+  const slaConfig = conversation.ticket 
+    ? getSLAConfigForPriority(slaConfigs, conversation.ticket.prioridade)
+    : null;
   const getStatusColor = (status: string | null) => {
     switch (status) {
       case 'active': return 'bg-green-500/10 text-green-500 border-green-500/20';
@@ -77,6 +82,7 @@ export function ConversationMonitorCard({
               <Badge variant="outline" className={getStatusColor(conversation.status)}>
                 {getStatusLabel(conversation.status)}
               </Badge>
+              <SLAIndicator ticket={conversation.ticket} slaConfig={slaConfig} />
             </div>
 
             <p className="text-sm text-muted-foreground truncate mb-2">

@@ -2,6 +2,15 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useEffect } from 'react';
 
+export interface AdminConversationTicket {
+  id: string;
+  status: string;
+  prioridade: string;
+  created_at: string;
+  first_response_at: string | null;
+  sla_violated_at: string | null;
+}
+
 export interface AdminConversation {
   id: string;
   contact_id: string;
@@ -29,6 +38,7 @@ export interface AdminConversation {
     avatar_url: string | null;
     status: string | null;
   } | null;
+  ticket: AdminConversationTicket | null;
 }
 
 interface AdminConversationsFilters {
@@ -50,7 +60,8 @@ export const useAdminConversations = (filters?: AdminConversationsFilters) => {
           *,
           contact:whatsapp_contacts(id, name, phone_number, profile_picture_url),
           instance:whatsapp_instances(id, name, status),
-          assigned_agent:profiles!whatsapp_conversations_assigned_to_fkey(id, full_name, avatar_url, status)
+          assigned_agent:profiles!whatsapp_conversations_assigned_to_fkey(id, full_name, avatar_url, status),
+          ticket:tickets(id, status, prioridade, created_at, first_response_at, sla_violated_at)
         `)
         .order('last_message_at', { ascending: false, nullsFirst: false });
 
@@ -74,7 +85,13 @@ export const useAdminConversations = (filters?: AdminConversationsFilters) => {
 
       if (error) throw error;
 
-      let conversations = data as AdminConversation[];
+      // Transform ticket array to single object (get most recent open ticket)
+      let conversations = (data as any[]).map(conv => ({
+        ...conv,
+        ticket: Array.isArray(conv.ticket) 
+          ? conv.ticket.find((t: any) => t.status !== 'finalizado') || conv.ticket[0] || null
+          : conv.ticket,
+      })) as AdminConversation[];
 
       // Apply search filter client-side
       if (filters?.search) {
@@ -124,12 +141,14 @@ export const useAdminConversations = (filters?: AdminConversationsFilters) => {
   }, [queryClient]);
 
   // Calculate statistics
+  const conversations = data ?? [];
   const stats = {
-    total: data?.length ?? 0,
-    active: data?.filter(c => c.status === 'active').length ?? 0,
-    waiting: data?.filter(c => c.status === 'waiting').length ?? 0,
-    unassigned: data?.filter(c => !c.assigned_to).length ?? 0,
-    withUnread: data?.filter(c => (c.unread_count ?? 0) > 0).length ?? 0,
+    total: conversations.length,
+    active: conversations.filter(c => c.status === 'active').length,
+    waiting: conversations.filter(c => c.status === 'waiting').length,
+    unassigned: conversations.filter(c => !c.assigned_to).length,
+    withUnread: conversations.filter(c => (c.unread_count ?? 0) > 0).length,
+    slaViolated: conversations.filter(c => c.ticket?.sla_violated_at).length,
   };
 
   return {
