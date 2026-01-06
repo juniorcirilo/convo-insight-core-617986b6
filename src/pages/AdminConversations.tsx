@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, RefreshCw, Monitor, Settings } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { ArrowLeft, RefreshCw, Monitor, Settings, Ticket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAdminConversations } from '@/hooks/admin/useAdminConversations';
@@ -81,6 +81,12 @@ const AdminConversations = () => {
           </div>
           
           <div className="flex items-center gap-2">
+            <Link to="/admin/tickets">
+              <Button variant="outline" size="sm">
+                <Ticket className="h-4 w-4 mr-2" />
+                Dashboard de Tickets
+              </Button>
+            </Link>
             <Button variant="outline" size="sm" onClick={() => navigate('/whatsapp/settings')}>
               <Settings className="h-4 w-4 mr-2" />
               Configurações
