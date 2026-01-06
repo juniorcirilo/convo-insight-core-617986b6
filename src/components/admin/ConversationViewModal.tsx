@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { MessagesContainer } from '@/components/chat/MessagesContainer';
 import { useWhatsAppMessages } from '@/hooks/whatsapp/useWhatsAppMessages';
 import { Loader2 } from 'lucide-react';
-import { InternalNoteInput } from './InternalNoteInput';
+import { SupervisorMessageInput } from './SupervisorMessageInput';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface ConversationViewModalProps {
@@ -42,7 +42,7 @@ export function ConversationViewModal({
                 />
               </div>
               {canSendInternalNotes && (
-                <InternalNoteInput conversationId={conversationId} />
+                <SupervisorMessageInput conversationId={conversationId} />
               )}
             </>
           ) : (
