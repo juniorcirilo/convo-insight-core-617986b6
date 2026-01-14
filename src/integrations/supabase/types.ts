@@ -419,6 +419,53 @@ export type Database = {
           },
         ]
       }
+      kanban_columns_config: {
+        Row: {
+          color: string | null
+          column_id: string
+          created_at: string | null
+          custom_title: string
+          display_order: number | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          sector_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          color?: string | null
+          column_id: string
+          created_at?: string | null
+          custom_title: string
+          display_order?: number | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          sector_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          color?: string | null
+          column_id?: string
+          created_at?: string | null
+          custom_title?: string
+          display_order?: number | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          sector_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kanban_columns_config_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_activities: {
         Row: {
           activity_type: string
@@ -1267,6 +1314,8 @@ export type Database = {
       whatsapp_contacts: {
         Row: {
           created_at: string
+          created_by: string | null
+          email: string | null
           id: string
           instance_id: string
           is_group: boolean | null
@@ -1277,10 +1326,14 @@ export type Database = {
           opt_in_updated_at: string | null
           phone_number: string
           profile_picture_url: string | null
+          sector_id: string | null
+          source: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          created_by?: string | null
+          email?: string | null
           id?: string
           instance_id: string
           is_group?: boolean | null
@@ -1291,10 +1344,14 @@ export type Database = {
           opt_in_updated_at?: string | null
           phone_number: string
           profile_picture_url?: string | null
+          sector_id?: string | null
+          source?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          created_by?: string | null
+          email?: string | null
           id?: string
           instance_id?: string
           is_group?: boolean | null
@@ -1305,14 +1362,30 @@ export type Database = {
           opt_in_updated_at?: string | null
           phone_number?: string
           profile_picture_url?: string | null
+          sector_id?: string | null
+          source?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "whatsapp_contacts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "whatsapp_contacts_instance_id_fkey"
             columns: ["instance_id"]
             isOneToOne: false
             referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_contacts_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "sectors"
             referencedColumns: ["id"]
           },
         ]
@@ -1912,6 +1985,10 @@ export type Database = {
     Functions: {
       agent_can_be_assigned_to_conversation: {
         Args: { _agent_id: string; _conversation_id: string }
+        Returns: boolean
+      }
+      can_access_contact: {
+        Args: { _contact_id: string; _user_id: string }
         Returns: boolean
       }
       can_access_conversation: {

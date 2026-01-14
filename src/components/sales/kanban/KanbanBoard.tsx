@@ -11,13 +11,16 @@ import {
 } from '@dnd-kit/core';
 import { useLeads, Lead, LeadStatus, KanbanViewFilters } from '@/hooks/sales/useLeads';
 import { useLeadStatusHistory } from '@/hooks/sales/useLeadStatusHistory';
+import { useKanbanConfig } from '@/hooks/sales/useKanbanConfig';
 import { useAuth } from '@/contexts/AuthContext';
 import { KanbanColumn } from './KanbanColumn';
 import { KanbanCard } from './KanbanCard';
 import { LeadDetailModal } from './LeadDetailModal';
 import { NewLeadModal } from './NewLeadModal';
 import { KanbanFilters, KanbanViewMode } from './KanbanFilters';
+import { KanbanColumnConfigModal } from './KanbanColumnConfigModal';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 import { 
   UserPlus, 
   MessageCircle, 
@@ -25,11 +28,12 @@ import {
   FileText, 
   Handshake,
   Trophy,
-  XCircle
+  XCircle,
+  Settings,
 } from 'lucide-react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
-const COLUMNS: {
+const DEFAULT_COLUMNS: {
   id: LeadStatus;
   title: string;
   color: string;
@@ -86,6 +90,18 @@ export const KanbanBoard = () => {
   const [viewMode, setViewMode] = useState<KanbanViewMode>('all');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [selectedSectorId, setSelectedSectorId] = useState<string | null>(null);
+  const [showConfigModal, setShowConfigModal] = useState(false);
+
+  // Get kanban config for selected sector
+  const { getColumnTitle } = useKanbanConfig(selectedSectorId);
+
+  // Build columns with custom titles
+  const COLUMNS = useMemo(() => {
+    return DEFAULT_COLUMNS.map(col => ({
+      ...col,
+      title: getColumnTitle(col.id),
+    }));
+  }, [getColumnTitle, selectedSectorId]);
 
   // Build filters based on role and view mode
   const filters = useMemo<KanbanViewFilters>(() => {
@@ -193,14 +209,28 @@ export const KanbanBoard = () => {
   return (
     <>
       {/* Admin/Supervisor Filters */}
-      <KanbanFilters
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        selectedMemberId={selectedMemberId}
-        onMemberChange={setSelectedMemberId}
-        selectedSectorId={selectedSectorId}
-        onSectorChange={setSelectedSectorId}
-      />
+      <div className="flex items-center justify-between mb-2">
+        <KanbanFilters
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          selectedMemberId={selectedMemberId}
+          onMemberChange={setSelectedMemberId}
+          selectedSectorId={selectedSectorId}
+          onSectorChange={setSelectedSectorId}
+        />
+        
+        {(isAdmin || isSupervisor) && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowConfigModal(true)}
+            className="ml-auto"
+          >
+            <Settings className="h-4 w-4 mr-2" />
+            Configurar Colunas
+          </Button>
+        )}
+      </div>
 
       <ScrollArea className="w-full">
         <DndContext
@@ -241,6 +271,11 @@ export const KanbanBoard = () => {
         open={!!newLeadStatus}
         onClose={() => setNewLeadStatus(null)}
         defaultStatus={newLeadStatus || 'new'}
+      />
+
+      <KanbanColumnConfigModal
+        open={showConfigModal}
+        onOpenChange={setShowConfigModal}
       />
     </>
   );
