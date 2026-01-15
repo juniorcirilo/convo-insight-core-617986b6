@@ -1995,6 +1995,10 @@ export type Database = {
         Args: { _conversation_id: string; _user_id: string }
         Returns: boolean
       }
+      can_view_profile: {
+        Args: { _profile_id: string; _viewer_id: string }
+        Returns: boolean
+      }
       get_user_effective_permissions: {
         Args: { _user_id: string }
         Returns: {
