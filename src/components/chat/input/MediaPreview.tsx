@@ -45,16 +45,14 @@ export const MediaPreview = ({ file, onSend, onClose }: MediaPreviewProps) => {
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('whatsapp-media')
-        .getPublicUrl(fileName);
-
+      // Store just the file path, not the full public URL
+      // The client will request signed URLs when displaying media
       const messageType = getMessageType(file.type);
 
       onSend({
         messageType,
         content: caption || undefined,
-        mediaUrl: publicUrl,
+        mediaUrl: fileName, // Store file path instead of full URL
         mediaMimetype: file.type,
         fileName: file.name,
       });

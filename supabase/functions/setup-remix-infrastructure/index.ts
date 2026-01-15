@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
     // Create Storage Buckets
     console.log('[setup-remix-infrastructure] Creating storage buckets...');
 
-    // Create whatsapp-media bucket
+    // Create whatsapp-media bucket (PRIVATE for security - signed URLs required)
     const { data: whatsappMediaBucket } = await supabase
       .storage
       .getBucket('whatsapp-media');
@@ -35,18 +35,35 @@ Deno.serve(async (req) => {
     if (!whatsappMediaBucket) {
       const { error: createWhatsappMediaError } = await supabase
         .storage
-        .createBucket('whatsapp-media', { public: true });
+        .createBucket('whatsapp-media', { 
+          public: false,  // Private access - use signed URLs
+          fileSizeLimit: 52428800 // 50MB limit
+        });
       
       if (createWhatsappMediaError) {
         console.error('[setup-remix-infrastructure] Error creating whatsapp-media bucket:', createWhatsappMediaError);
         results.errors.push(`whatsapp-media bucket: ${createWhatsappMediaError.message}`);
       } else {
-        console.log('[setup-remix-infrastructure] Created whatsapp-media bucket');
+        console.log('[setup-remix-infrastructure] Created whatsapp-media bucket (private)');
         results.bucketsCreated.push('whatsapp-media');
       }
     } else {
       console.log('[setup-remix-infrastructure] whatsapp-media bucket already exists');
       results.bucketsExisted.push('whatsapp-media');
+      
+      // Update existing bucket to private if it was public
+      const { error: updateError } = await supabase
+        .storage
+        .updateBucket('whatsapp-media', { 
+          public: false,
+          fileSizeLimit: 52428800 // 50MB limit
+        });
+      
+      if (updateError) {
+        console.warn('[setup-remix-infrastructure] Could not update whatsapp-media bucket to private:', updateError);
+      } else {
+        console.log('[setup-remix-infrastructure] Updated whatsapp-media bucket to private');
+      }
     }
 
     // Create avatars bucket

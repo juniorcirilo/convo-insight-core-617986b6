@@ -164,13 +164,10 @@ async function downloadAndUploadMedia(
       return null;
     }
 
-    // Get public URL
-    const { data: publicUrlData } = supabase.storage
-      .from('whatsapp-media')
-      .getPublicUrl(filePath);
-
-    console.log('[evolution-webhook] Media uploaded successfully:', publicUrlData.publicUrl);
-    return publicUrlData.publicUrl;
+    // Return the file path instead of public URL
+    // The client will request signed URLs when displaying media
+    console.log('[evolution-webhook] Media uploaded successfully:', filePath);
+    return filePath;
   } catch (error) {
     console.error('[evolution-webhook] Error in downloadAndUploadMedia:', error);
     return null;
