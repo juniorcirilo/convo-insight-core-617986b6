@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.ai-agent-respond]
 verify_jwt = false
+
+[functions.prepare-escalation]
+verify_jwt = false
+
+[functions.distribute-escalation]
+verify_jwt = false
