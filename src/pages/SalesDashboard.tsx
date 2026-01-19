@@ -6,7 +6,10 @@ import {
   SalesFunnelChart, 
   LeadSourceChart,
   RecentLeadsList,
-  KanbanBoard 
+  KanbanBoard,
+  QuotesList,
+  OrdersList,
+  ProductCatalogManager
 } from "@/components/sales";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -21,7 +24,10 @@ import {
   Clock,
   LayoutGrid,
   Kanban,
-  ArrowLeft
+  ArrowLeft,
+  FileText,
+  Package,
+  ShoppingBag
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -57,7 +63,7 @@ const SalesDashboardContent = () => {
       </div>
 
       <Tabs defaultValue="dashboard" className="space-y-6">
-        <TabsList>
+        <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="dashboard" className="gap-2">
             <LayoutGrid className="w-4 h-4" />
             Dashboard
@@ -65,6 +71,18 @@ const SalesDashboardContent = () => {
           <TabsTrigger value="kanban" className="gap-2">
             <Kanban className="w-4 h-4" />
             Kanban
+          </TabsTrigger>
+          <TabsTrigger value="quotes" className="gap-2">
+            <FileText className="w-4 h-4" />
+            Cotações
+          </TabsTrigger>
+          <TabsTrigger value="orders" className="gap-2">
+            <Package className="w-4 h-4" />
+            Pedidos
+          </TabsTrigger>
+          <TabsTrigger value="products" className="gap-2">
+            <ShoppingBag className="w-4 h-4" />
+            Produtos
           </TabsTrigger>
         </TabsList>
 
@@ -164,6 +182,18 @@ const SalesDashboardContent = () => {
 
         <TabsContent value="kanban" className="mt-0">
           <KanbanBoard />
+        </TabsContent>
+
+        <TabsContent value="quotes" className="mt-0">
+          <QuotesList />
+        </TabsContent>
+
+        <TabsContent value="orders" className="mt-0">
+          <OrdersList />
+        </TabsContent>
+
+        <TabsContent value="products" className="mt-0">
+          <ProductCatalogManager />
         </TabsContent>
       </Tabs>
     </div>
