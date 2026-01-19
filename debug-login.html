@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Login</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div style="padding: 20px; font-family: Arial, sans-serif;">
+        <h2>Debug Login</h2>
+        
+        <form id="loginForm">
+            <div style="margin-bottom: 10px;">
+                <label>Email:</label><br>
+                <input type="email" id="email" value="admin@livechat.app" style="width: 300px; padding: 5px;">
+            </div>
+            
+            <div style="margin-bottom: 10px;">
+                <label>Senha:</label><br>
+                <input type="password" id="password" value="livechat" style="width: 300px; padding: 5px;">
+            </div>
+            
+            <button type="submit" style="padding: 10px 20px;">Login</button>
+        </form>
+        
+        <div id="result" style="margin-top: 20px; padding: 10px; background: #f5f5f5; white-space: pre-wrap;"></div>
+    </div>
+
+    <script>
+        // Inicializar Supabase
+        const supabaseUrl = 'http://127.0.0.1:54321';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkZGV0amJsc3pidm5tenhoaWFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYxNjMxOTgsImV4cCI6MjA4MTczOTE5OH0.AT6ikm9bN8DcclscUT8RsxYFgwFUD9r9sofwY90hamI';
+        
+        const { createClient } = supabase;
+        const supabaseClient = createClient(supabaseUrl, supabaseKey);
+        
+        const resultDiv = document.getElementById('result');
+        
+        function log(message) {
+            console.log(message);
+            resultDiv.textContent += new Date().toLocaleTimeString() + ': ' + JSON.stringify(message, null, 2) + '\n';
+        }
+        
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            log('Tentando fazer login...');
+            log({email, password: '***'});
+            
+            try {
+                const { data, error } = await supabaseClient.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+                
+                if (error) {
+                    log('ERRO:');
+                    log(error);
+                } else {
+                    log('SUCESSO:');
+                    log('User: ' + data.user?.email);
+                    log('Session: ' + (data.session ? 'OK' : 'None'));
+                }
+            } catch (err) {
+                log('EXCEÇÃO:');
+                log(err);
+            }
+        });
+        
+        log('Sistema inicializado');
+        log('Supabase URL: ' + supabaseUrl);
+    </script>
+</body>
+</html>
