@@ -54,7 +54,7 @@ export const AIFeedbackButton = ({
       rating: selectedRating || 3,
       feedbackType: selectedType,
       correctedResponse: correctedResponse || undefined,
-      reason: feedbackReason || undefined,
+      correctionReason: feedbackReason || undefined,
     });
     setShowDetailedDialog(false);
     setHasSubmitted(true);
