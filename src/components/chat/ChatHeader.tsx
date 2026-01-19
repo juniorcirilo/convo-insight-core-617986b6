@@ -12,6 +12,7 @@ import { QueueIndicator } from "@/components/conversations/QueueIndicator";
 import { AssignAgentDialog } from "@/components/conversations/AssignAgentDialog";
 import { EditContactModal } from "./EditContactModal";
 import { TicketIndicator } from "./TicketIndicator";
+import { ConversationModeControls } from "./ConversationModeControls";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useConversationAssignment } from "@/hooks/whatsapp/useConversationAssignment";
@@ -142,6 +143,14 @@ export const ChatHeader = ({ contact, sentiment, isAnalyzing, onAnalyze, convers
         </div>
 
         <div className="flex items-center gap-2">
+          {/* AI Mode Controls */}
+          {conversationId && (
+            <ConversationModeControls 
+              conversationId={conversationId}
+              conversationMode={conversation?.conversation_mode}
+            />
+          )}
+          
           {/* Ticket Indicator */}
           {conversationId && (
             <TicketIndicator 

@@ -14,6 +14,212 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_agent_configs: {
+        Row: {
+          agent_name: string
+          auto_reply_enabled: boolean | null
+          business_context: string | null
+          created_at: string | null
+          escalation_after_minutes: number | null
+          escalation_keywords: string[] | null
+          escalation_on_negative_sentiment: boolean | null
+          faq_context: string | null
+          id: string
+          is_enabled: boolean | null
+          max_auto_replies: number | null
+          out_of_hours_message: string | null
+          persona_description: string | null
+          product_catalog: string | null
+          response_delay_seconds: number | null
+          sector_id: string
+          tone_of_voice: string | null
+          updated_at: string | null
+          welcome_message: string | null
+          working_days: number[] | null
+          working_hours_end: string | null
+          working_hours_start: string | null
+          working_timezone: string | null
+        }
+        Insert: {
+          agent_name?: string
+          auto_reply_enabled?: boolean | null
+          business_context?: string | null
+          created_at?: string | null
+          escalation_after_minutes?: number | null
+          escalation_keywords?: string[] | null
+          escalation_on_negative_sentiment?: boolean | null
+          faq_context?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          max_auto_replies?: number | null
+          out_of_hours_message?: string | null
+          persona_description?: string | null
+          product_catalog?: string | null
+          response_delay_seconds?: number | null
+          sector_id: string
+          tone_of_voice?: string | null
+          updated_at?: string | null
+          welcome_message?: string | null
+          working_days?: number[] | null
+          working_hours_end?: string | null
+          working_hours_start?: string | null
+          working_timezone?: string | null
+        }
+        Update: {
+          agent_name?: string
+          auto_reply_enabled?: boolean | null
+          business_context?: string | null
+          created_at?: string | null
+          escalation_after_minutes?: number | null
+          escalation_keywords?: string[] | null
+          escalation_on_negative_sentiment?: boolean | null
+          faq_context?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          max_auto_replies?: number | null
+          out_of_hours_message?: string | null
+          persona_description?: string | null
+          product_catalog?: string | null
+          response_delay_seconds?: number | null
+          sector_id?: string
+          tone_of_voice?: string | null
+          updated_at?: string | null
+          welcome_message?: string | null
+          working_days?: number[] | null
+          working_hours_end?: string | null
+          working_hours_start?: string | null
+          working_timezone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agent_configs_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: true
+            referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_agent_logs: {
+        Row: {
+          action: string
+          ai_response: string | null
+          conversation_id: string | null
+          created_at: string | null
+          id: string
+          input_message: string | null
+          metadata: Json | null
+          model_used: string | null
+          response_time_ms: number | null
+          session_id: string | null
+          tokens_used: number | null
+        }
+        Insert: {
+          action: string
+          ai_response?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          input_message?: string | null
+          metadata?: Json | null
+          model_used?: string | null
+          response_time_ms?: number | null
+          session_id?: string | null
+          tokens_used?: number | null
+        }
+        Update: {
+          action?: string
+          ai_response?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          input_message?: string | null
+          metadata?: Json | null
+          model_used?: string | null
+          response_time_ms?: number | null
+          session_id?: string | null
+          tokens_used?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agent_logs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_agent_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agent_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_agent_sessions: {
+        Row: {
+          auto_reply_count: number | null
+          conversation_id: string
+          conversation_summary: string | null
+          created_at: string | null
+          detected_intent: string | null
+          escalated_at: string | null
+          escalated_to: string | null
+          escalation_reason: string | null
+          id: string
+          last_ai_response_at: string | null
+          lead_score: number | null
+          mode: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          auto_reply_count?: number | null
+          conversation_id: string
+          conversation_summary?: string | null
+          created_at?: string | null
+          detected_intent?: string | null
+          escalated_at?: string | null
+          escalated_to?: string | null
+          escalation_reason?: string | null
+          id?: string
+          last_ai_response_at?: string | null
+          lead_score?: number | null
+          mode?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          auto_reply_count?: number | null
+          conversation_id?: string
+          conversation_summary?: string | null
+          created_at?: string | null
+          detected_intent?: string | null
+          escalated_at?: string | null
+          escalated_to?: string | null
+          escalation_reason?: string | null
+          id?: string
+          last_ai_response_at?: string | null
+          lead_score?: number | null
+          mode?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agent_sessions_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: true
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_agent_sessions_escalated_to_fkey"
+            columns: ["escalated_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       api_tokens: {
         Row: {
           created_at: string
@@ -1476,6 +1682,7 @@ export type Database = {
         Row: {
           assigned_to: string | null
           contact_id: string
+          conversation_mode: string | null
           created_at: string
           id: string
           instance_id: string
@@ -1490,6 +1697,7 @@ export type Database = {
         Insert: {
           assigned_to?: string | null
           contact_id: string
+          conversation_mode?: string | null
           created_at?: string
           id?: string
           instance_id: string
@@ -1504,6 +1712,7 @@ export type Database = {
         Update: {
           assigned_to?: string | null
           contact_id?: string
+          conversation_mode?: string | null
           created_at?: string
           id?: string
           instance_id?: string
