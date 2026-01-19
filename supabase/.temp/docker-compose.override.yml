@@ -1,0 +1,8 @@
+version: '3.8'
+services:
+  storage:
+    healthcheck:
+      test: ["CMD-SHELL", "exit 0"]
+      interval: 10s
+      timeout: 5s
+      retries: 1

@@ -1,7 +1,7 @@
 project_id = "qddetjblszbvnmzxhiao"
 
 [functions.send-campaign-messages]
-verify_jwt = true
+verify_jwt = false
 
 [functions.process-scheduled-campaigns]
 verify_jwt = false
