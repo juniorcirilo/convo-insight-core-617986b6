@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -50,6 +51,31 @@ export const useTickets = (conversationId?: string) => {
     },
     enabled: !!conversationId,
   });
+
+  // Realtime subscription for ticket updates
+  useEffect(() => {
+    if (!conversationId) return;
+
+    const channel = supabase
+      .channel(`ticket-${conversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tickets',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['ticket', conversationId] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [conversationId, queryClient]);
 
   const createTicket = useMutation({
     mutationFn: async ({ conversationId, sectorId }: { conversationId: string; sectorId: string }) => {
@@ -110,6 +136,48 @@ export const useTickets = (conversationId?: string) => {
     mutationFn: async (ticketId: string) => {
       const { data: { user } } = await supabase.auth.getUser();
       
+      // 1. Fetch ticket with sector data to get closing message
+      const { data: ticketData, error: ticketError } = await supabase
+        .from('tickets')
+        .select(`
+          id, 
+          conversation_id, 
+          sector_id,
+          sectors!inner(mensagem_encerramento)
+        `)
+        .eq('id', ticketId)
+        .single();
+      
+      if (ticketError) {
+        console.error('Error fetching ticket:', ticketError);
+        throw ticketError;
+      }
+      
+      // 2. If sector has a closing message, send it via edge function
+      const closingMessage = (ticketData as any)?.sectors?.mensagem_encerramento;
+      if (closingMessage && ticketData.conversation_id) {
+        try {
+          const { error: sendError } = await supabase.functions.invoke('send-whatsapp-message', {
+            body: {
+              conversationId: ticketData.conversation_id,
+              content: closingMessage,
+              messageType: 'text',
+            },
+          });
+          
+          if (sendError) {
+            console.error('Error sending closing message:', sendError);
+            // Continue with closing the ticket even if message fails
+          } else {
+            console.log('Closing message sent successfully');
+          }
+        } catch (err) {
+          console.error('Failed to send closing message:', err);
+          // Continue with closing the ticket even if message fails
+        }
+      }
+      
+      // 3. Update ticket status to finalizado
       const { data, error } = await supabase
         .from('tickets')
         .update({
@@ -126,6 +194,8 @@ export const useTickets = (conversationId?: string) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ticket'] });
+      queryClient.invalidateQueries({ queryKey: ['ticket-metrics'] });
+      queryClient.invalidateQueries({ queryKey: ['critical-tickets'] });
       toast.success('Ticket finalizado com sucesso');
     },
     onError: (error: any) => {
@@ -198,4 +268,24 @@ export const useTicketsList = (sectorId?: string, status?: string) => {
   });
 
   return { tickets, isLoading };
+};
+
+// Hook for getting ticket feedback
+export const useTicketFeedback = (ticketId?: string) => {
+  return useQuery({
+    queryKey: ['ticket-feedback', ticketId],
+    queryFn: async () => {
+      if (!ticketId) return null;
+      
+      const { data, error } = await supabase
+        .from('feedbacks')
+        .select('*')
+        .eq('ticket_id', ticketId)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data as Feedback | null;
+    },
+    enabled: !!ticketId,
+  });
 };

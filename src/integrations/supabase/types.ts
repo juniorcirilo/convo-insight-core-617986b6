@@ -14,6 +14,224 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_agent_configs: {
+        Row: {
+          agent_name: string
+          auto_reply_enabled: boolean | null
+          business_context: string | null
+          created_at: string | null
+          escalation_after_minutes: number | null
+          escalation_keywords: string[] | null
+          escalation_on_negative_sentiment: boolean | null
+          faq_context: string | null
+          id: string
+          is_enabled: boolean | null
+          max_auto_replies: number | null
+          out_of_hours_message: string | null
+          persona_description: string | null
+          product_catalog: string | null
+          response_delay_seconds: number | null
+          sector_id: string
+          tone_of_voice: string | null
+          updated_at: string | null
+          welcome_message: string | null
+          working_days: number[] | null
+          working_hours_end: string | null
+          working_hours_start: string | null
+          working_timezone: string | null
+        }
+        Insert: {
+          agent_name?: string
+          auto_reply_enabled?: boolean | null
+          business_context?: string | null
+          created_at?: string | null
+          escalation_after_minutes?: number | null
+          escalation_keywords?: string[] | null
+          escalation_on_negative_sentiment?: boolean | null
+          faq_context?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          max_auto_replies?: number | null
+          out_of_hours_message?: string | null
+          persona_description?: string | null
+          product_catalog?: string | null
+          response_delay_seconds?: number | null
+          sector_id: string
+          tone_of_voice?: string | null
+          updated_at?: string | null
+          welcome_message?: string | null
+          working_days?: number[] | null
+          working_hours_end?: string | null
+          working_hours_start?: string | null
+          working_timezone?: string | null
+        }
+        Update: {
+          agent_name?: string
+          auto_reply_enabled?: boolean | null
+          business_context?: string | null
+          created_at?: string | null
+          escalation_after_minutes?: number | null
+          escalation_keywords?: string[] | null
+          escalation_on_negative_sentiment?: boolean | null
+          faq_context?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          max_auto_replies?: number | null
+          out_of_hours_message?: string | null
+          persona_description?: string | null
+          product_catalog?: string | null
+          response_delay_seconds?: number | null
+          sector_id?: string
+          tone_of_voice?: string | null
+          updated_at?: string | null
+          welcome_message?: string | null
+          working_days?: number[] | null
+          working_hours_end?: string | null
+          working_hours_start?: string | null
+          working_timezone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agent_configs_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: true
+            referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_agent_logs: {
+        Row: {
+          action: string
+          ai_response: string | null
+          conversation_id: string | null
+          created_at: string | null
+          id: string
+          input_message: string | null
+          metadata: Json | null
+          model_used: string | null
+          response_time_ms: number | null
+          session_id: string | null
+          tokens_used: number | null
+        }
+        Insert: {
+          action: string
+          ai_response?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          input_message?: string | null
+          metadata?: Json | null
+          model_used?: string | null
+          response_time_ms?: number | null
+          session_id?: string | null
+          tokens_used?: number | null
+        }
+        Update: {
+          action?: string
+          ai_response?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          input_message?: string | null
+          metadata?: Json | null
+          model_used?: string | null
+          response_time_ms?: number | null
+          session_id?: string | null
+          tokens_used?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agent_logs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_agent_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agent_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_agent_sessions: {
+        Row: {
+          auto_reply_count: number | null
+          conversation_id: string
+          conversation_summary: string | null
+          created_at: string | null
+          detected_intent: string | null
+          escalated_at: string | null
+          escalated_to: string | null
+          escalation_priority: number | null
+          escalation_reason: string | null
+          handoff_context: Json | null
+          handoff_requested_at: string | null
+          handoff_summary: string | null
+          id: string
+          last_ai_response_at: string | null
+          lead_score: number | null
+          mode: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          auto_reply_count?: number | null
+          conversation_id: string
+          conversation_summary?: string | null
+          created_at?: string | null
+          detected_intent?: string | null
+          escalated_at?: string | null
+          escalated_to?: string | null
+          escalation_priority?: number | null
+          escalation_reason?: string | null
+          handoff_context?: Json | null
+          handoff_requested_at?: string | null
+          handoff_summary?: string | null
+          id?: string
+          last_ai_response_at?: string | null
+          lead_score?: number | null
+          mode?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          auto_reply_count?: number | null
+          conversation_id?: string
+          conversation_summary?: string | null
+          created_at?: string | null
+          detected_intent?: string | null
+          escalated_at?: string | null
+          escalated_to?: string | null
+          escalation_priority?: number | null
+          escalation_reason?: string | null
+          handoff_context?: Json | null
+          handoff_requested_at?: string | null
+          handoff_summary?: string | null
+          id?: string
+          last_ai_response_at?: string | null
+          lead_score?: number | null
+          mode?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agent_sessions_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: true
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_agent_sessions_escalated_to_fkey"
+            columns: ["escalated_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       api_tokens: {
         Row: {
           created_at: string
@@ -387,6 +605,187 @@ export type Database = {
           },
         ]
       }
+      escalation_distribution_config: {
+        Row: {
+          auto_assign_enabled: boolean | null
+          created_at: string
+          distribution_method: string
+          id: string
+          max_concurrent_escalations_per_agent: number | null
+          max_queue_time_minutes: number | null
+          priority_boost_after_minutes: number | null
+          sector_id: string
+          updated_at: string
+        }
+        Insert: {
+          auto_assign_enabled?: boolean | null
+          created_at?: string
+          distribution_method?: string
+          id?: string
+          max_concurrent_escalations_per_agent?: number | null
+          max_queue_time_minutes?: number | null
+          priority_boost_after_minutes?: number | null
+          sector_id: string
+          updated_at?: string
+        }
+        Update: {
+          auto_assign_enabled?: boolean | null
+          created_at?: string
+          distribution_method?: string
+          id?: string
+          max_concurrent_escalations_per_agent?: number | null
+          max_queue_time_minutes?: number | null
+          priority_boost_after_minutes?: number | null
+          sector_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escalation_distribution_config_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: true
+            referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      escalation_notifications: {
+        Row: {
+          created_at: string
+          dismissed_at: string | null
+          escalation_id: string
+          id: string
+          notification_type: string
+          read_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dismissed_at?: string | null
+          escalation_id: string
+          id?: string
+          notification_type?: string
+          read_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dismissed_at?: string | null
+          escalation_id?: string
+          id?: string
+          notification_type?: string
+          read_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escalation_notifications_escalation_id_fkey"
+            columns: ["escalation_id"]
+            isOneToOne: false
+            referencedRelation: "escalation_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalation_notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      escalation_queue: {
+        Row: {
+          ai_summary: string | null
+          assigned_at: string | null
+          assigned_to: string | null
+          conversation_id: string
+          created_at: string
+          customer_sentiment: string | null
+          detected_intent: string | null
+          escalation_reason: string
+          expires_at: string | null
+          id: string
+          instance_id: string | null
+          lead_score: number | null
+          priority: number | null
+          resolution_notes: string | null
+          resolved_at: string | null
+          sector_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          ai_summary?: string | null
+          assigned_at?: string | null
+          assigned_to?: string | null
+          conversation_id: string
+          created_at?: string
+          customer_sentiment?: string | null
+          detected_intent?: string | null
+          escalation_reason?: string
+          expires_at?: string | null
+          id?: string
+          instance_id?: string | null
+          lead_score?: number | null
+          priority?: number | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          sector_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          ai_summary?: string | null
+          assigned_at?: string | null
+          assigned_to?: string | null
+          conversation_id?: string
+          created_at?: string
+          customer_sentiment?: string | null
+          detected_intent?: string | null
+          escalation_reason?: string
+          expires_at?: string | null
+          id?: string
+          instance_id?: string | null
+          lead_score?: number | null
+          priority?: number | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          sector_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escalation_queue_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalation_queue_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalation_queue_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalation_queue_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feedbacks: {
         Row: {
           comentario: string | null
@@ -415,6 +814,53 @@ export type Database = {
             columns: ["ticket_id"]
             isOneToOne: false
             referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kanban_columns_config: {
+        Row: {
+          color: string | null
+          column_id: string
+          created_at: string | null
+          custom_title: string
+          display_order: number | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          sector_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          color?: string | null
+          column_id: string
+          created_at?: string | null
+          custom_title: string
+          display_order?: number | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          sector_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          color?: string | null
+          column_id?: string
+          created_at?: string | null
+          custom_title?: string
+          display_order?: number | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          sector_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kanban_columns_config_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "sectors"
             referencedColumns: ["id"]
           },
         ]
@@ -470,6 +916,134 @@ export type Database = {
           },
         ]
       }
+      lead_qualification_criteria: {
+        Row: {
+          authority_keywords: string[] | null
+          authority_weight: number | null
+          auto_create_lead_threshold: number | null
+          auto_create_leads: boolean | null
+          auto_qualify_threshold: number | null
+          budget_keywords: string[] | null
+          budget_weight: number | null
+          created_at: string | null
+          id: string
+          messages_before_qualification: number | null
+          need_keywords: string[] | null
+          need_weight: number | null
+          qualification_enabled: boolean | null
+          sector_id: string | null
+          timeline_keywords: string[] | null
+          timeline_weight: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          authority_keywords?: string[] | null
+          authority_weight?: number | null
+          auto_create_lead_threshold?: number | null
+          auto_create_leads?: boolean | null
+          auto_qualify_threshold?: number | null
+          budget_keywords?: string[] | null
+          budget_weight?: number | null
+          created_at?: string | null
+          id?: string
+          messages_before_qualification?: number | null
+          need_keywords?: string[] | null
+          need_weight?: number | null
+          qualification_enabled?: boolean | null
+          sector_id?: string | null
+          timeline_keywords?: string[] | null
+          timeline_weight?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          authority_keywords?: string[] | null
+          authority_weight?: number | null
+          auto_create_lead_threshold?: number | null
+          auto_create_leads?: boolean | null
+          auto_qualify_threshold?: number | null
+          budget_keywords?: string[] | null
+          budget_weight?: number | null
+          created_at?: string | null
+          id?: string
+          messages_before_qualification?: number | null
+          need_keywords?: string[] | null
+          need_weight?: number | null
+          qualification_enabled?: boolean | null
+          sector_id?: string | null
+          timeline_keywords?: string[] | null
+          timeline_weight?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_qualification_criteria_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: true
+            referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_qualification_logs: {
+        Row: {
+          ai_reasoning: string | null
+          bant_analysis: Json
+          conversation_id: string | null
+          created_at: string | null
+          id: string
+          lead_id: string | null
+          model_used: string | null
+          new_score: number | null
+          previous_score: number | null
+          score_change: number | null
+          tokens_used: number | null
+          trigger_source: string | null
+        }
+        Insert: {
+          ai_reasoning?: string | null
+          bant_analysis?: Json
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          lead_id?: string | null
+          model_used?: string | null
+          new_score?: number | null
+          previous_score?: number | null
+          score_change?: number | null
+          tokens_used?: number | null
+          trigger_source?: string | null
+        }
+        Update: {
+          ai_reasoning?: string | null
+          bant_analysis?: Json
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          lead_id?: string | null
+          model_used?: string | null
+          new_score?: number | null
+          previous_score?: number | null
+          score_change?: number | null
+          tokens_used?: number | null
+          trigger_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_qualification_logs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_qualification_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_status_history: {
         Row: {
           changed_by: string | null
@@ -518,6 +1092,10 @@ export type Database = {
       leads: {
         Row: {
           assigned_to: string | null
+          bant_authority: Json | null
+          bant_budget: Json | null
+          bant_need: Json | null
+          bant_timeline: Json | null
           closed_at: string | null
           company: string | null
           contact_id: string | null
@@ -526,12 +1104,17 @@ export type Database = {
           email: string | null
           expected_close_date: string | null
           id: string
+          last_qualification_at: string | null
+          lead_score: number | null
           metadata: Json | null
           name: string
           notes: string | null
           phone: string | null
           pipeline_insight: Json | null
           probability: number | null
+          qualification_data: Json | null
+          qualified_at: string | null
+          qualified_by: string | null
           sector_id: string | null
           source: Database["public"]["Enums"]["lead_source"]
           status: Database["public"]["Enums"]["lead_status"]
@@ -541,6 +1124,10 @@ export type Database = {
         }
         Insert: {
           assigned_to?: string | null
+          bant_authority?: Json | null
+          bant_budget?: Json | null
+          bant_need?: Json | null
+          bant_timeline?: Json | null
           closed_at?: string | null
           company?: string | null
           contact_id?: string | null
@@ -549,12 +1136,17 @@ export type Database = {
           email?: string | null
           expected_close_date?: string | null
           id?: string
+          last_qualification_at?: string | null
+          lead_score?: number | null
           metadata?: Json | null
           name: string
           notes?: string | null
           phone?: string | null
           pipeline_insight?: Json | null
           probability?: number | null
+          qualification_data?: Json | null
+          qualified_at?: string | null
+          qualified_by?: string | null
           sector_id?: string | null
           source?: Database["public"]["Enums"]["lead_source"]
           status?: Database["public"]["Enums"]["lead_status"]
@@ -564,6 +1156,10 @@ export type Database = {
         }
         Update: {
           assigned_to?: string | null
+          bant_authority?: Json | null
+          bant_budget?: Json | null
+          bant_need?: Json | null
+          bant_timeline?: Json | null
           closed_at?: string | null
           company?: string | null
           contact_id?: string | null
@@ -572,12 +1168,17 @@ export type Database = {
           email?: string | null
           expected_close_date?: string | null
           id?: string
+          last_qualification_at?: string | null
+          lead_score?: number | null
           metadata?: Json | null
           name?: string
           notes?: string | null
           phone?: string | null
           pipeline_insight?: Json | null
           probability?: number | null
+          qualification_data?: Json | null
+          qualified_at?: string | null
+          qualified_by?: string | null
           sector_id?: string | null
           source?: Database["public"]["Enums"]["lead_source"]
           status?: Database["public"]["Enums"]["lead_status"]
@@ -1267,6 +1868,8 @@ export type Database = {
       whatsapp_contacts: {
         Row: {
           created_at: string
+          created_by: string | null
+          email: string | null
           id: string
           instance_id: string
           is_group: boolean | null
@@ -1277,10 +1880,14 @@ export type Database = {
           opt_in_updated_at: string | null
           phone_number: string
           profile_picture_url: string | null
+          sector_id: string | null
+          source: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          created_by?: string | null
+          email?: string | null
           id?: string
           instance_id: string
           is_group?: boolean | null
@@ -1291,10 +1898,14 @@ export type Database = {
           opt_in_updated_at?: string | null
           phone_number: string
           profile_picture_url?: string | null
+          sector_id?: string | null
+          source?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          created_by?: string | null
+          email?: string | null
           id?: string
           instance_id?: string
           is_group?: boolean | null
@@ -1305,14 +1916,30 @@ export type Database = {
           opt_in_updated_at?: string | null
           phone_number?: string
           profile_picture_url?: string | null
+          sector_id?: string | null
+          source?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "whatsapp_contacts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "whatsapp_contacts_instance_id_fkey"
             columns: ["instance_id"]
             isOneToOne: false
             referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_contacts_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "sectors"
             referencedColumns: ["id"]
           },
         ]
@@ -1403,11 +2030,14 @@ export type Database = {
         Row: {
           assigned_to: string | null
           contact_id: string
+          conversation_mode: string | null
           created_at: string
           id: string
           instance_id: string
           last_message_at: string | null
           last_message_preview: string | null
+          last_qualification_at: string | null
+          messages_since_qualification: number | null
           metadata: Json | null
           sector_id: string | null
           status: string | null
@@ -1417,11 +2047,14 @@ export type Database = {
         Insert: {
           assigned_to?: string | null
           contact_id: string
+          conversation_mode?: string | null
           created_at?: string
           id?: string
           instance_id: string
           last_message_at?: string | null
           last_message_preview?: string | null
+          last_qualification_at?: string | null
+          messages_since_qualification?: number | null
           metadata?: Json | null
           sector_id?: string | null
           status?: string | null
@@ -1431,11 +2064,14 @@ export type Database = {
         Update: {
           assigned_to?: string | null
           contact_id?: string
+          conversation_mode?: string | null
           created_at?: string
           id?: string
           instance_id?: string
           last_message_at?: string | null
           last_message_preview?: string | null
+          last_qualification_at?: string | null
+          messages_since_qualification?: number | null
           metadata?: Json | null
           sector_id?: string | null
           status?: string | null
@@ -1914,9 +2550,21 @@ export type Database = {
         Args: { _agent_id: string; _conversation_id: string }
         Returns: boolean
       }
+      can_access_contact: {
+        Args: { _contact_id: string; _user_id: string }
+        Returns: boolean
+      }
       can_access_conversation: {
         Args: { _conversation_id: string; _user_id: string }
         Returns: boolean
+      }
+      can_view_profile: {
+        Args: { _profile_id: string; _viewer_id: string }
+        Returns: boolean
+      }
+      get_escalation_wait_time: {
+        Args: { escalation_created_at: string }
+        Returns: number
       }
       get_user_effective_permissions: {
         Args: { _user_id: string }

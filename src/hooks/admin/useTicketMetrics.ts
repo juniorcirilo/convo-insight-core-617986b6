@@ -20,11 +20,15 @@ export interface TicketMetrics {
   avgFeedbackScore: number | null;
   ticketsToday: number;
   ticketsThisWeek: number;
+  nps: number | null;
+  promoters: number;
+  detractors: number;
+  passives: number;
 }
 
-export function useTicketMetrics(sectorId?: string) {
+export function useTicketMetrics(sectorId?: string, periodDays?: number) {
   return useQuery({
-    queryKey: ['ticket-metrics', sectorId],
+    queryKey: ['ticket-metrics', sectorId, periodDays],
     queryFn: async (): Promise<TicketMetrics> => {
       let query = supabase
         .from('tickets')
@@ -41,6 +45,13 @@ export function useTicketMetrics(sectorId?: string) {
 
       if (sectorId) {
         query = query.eq('sector_id', sectorId);
+      }
+
+      // Apply period filter if specified
+      if (periodDays) {
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - periodDays);
+        query = query.gte('created_at', startDate.toISOString());
       }
 
       const { data: tickets, error } = await query;
@@ -102,7 +113,7 @@ export function useTicketMetrics(sectorId?: string) {
         }
       });
 
-      // Fetch feedback scores
+      // Fetch feedback scores and calculate NPS
       const { data: feedbacks } = await supabase
         .from('feedbacks')
         .select('nota, ticket_id')
@@ -110,6 +121,22 @@ export function useTicketMetrics(sectorId?: string) {
 
       const avgFeedbackScore = feedbacks && feedbacks.length > 0
         ? feedbacks.reduce((sum, f) => sum + f.nota, 0) / feedbacks.length
+        : null;
+
+      // Calculate NPS: Promoters (4-5), Passives (3), Detractors (1-2)
+      let promoters = 0;
+      let passives = 0;
+      let detractors = 0;
+
+      feedbacks?.forEach((f) => {
+        if (f.nota >= 4) promoters++;
+        else if (f.nota === 3) passives++;
+        else detractors++;
+      });
+
+      const totalFeedbacks = feedbacks?.length || 0;
+      const nps = totalFeedbacks > 0
+        ? Math.round(((promoters - detractors) / totalFeedbacks) * 100)
         : null;
 
       return {
@@ -127,6 +154,10 @@ export function useTicketMetrics(sectorId?: string) {
         avgFeedbackScore,
         ticketsToday,
         ticketsThisWeek,
+        nps,
+        promoters,
+        detractors,
+        passives,
       };
     },
     refetchInterval: 30000,

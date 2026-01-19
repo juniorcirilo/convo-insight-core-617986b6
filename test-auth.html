@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Auth</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Test Supabase Authentication</h1>
+    <div>
+        <input type="email" id="email" value="admin@livechat.app" placeholder="Email">
+        <input type="password" id="password" value="livechat" placeholder="Password">
+        <button onclick="testLogin()">Login</button>
+    </div>
+    <div id="result"></div>
+
+    <script>
+        const { createClient } = supabase;
+        
+        // Using the same config as .env file
+        const supabaseClient = createClient(
+            'http://127.0.0.1:54321',
+            'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH'
+        );
+        
+        async function testLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('result');
+            
+            console.log('Testing login with:', { email, password: '***' });
+            resultDiv.innerHTML = 'Testing login...';
+            
+            try {
+                const { data, error } = await supabaseClient.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+                
+                console.log('Result:', { data, error });
+                
+                if (error) {
+                    resultDiv.innerHTML = '<div style="color: red;">ERROR: ' + error.message + '</div>';
+                } else {
+                    resultDiv.innerHTML = '<div style="color: green;">SUCCESS: Logged in as ' + data.user.email + '</div>';
+                }
+            } catch (err) {
+                console.error('Exception:', err);
+                resultDiv.innerHTML = '<div style="color: red;">EXCEPTION: ' + err.message + '</div>';
+            }
+        }
+        
+        console.log('Supabase client initialized');
+        console.log('URL:', 'http://127.0.0.1:54321');
+    </script>
+</body>
+</html>

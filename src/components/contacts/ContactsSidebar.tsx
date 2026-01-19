@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
-import { Search, Users, MessageSquare, BarChart3, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Users, MessageSquare, BarChart3, Settings, ChevronLeft, ChevronRight, Upload } from 'lucide-react';
 import { useWhatsAppContacts, ContactSortOption } from '@/hooks/whatsapp/useWhatsAppContacts';
 import { useWhatsAppInstances } from '@/hooks/whatsapp';
 import { ContactItem } from './ContactItem';
@@ -11,6 +11,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { UserMenu } from '@/components/auth/UserMenu';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { ImportContactsModal } from './ImportContactsModal';
 
 interface ContactsSidebarProps {
   selectedContactId: string | null;
@@ -22,6 +23,7 @@ export function ContactsSidebar({ selectedContactId, onSelectContact }: Contacts
   const [selectedInstanceId, setSelectedInstanceId] = useState<string>('all');
   const [sortBy, setSortBy] = useState<ContactSortOption>('last_interaction');
   const [currentPage, setCurrentPage] = useState(1);
+  const [showImportModal, setShowImportModal] = useState(false);
   
   const debouncedSearch = useDebounce(searchTerm, 300);
   
@@ -74,6 +76,17 @@ export function ContactsSidebar({ selectedContactId, onSelectContact }: Contacts
         <div className="mb-3">
           <UserMenu />
         </div>
+
+        {/* Import Button */}
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="w-full mb-3"
+          onClick={() => setShowImportModal(true)}
+        >
+          <Upload className="h-4 w-4 mr-2" />
+          Importar do Google
+        </Button>
 
         {/* Search */}
         <div className="flex gap-2 mb-3">
@@ -181,6 +194,11 @@ export function ContactsSidebar({ selectedContactId, onSelectContact }: Contacts
           </div>
         </div>
       )}
+
+      <ImportContactsModal 
+        open={showImportModal} 
+        onOpenChange={setShowImportModal} 
+      />
     </div>
   );
 }

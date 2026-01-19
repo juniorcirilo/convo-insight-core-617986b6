@@ -22,19 +22,19 @@ export function ConversationViewModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl h-[80vh] flex flex-col p-0">
-        <DialogHeader className="p-4 border-b">
+      <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0">
+        <DialogHeader className="p-4 border-b shrink-0">
           <DialogTitle>Visualizar Conversa</DialogTitle>
         </DialogHeader>
         
-        <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : conversationId ? (
             <>
-              <div className="flex-1 overflow-hidden">
+              <div className="flex-1 min-h-0 overflow-hidden">
                 <MessagesContainer
                   conversationId={conversationId}
                   messages={messages}
@@ -42,7 +42,9 @@ export function ConversationViewModal({
                 />
               </div>
               {canSendInternalNotes && (
-                <SupervisorMessageInput conversationId={conversationId} />
+                <div className="shrink-0 border-t">
+                  <SupervisorMessageInput conversationId={conversationId} />
+                </div>
               )}
             </>
           ) : (

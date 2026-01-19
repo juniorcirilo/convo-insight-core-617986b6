@@ -9,7 +9,8 @@ import {
   TrendingUp,
   Star,
   RefreshCw,
-  MessageSquare,
+  Download,
+  Calendar,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,10 +28,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from '@/components/ui/chart';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, ResponsiveContainer } from 'recharts';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -59,8 +62,16 @@ const STATUS_LABELS = {
   finalizado: 'Finalizado',
 };
 
+const PERIOD_OPTIONS = [
+  { value: '7', label: 'Últimos 7 dias' },
+  { value: '30', label: 'Últimos 30 dias' },
+  { value: '90', label: 'Últimos 90 dias' },
+  { value: 'all', label: 'Todo o período' },
+];
+
 export default function AdminTickets() {
-  const { data: metrics, isLoading: metricsLoading, refetch } = useTicketMetrics();
+  const [periodDays, setPeriodDays] = useState<number | undefined>(30);
+  const { data: metrics, isLoading: metricsLoading, refetch } = useTicketMetrics(undefined, periodDays);
   const { data: criticalTickets, isLoading: criticalLoading } = useCriticalTickets();
   const { data: slaConfigMap } = useSLAConfig();
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -71,12 +82,48 @@ export default function AdminTickets() {
     setIsRefreshing(false);
   };
 
+  const handlePeriodChange = (value: string) => {
+    setPeriodDays(value === 'all' ? undefined : parseInt(value, 10));
+  };
+
+  const handleExportCSV = () => {
+    if (!criticalTickets || criticalTickets.length === 0) return;
+    
+    const headers = ['Contato', 'Telefone', 'Setor', 'Prioridade', 'Status', 'Atendente', 'Criado em'];
+    const rows = criticalTickets.map(ticket => [
+      ticket.conversation?.contact?.name || 'N/A',
+      ticket.conversation?.contact?.phone_number || 'N/A',
+      ticket.sector?.name || 'N/A',
+      PRIORITY_LABELS[ticket.prioridade as keyof typeof PRIORITY_LABELS] || 'Média',
+      STATUS_LABELS[ticket.status as keyof typeof STATUS_LABELS] || ticket.status,
+      ticket.atendente?.full_name || 'Não atribuído',
+      new Date(ticket.created_at).toLocaleString('pt-BR'),
+    ]);
+    
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${cell}"`).join(','))
+      .join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `tickets-criticos-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+  };
+
   const formatMinutes = (minutes: number | null) => {
     if (minutes === null) return '-';
     if (minutes < 60) return `${Math.round(minutes)}min`;
     const hours = Math.floor(minutes / 60);
     const mins = Math.round(minutes % 60);
     return `${hours}h ${mins}min`;
+  };
+
+  const getNPSColor = (nps: number | null) => {
+    if (nps === null) return 'text-muted-foreground';
+    if (nps >= 50) return 'text-green-600';
+    if (nps >= 0) return 'text-yellow-600';
+    return 'text-red-600';
   };
 
   const statusChartData = metrics ? [
@@ -112,20 +159,38 @@ export default function AdminTickets() {
               </p>
             </div>
           </div>
-          <Button 
-            variant="outline" 
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Atualizar
-          </Button>
+          <div className="flex items-center gap-2">
+            <Select 
+              value={periodDays?.toString() || 'all'} 
+              onValueChange={handlePeriodChange}
+            >
+              <SelectTrigger className="w-[180px]">
+                <Calendar className="h-4 w-4 mr-2" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PERIOD_OPTIONS.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button 
+              variant="outline" 
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+              Atualizar
+            </Button>
+          </div>
         </div>
       </header>
 
       <main className="p-6 space-y-6">
         {/* Metrics Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total de Tickets</CardTitle>
@@ -208,6 +273,27 @@ export default function AdminTickets() {
               )}
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">NPS</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              {metricsLoading ? (
+                <Skeleton className="h-8 w-20" />
+              ) : (
+                <>
+                  <div className={`text-2xl font-bold ${getNPSColor(metrics?.nps ?? null)}`}>
+                    {metrics?.nps !== null && metrics?.nps !== undefined ? metrics.nps : '-'}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {metrics?.promoters || 0} promotores · {metrics?.detractors || 0} detratores
+                  </p>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Charts */}
@@ -282,11 +368,20 @@ export default function AdminTickets() {
 
         {/* Critical Tickets Table */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-destructive" />
               Tickets Críticos
             </CardTitle>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleExportCSV}
+              disabled={!criticalTickets || criticalTickets.length === 0}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Exportar CSV
+            </Button>
           </CardHeader>
           <CardContent>
             {criticalLoading ? (

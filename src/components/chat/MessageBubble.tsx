@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tables } from "@/integrations/supabase/types";
 import { format } from "date-fns";
-import { Check, CheckCheck, Clock, Reply, Pencil, User, Eye, UserCog } from "lucide-react";
+import { Check, CheckCheck, Clock, Reply, Pencil, User, Eye, UserCog, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { QuotedMessagePreview } from "./QuotedMessagePreview";
 import { ImageViewerModal } from "./ImageViewerModal";
@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { EditHistoryPopover } from "./EditHistoryPopover";
 import { EditMessageModal } from "./EditMessageModal";
 import { useEditMessage } from "@/hooks/whatsapp/useEditMessage";
+import { useMediaSignedUrl } from "@/hooks/whatsapp/useMediaSignedUrl";
 
 type Message = Tables<'whatsapp_messages'>;
 type Reaction = Tables<'whatsapp_reactions'>;
@@ -32,6 +33,12 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
   const time = format(new Date(message.timestamp), 'HH:mm');
   const { sendReaction } = useMessageReaction();
   const editMessage = useEditMessage();
+
+  // Get signed URL for media if needed
+  const { signedUrl: mediaUrl, isLoading: isMediaLoading } = useMediaSignedUrl(
+    message.media_url,
+    message.conversation_id
+  );
 
   // Check if message can be edited (within 15 minutes and text only)
   const canEdit = isFromMe && 
@@ -101,17 +108,23 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
     );
   };
 
+  const renderMediaLoading = () => (
+    <div className="flex items-center justify-center p-4">
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+    </div>
+  );
+
   const renderContent = () => {
     switch (message.message_type) {
       case 'image':
         return (
           <div className="space-y-2">
-            {message.media_url && (
+            {isMediaLoading ? renderMediaLoading() : mediaUrl && (
               <img
-                src={message.media_url}
+                src={mediaUrl}
                 alt="Imagem"
                 className="max-w-xs rounded-md cursor-pointer hover:opacity-90 transition-opacity"
-                onClick={() => setViewerImage(message.media_url)}
+                onClick={() => setViewerImage(mediaUrl)}
               />
             )}
             {message.content && <p className="text-sm">{message.content}</p>}
@@ -121,12 +134,12 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
       case 'sticker':
         return (
           <div>
-            {message.media_url && (
+            {isMediaLoading ? renderMediaLoading() : mediaUrl && (
               <img
-                src={message.media_url}
+                src={mediaUrl}
                 alt="Sticker"
                 className="max-w-[150px] cursor-pointer hover:scale-105 transition-transform"
-                onClick={() => setViewerImage(message.media_url)}
+                onClick={() => setViewerImage(mediaUrl)}
               />
             )}
           </div>
@@ -135,9 +148,9 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
       case 'audio':
         return (
           <div className="space-y-2">
-            {message.media_url && (
+            {isMediaLoading ? renderMediaLoading() : mediaUrl && (
               <audio controls className="max-w-xs">
-                <source src={message.media_url} type={message.media_mimetype || 'audio/ogg'} />
+                <source src={mediaUrl} type={message.media_mimetype || 'audio/ogg'} />
               </audio>
             )}
             {message.transcription_status === 'processing' && (
@@ -163,9 +176,9 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
       case 'video':
         return (
           <div className="space-y-2">
-            {message.media_url && (
+            {isMediaLoading ? renderMediaLoading() : mediaUrl && (
               <video controls className="max-w-xs rounded-md">
-                <source src={message.media_url} type={message.media_mimetype || 'video/mp4'} />
+                <source src={mediaUrl} type={message.media_mimetype || 'video/mp4'} />
               </video>
             )}
             {message.content && <p className="text-sm">{message.content}</p>}
@@ -175,9 +188,9 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
       case 'document':
         return (
           <div className="space-y-2">
-            {message.media_url && (
+            {isMediaLoading ? renderMediaLoading() : mediaUrl && (
               <a
-                href={message.media_url}
+                href={mediaUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-sm underline"

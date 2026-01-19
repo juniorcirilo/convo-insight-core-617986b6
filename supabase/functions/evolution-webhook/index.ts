@@ -164,13 +164,10 @@ async function downloadAndUploadMedia(
       return null;
     }
 
-    // Get public URL
-    const { data: publicUrlData } = supabase.storage
-      .from('whatsapp-media')
-      .getPublicUrl(filePath);
-
-    console.log('[evolution-webhook] Media uploaded successfully:', publicUrlData.publicUrl);
-    return publicUrlData.publicUrl;
+    // Return the file path instead of public URL
+    // The client will request signed URLs when displaying media
+    console.log('[evolution-webhook] Media uploaded successfully:', filePath);
+    return filePath;
   } catch (error) {
     console.error('[evolution-webhook] Error in downloadAndUploadMedia:', error);
     return null;
@@ -516,6 +513,70 @@ async function updateTicketTimestamp(
       .eq('id', ticketId);
   } catch (error) {
     console.error('[evolution-webhook] Error updating ticket timestamp:', error);
+  }
+}
+
+// Check and record automatic feedback from customer messages
+async function checkAndRecordFeedback(
+  supabase: any,
+  conversationId: string,
+  messageContent: string,
+  isFromMe: boolean
+): Promise<boolean> {
+  // Only process messages from customer (not from me)
+  if (isFromMe) return false;
+  
+  // Check if message is a number between 1-5
+  const trimmed = messageContent.trim();
+  if (!/^[1-5]$/.test(trimmed)) return false;
+  const nota = parseInt(trimmed, 10);
+  
+  try {
+    // Find ticket closed in the last 24 hours for this conversation
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    
+    const { data: ticket } = await supabase
+      .from('tickets')
+      .select('id')
+      .eq('conversation_id', conversationId)
+      .eq('status', 'finalizado')
+      .gte('closed_at', twentyFourHoursAgo)
+      .order('closed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!ticket) {
+      console.log('[evolution-webhook] No recently closed ticket found for feedback');
+      return false;
+    }
+
+    // Check if feedback already exists for this ticket
+    const { data: existingFeedback } = await supabase
+      .from('feedbacks')
+      .select('id')
+      .eq('ticket_id', ticket.id)
+      .maybeSingle();
+
+    if (existingFeedback) {
+      console.log('[evolution-webhook] Feedback already exists for ticket:', ticket.id);
+      return false;
+    }
+
+    // Record feedback
+    const { error } = await supabase
+      .from('feedbacks')
+      .insert({ ticket_id: ticket.id, nota });
+
+    if (error) {
+      console.error('[evolution-webhook] Error recording feedback:', error);
+      return false;
+    }
+
+    console.log(`[evolution-webhook] Feedback recorded: ticket=${ticket.id} nota=${nota}`);
+    return true;
+  } catch (error) {
+    console.error('[evolution-webhook] Error in checkAndRecordFeedback:', error);
+    return false;
   }
 }
 
@@ -1072,11 +1133,14 @@ async function processMessageUpsert(payload: EvolutionWebhookPayload, supabase: 
       console.log('[evolution-webhook] Conversation updated successfully');
     }
 
-    // Se mensagem é do cliente (não é minha), verificar análises automáticas
+    // Se mensagem é do cliente (não é minha), verificar análises automáticas e feedback
     if (!key.fromMe) {
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
       checkAndTriggerAutoSentiment(supabase, conversationId, supabaseUrl);
       checkAndTriggerAutoCategorization(supabase, conversationId, supabaseUrl);
+      
+      // Check if this is a feedback response (1-5)
+      checkAndRecordFeedback(supabase, conversationId, content, false);
     }
   } catch (error) {
     console.error('[evolution-webhook] Error in processMessageUpsert:', error);

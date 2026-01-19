@@ -1,10 +1,19 @@
 project_id = "qddetjblszbvnmzxhiao"
 
 [functions.send-campaign-messages]
-verify_jwt = true
+verify_jwt = false
 
 [functions.process-scheduled-campaigns]
 verify_jwt = false
 
 [functions.check-sla-violations]
+verify_jwt = false
+
+[functions.ai-agent-respond]
+verify_jwt = false
+
+[functions.prepare-escalation]
+verify_jwt = false
+
+[functions.distribute-escalation]
 verify_jwt = false
