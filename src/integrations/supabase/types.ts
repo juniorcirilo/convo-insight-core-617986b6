@@ -1765,6 +1765,124 @@ export type Database = {
         }
         Relationships: []
       }
+      product_variants: {
+        Row: {
+          attributes: Json | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          price_modifier: number
+          product_id: string
+          sku: string | null
+          stripe_price_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          attributes?: Json | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          price_modifier?: number
+          product_id: string
+          sku?: string | null
+          stripe_price_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attributes?: Json | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          price_modifier?: number
+          product_id?: string
+          sku?: string | null
+          stripe_price_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_variants_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          base_price: number
+          category: string
+          created_at: string
+          currency: string
+          description: string | null
+          features: Json | null
+          id: string
+          images: string[] | null
+          is_active: boolean
+          max_discount_percent: number
+          metadata: Json | null
+          min_quantity: number
+          name: string
+          sector_id: string | null
+          sku: string | null
+          stripe_price_id: string | null
+          stripe_product_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          base_price?: number
+          category?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          features?: Json | null
+          id?: string
+          images?: string[] | null
+          is_active?: boolean
+          max_discount_percent?: number
+          metadata?: Json | null
+          min_quantity?: number
+          name: string
+          sector_id?: string | null
+          sku?: string | null
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          base_price?: number
+          category?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          features?: Json | null
+          id?: string
+          images?: string[] | null
+          is_active?: boolean
+          max_discount_percent?: number
+          metadata?: Json | null
+          min_quantity?: number
+          name?: string
+          sector_id?: string | null
+          sku?: string | null
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
