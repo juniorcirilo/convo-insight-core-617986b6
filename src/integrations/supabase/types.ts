@@ -19,21 +19,32 @@ export type Database = {
           agent_name: string
           auto_reply_enabled: boolean | null
           business_context: string | null
+          communication_style: Json | null
+          competitor_handling: string | null
           created_at: string | null
+          custom_instructions: string | null
           escalation_after_minutes: number | null
           escalation_keywords: string[] | null
           escalation_on_negative_sentiment: boolean | null
           faq_context: string | null
+          forbidden_topics: string[] | null
           id: string
           is_enabled: boolean | null
+          knowledge_base_enabled: boolean | null
+          learn_from_agents: boolean | null
           max_auto_replies: number | null
+          max_discount_percent: number | null
+          objection_style: string | null
           out_of_hours_message: string | null
           persona_description: string | null
+          personality_traits: Json | null
           product_catalog: string | null
           response_delay_seconds: number | null
           sector_id: string
           tone_of_voice: string | null
           updated_at: string | null
+          upsell_enabled: boolean | null
+          upsell_triggers: string[] | null
           welcome_message: string | null
           working_days: number[] | null
           working_hours_end: string | null
@@ -44,21 +55,32 @@ export type Database = {
           agent_name?: string
           auto_reply_enabled?: boolean | null
           business_context?: string | null
+          communication_style?: Json | null
+          competitor_handling?: string | null
           created_at?: string | null
+          custom_instructions?: string | null
           escalation_after_minutes?: number | null
           escalation_keywords?: string[] | null
           escalation_on_negative_sentiment?: boolean | null
           faq_context?: string | null
+          forbidden_topics?: string[] | null
           id?: string
           is_enabled?: boolean | null
+          knowledge_base_enabled?: boolean | null
+          learn_from_agents?: boolean | null
           max_auto_replies?: number | null
+          max_discount_percent?: number | null
+          objection_style?: string | null
           out_of_hours_message?: string | null
           persona_description?: string | null
+          personality_traits?: Json | null
           product_catalog?: string | null
           response_delay_seconds?: number | null
           sector_id: string
           tone_of_voice?: string | null
           updated_at?: string | null
+          upsell_enabled?: boolean | null
+          upsell_triggers?: string[] | null
           welcome_message?: string | null
           working_days?: number[] | null
           working_hours_end?: string | null
@@ -69,21 +91,32 @@ export type Database = {
           agent_name?: string
           auto_reply_enabled?: boolean | null
           business_context?: string | null
+          communication_style?: Json | null
+          competitor_handling?: string | null
           created_at?: string | null
+          custom_instructions?: string | null
           escalation_after_minutes?: number | null
           escalation_keywords?: string[] | null
           escalation_on_negative_sentiment?: boolean | null
           faq_context?: string | null
+          forbidden_topics?: string[] | null
           id?: string
           is_enabled?: boolean | null
+          knowledge_base_enabled?: boolean | null
+          learn_from_agents?: boolean | null
           max_auto_replies?: number | null
+          max_discount_percent?: number | null
+          objection_style?: string | null
           out_of_hours_message?: string | null
           persona_description?: string | null
+          personality_traits?: Json | null
           product_catalog?: string | null
           response_delay_seconds?: number | null
           sector_id?: string
           tone_of_voice?: string | null
           updated_at?: string | null
+          upsell_enabled?: boolean | null
+          upsell_triggers?: string[] | null
           welcome_message?: string | null
           working_days?: number[] | null
           working_hours_end?: string | null
@@ -228,6 +261,64 @@ export type Database = {
             columns: ["escalated_to"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_response_feedback: {
+        Row: {
+          conversation_id: string | null
+          corrected_response: string | null
+          correction_reason: string | null
+          created_at: string | null
+          feedback_type: string | null
+          given_by: string | null
+          id: string
+          log_id: string | null
+          rating: number | null
+        }
+        Insert: {
+          conversation_id?: string | null
+          corrected_response?: string | null
+          correction_reason?: string | null
+          created_at?: string | null
+          feedback_type?: string | null
+          given_by?: string | null
+          id?: string
+          log_id?: string | null
+          rating?: number | null
+        }
+        Update: {
+          conversation_id?: string | null
+          corrected_response?: string | null
+          correction_reason?: string | null
+          created_at?: string | null
+          feedback_type?: string | null
+          given_by?: string | null
+          id?: string
+          log_id?: string | null
+          rating?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_response_feedback_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_response_feedback_given_by_fkey"
+            columns: ["given_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_response_feedback_log_id_fkey"
+            columns: ["log_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agent_logs"
             referencedColumns: ["id"]
           },
         ]
@@ -449,6 +540,101 @@ export type Database = {
             columns: ["sector_id"]
             isOneToOne: false
             referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_knowledge_base: {
+        Row: {
+          category: string
+          confidence_score: number | null
+          content: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_active: boolean | null
+          is_verified: boolean | null
+          keywords: string[] | null
+          last_used_at: string | null
+          parent_id: string | null
+          sector_id: string | null
+          source: string | null
+          subcategory: string | null
+          title: string
+          updated_at: string | null
+          usage_count: number | null
+          verified_by: string | null
+          version: number | null
+        }
+        Insert: {
+          category: string
+          confidence_score?: number | null
+          content: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_verified?: boolean | null
+          keywords?: string[] | null
+          last_used_at?: string | null
+          parent_id?: string | null
+          sector_id?: string | null
+          source?: string | null
+          subcategory?: string | null
+          title: string
+          updated_at?: string | null
+          usage_count?: number | null
+          verified_by?: string | null
+          version?: number | null
+        }
+        Update: {
+          category?: string
+          confidence_score?: number | null
+          content?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_verified?: boolean | null
+          keywords?: string[] | null
+          last_used_at?: string | null
+          parent_id?: string | null
+          sector_id?: string | null
+          source?: string | null
+          subcategory?: string | null
+          title?: string
+          updated_at?: string | null
+          usage_count?: number | null
+          verified_by?: string | null
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_knowledge_base_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_knowledge_base_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "business_knowledge_base"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_knowledge_base_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_knowledge_base_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1277,6 +1463,92 @@ export type Database = {
           },
         ]
       }
+      learning_examples: {
+        Row: {
+          conversation_id: string | null
+          created_at: string | null
+          customer_satisfied: boolean | null
+          id: string
+          ideal_response: string
+          input_context: string
+          lead_converted: boolean | null
+          marked_as_good_by: string | null
+          marked_at: string | null
+          message_id: string | null
+          notes: string | null
+          quality_score: number | null
+          scenario_type: string | null
+          sector_id: string | null
+          tags: string[] | null
+          times_referenced: number | null
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string | null
+          customer_satisfied?: boolean | null
+          id?: string
+          ideal_response: string
+          input_context: string
+          lead_converted?: boolean | null
+          marked_as_good_by?: string | null
+          marked_at?: string | null
+          message_id?: string | null
+          notes?: string | null
+          quality_score?: number | null
+          scenario_type?: string | null
+          sector_id?: string | null
+          tags?: string[] | null
+          times_referenced?: number | null
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string | null
+          customer_satisfied?: boolean | null
+          id?: string
+          ideal_response?: string
+          input_context?: string
+          lead_converted?: boolean | null
+          marked_as_good_by?: string | null
+          marked_at?: string | null
+          message_id?: string | null
+          notes?: string | null
+          quality_score?: number | null
+          scenario_type?: string | null
+          sector_id?: string | null
+          tags?: string[] | null
+          times_referenced?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_examples_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_examples_marked_as_good_by_fkey"
+            columns: ["marked_as_good_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_examples_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learning_examples_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meeting_schedules: {
         Row: {
           ai_session_id: string | null
@@ -1552,6 +1824,81 @@ export type Database = {
           value?: string
         }
         Relationships: []
+      }
+      response_templates: {
+        Row: {
+          avg_sentiment_after: number | null
+          category: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          intent_match: string[] | null
+          is_active: boolean | null
+          name: string
+          priority: number | null
+          sector_id: string | null
+          success_rate: number | null
+          template_content: string
+          trigger_patterns: string[] | null
+          updated_at: string | null
+          usage_count: number | null
+          variables: Json | null
+        }
+        Insert: {
+          avg_sentiment_after?: number | null
+          category?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          intent_match?: string[] | null
+          is_active?: boolean | null
+          name: string
+          priority?: number | null
+          sector_id?: string | null
+          success_rate?: number | null
+          template_content: string
+          trigger_patterns?: string[] | null
+          updated_at?: string | null
+          usage_count?: number | null
+          variables?: Json | null
+        }
+        Update: {
+          avg_sentiment_after?: number | null
+          category?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          intent_match?: string[] | null
+          is_active?: boolean | null
+          name?: string
+          priority?: number | null
+          sector_id?: string | null
+          success_rate?: number | null
+          template_content?: string
+          trigger_patterns?: string[] | null
+          updated_at?: string | null
+          usage_count?: number | null
+          variables?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "response_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "response_templates_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sales_targets: {
         Row: {
@@ -2961,6 +3308,22 @@ export type Database = {
         Returns: boolean
       }
       is_first_user: { Args: never; Returns: boolean }
+      search_knowledge_base: {
+        Args: {
+          p_category?: string
+          p_limit?: number
+          p_query: string
+          p_sector_id: string
+        }
+        Returns: {
+          category: string
+          confidence_score: number
+          content: string
+          id: string
+          relevance_score: number
+          title: string
+        }[]
+      }
       user_belongs_to_instance: {
         Args: { _instance_id: string; _user_id: string }
         Returns: boolean
