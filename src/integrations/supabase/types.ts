@@ -393,6 +393,66 @@ export type Database = {
           },
         ]
       }
+      availability_slots: {
+        Row: {
+          agent_id: string | null
+          created_at: string | null
+          day_of_week: number | null
+          end_time: string
+          id: string
+          is_active: boolean | null
+          max_concurrent_meetings: number | null
+          sector_id: string | null
+          slot_type: string | null
+          specific_date: string | null
+          start_time: string
+          timezone: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          created_at?: string | null
+          day_of_week?: number | null
+          end_time: string
+          id?: string
+          is_active?: boolean | null
+          max_concurrent_meetings?: number | null
+          sector_id?: string | null
+          slot_type?: string | null
+          specific_date?: string | null
+          start_time: string
+          timezone?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          created_at?: string | null
+          day_of_week?: number | null
+          end_time?: string
+          id?: string
+          is_active?: boolean | null
+          max_concurrent_meetings?: number | null
+          sector_id?: string | null
+          slot_type?: string | null
+          specific_date?: string | null
+          start_time?: string
+          timezone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "availability_slots_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "availability_slots_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaign_logs: {
         Row: {
           button_clicked: string | null
@@ -1217,6 +1277,142 @@ export type Database = {
           },
         ]
       }
+      meeting_schedules: {
+        Row: {
+          ai_session_id: string | null
+          assigned_agent_id: string | null
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          completed_at: string | null
+          confirmed_at: string | null
+          contact_id: string | null
+          conversation_id: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          duration_minutes: number | null
+          id: string
+          lead_id: string | null
+          location: string | null
+          meeting_link: string | null
+          meeting_type: string | null
+          metadata: Json | null
+          notes: string | null
+          reminder_1h_sent: boolean | null
+          reminder_24h_sent: boolean | null
+          reminder_custom_sent: boolean | null
+          scheduled_at: string
+          sector_id: string | null
+          status: string | null
+          timezone: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          ai_session_id?: string | null
+          assigned_agent_id?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          completed_at?: string | null
+          confirmed_at?: string | null
+          contact_id?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          lead_id?: string | null
+          location?: string | null
+          meeting_link?: string | null
+          meeting_type?: string | null
+          metadata?: Json | null
+          notes?: string | null
+          reminder_1h_sent?: boolean | null
+          reminder_24h_sent?: boolean | null
+          reminder_custom_sent?: boolean | null
+          scheduled_at: string
+          sector_id?: string | null
+          status?: string | null
+          timezone?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          ai_session_id?: string | null
+          assigned_agent_id?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          completed_at?: string | null
+          confirmed_at?: string | null
+          contact_id?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          lead_id?: string | null
+          location?: string | null
+          meeting_link?: string | null
+          meeting_type?: string | null
+          metadata?: Json | null
+          notes?: string | null
+          reminder_1h_sent?: boolean | null
+          reminder_24h_sent?: boolean | null
+          reminder_custom_sent?: boolean | null
+          scheduled_at?: string
+          sector_id?: string | null
+          status?: string | null
+          timezone?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_schedules_ai_session_id_fkey"
+            columns: ["ai_session_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agent_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_schedules_assigned_agent_id_fkey"
+            columns: ["assigned_agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_schedules_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_schedules_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_schedules_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_schedules_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       permission_audit_logs: {
         Row: {
           changed_by: string
@@ -1394,6 +1590,171 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scheduling_config: {
+        Row: {
+          allow_ai_scheduling: boolean | null
+          allowed_meeting_types: string[] | null
+          auto_cancel_no_confirmation_hours: number | null
+          buffer_after_minutes: number | null
+          buffer_before_minutes: number | null
+          confirmation_message: string | null
+          created_at: string | null
+          custom_reminder_hours: number | null
+          default_duration_minutes: number | null
+          default_meeting_type: string | null
+          google_calendar_sync: boolean | null
+          id: string
+          is_enabled: boolean | null
+          max_advance_days: number | null
+          min_advance_hours: number | null
+          reminder_message_1h: string | null
+          reminder_message_24h: string | null
+          require_confirmation: boolean | null
+          sector_id: string | null
+          send_reminder_1h: boolean | null
+          send_reminder_24h: boolean | null
+          slot_interval_minutes: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          allow_ai_scheduling?: boolean | null
+          allowed_meeting_types?: string[] | null
+          auto_cancel_no_confirmation_hours?: number | null
+          buffer_after_minutes?: number | null
+          buffer_before_minutes?: number | null
+          confirmation_message?: string | null
+          created_at?: string | null
+          custom_reminder_hours?: number | null
+          default_duration_minutes?: number | null
+          default_meeting_type?: string | null
+          google_calendar_sync?: boolean | null
+          id?: string
+          is_enabled?: boolean | null
+          max_advance_days?: number | null
+          min_advance_hours?: number | null
+          reminder_message_1h?: string | null
+          reminder_message_24h?: string | null
+          require_confirmation?: boolean | null
+          sector_id?: string | null
+          send_reminder_1h?: boolean | null
+          send_reminder_24h?: boolean | null
+          slot_interval_minutes?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          allow_ai_scheduling?: boolean | null
+          allowed_meeting_types?: string[] | null
+          auto_cancel_no_confirmation_hours?: number | null
+          buffer_after_minutes?: number | null
+          buffer_before_minutes?: number | null
+          confirmation_message?: string | null
+          created_at?: string | null
+          custom_reminder_hours?: number | null
+          default_duration_minutes?: number | null
+          default_meeting_type?: string | null
+          google_calendar_sync?: boolean | null
+          id?: string
+          is_enabled?: boolean | null
+          max_advance_days?: number | null
+          min_advance_hours?: number | null
+          reminder_message_1h?: string | null
+          reminder_message_24h?: string | null
+          require_confirmation?: boolean | null
+          sector_id?: string | null
+          send_reminder_1h?: boolean | null
+          send_reminder_24h?: boolean | null
+          slot_interval_minutes?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduling_config_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: true
+            referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scheduling_intents: {
+        Row: {
+          ai_session_id: string | null
+          confidence: number | null
+          conversation_id: string | null
+          created_at: string | null
+          detected_at: string | null
+          duration_requested: number | null
+          expires_at: string | null
+          id: string
+          intent_type: string | null
+          meeting_purpose: string | null
+          offered_slots: Json | null
+          preferred_dates: Json | null
+          resulting_meeting_id: string | null
+          selected_slot_index: number | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ai_session_id?: string | null
+          confidence?: number | null
+          conversation_id?: string | null
+          created_at?: string | null
+          detected_at?: string | null
+          duration_requested?: number | null
+          expires_at?: string | null
+          id?: string
+          intent_type?: string | null
+          meeting_purpose?: string | null
+          offered_slots?: Json | null
+          preferred_dates?: Json | null
+          resulting_meeting_id?: string | null
+          selected_slot_index?: number | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ai_session_id?: string | null
+          confidence?: number | null
+          conversation_id?: string | null
+          created_at?: string | null
+          detected_at?: string | null
+          duration_requested?: number | null
+          expires_at?: string | null
+          id?: string
+          intent_type?: string | null
+          meeting_purpose?: string | null
+          offered_slots?: Json | null
+          preferred_dates?: Json | null
+          resulting_meeting_id?: string | null
+          selected_slot_index?: number | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduling_intents_ai_session_id_fkey"
+            columns: ["ai_session_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agent_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduling_intents_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduling_intents_resulting_meeting_id_fkey"
+            columns: ["resulting_meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meeting_schedules"
             referencedColumns: ["id"]
           },
         ]
@@ -2561,6 +2922,20 @@ export type Database = {
       can_view_profile: {
         Args: { _profile_id: string; _viewer_id: string }
         Returns: boolean
+      }
+      get_available_slots: {
+        Args: {
+          p_duration_minutes?: number
+          p_end_date: string
+          p_sector_id: string
+          p_start_date: string
+        }
+        Returns: {
+          agent_id: string
+          is_available: boolean
+          slot_datetime: string
+          slot_end_datetime: string
+        }[]
       }
       get_escalation_wait_time: {
         Args: { escalation_created_at: string }
