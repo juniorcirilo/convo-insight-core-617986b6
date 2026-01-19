@@ -1685,6 +1685,260 @@ export type Database = {
           },
         ]
       }
+      negotiation_logs: {
+        Row: {
+          action: string
+          agent_type: string
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          customer_message: string | null
+          discount_percent: number | null
+          id: string
+          new_value: number | null
+          order_id: string | null
+          original_value: number | null
+          quote_id: string | null
+          reason: string | null
+          requires_approval: boolean
+        }
+        Insert: {
+          action: string
+          agent_type?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_message?: string | null
+          discount_percent?: number | null
+          id?: string
+          new_value?: number | null
+          order_id?: string | null
+          original_value?: number | null
+          quote_id?: string | null
+          reason?: string | null
+          requires_approval?: boolean
+        }
+        Update: {
+          action?: string
+          agent_type?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_message?: string | null
+          discount_percent?: number | null
+          id?: string
+          new_value?: number | null
+          order_id?: string | null
+          original_value?: number | null
+          quote_id?: string | null
+          reason?: string | null
+          requires_approval?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "negotiation_logs_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "negotiation_logs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "negotiation_logs_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "negotiation_logs_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          confirmed_by: string | null
+          conversation_id: string | null
+          created_at: string
+          delivery_notes: string | null
+          discount: number
+          id: string
+          items: Json
+          lead_id: string | null
+          order_number: string
+          paid_at: string | null
+          payment_link: string | null
+          payment_method: string | null
+          payment_notes: string | null
+          payment_proof_url: string | null
+          payment_status: Database["public"]["Enums"]["payment_status"]
+          quote_id: string | null
+          sector_id: string | null
+          shipping_address: string | null
+          status: Database["public"]["Enums"]["order_status"]
+          subtotal: number
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          confirmed_by?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          delivery_notes?: string | null
+          discount?: number
+          id?: string
+          items?: Json
+          lead_id?: string | null
+          order_number: string
+          paid_at?: string | null
+          payment_link?: string | null
+          payment_method?: string | null
+          payment_notes?: string | null
+          payment_proof_url?: string | null
+          payment_status?: Database["public"]["Enums"]["payment_status"]
+          quote_id?: string | null
+          sector_id?: string | null
+          shipping_address?: string | null
+          status?: Database["public"]["Enums"]["order_status"]
+          subtotal?: number
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          confirmed_by?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          delivery_notes?: string | null
+          discount?: number
+          id?: string
+          items?: Json
+          lead_id?: string | null
+          order_number?: string
+          paid_at?: string | null
+          payment_link?: string | null
+          payment_method?: string | null
+          payment_notes?: string | null
+          payment_proof_url?: string | null
+          payment_status?: Database["public"]["Enums"]["payment_status"]
+          quote_id?: string | null
+          sector_id?: string | null
+          shipping_address?: string | null
+          status?: Database["public"]["Enums"]["order_status"]
+          subtotal?: number
+          total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_links: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          description: string | null
+          expires_at: string | null
+          id: string
+          instructions: string | null
+          is_active: boolean
+          order_id: string
+          type: string
+          url: string | null
+          used_at: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          instructions?: string | null
+          is_active?: boolean
+          order_id: string
+          type: string
+          url?: string | null
+          used_at?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          instructions?: string | null
+          is_active?: boolean
+          order_id?: string
+          type?: string
+          url?: string | null
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_links_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_links_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       permission_audit_logs: {
         Row: {
           changed_by: string
@@ -1942,6 +2196,104 @@ export type Database = {
           value?: string
         }
         Relationships: []
+      }
+      quotes: {
+        Row: {
+          conversation_id: string | null
+          created_at: string
+          created_by: string | null
+          discount_total: number
+          id: string
+          is_ai_generated: boolean
+          items: Json
+          lead_id: string | null
+          notes: string | null
+          payment_terms: string | null
+          quote_number: string
+          responded_at: string | null
+          sector_id: string | null
+          sent_at: string | null
+          status: Database["public"]["Enums"]["quote_status"]
+          subtotal: number
+          total: number
+          updated_at: string
+          valid_until: string | null
+          viewed_at: string | null
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          discount_total?: number
+          id?: string
+          is_ai_generated?: boolean
+          items?: Json
+          lead_id?: string | null
+          notes?: string | null
+          payment_terms?: string | null
+          quote_number: string
+          responded_at?: string | null
+          sector_id?: string | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["quote_status"]
+          subtotal?: number
+          total?: number
+          updated_at?: string
+          valid_until?: string | null
+          viewed_at?: string | null
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          discount_total?: number
+          id?: string
+          is_ai_generated?: boolean
+          items?: Json
+          lead_id?: string | null
+          notes?: string | null
+          payment_terms?: string | null
+          quote_number?: string
+          responded_at?: string | null
+          sector_id?: string | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["quote_status"]
+          subtotal?: number
+          total?: number
+          updated_at?: string
+          valid_until?: string | null
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotes_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quotes_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       response_templates: {
         Row: {
@@ -3388,6 +3740,8 @@ export type Database = {
         Args: { _profile_id: string; _viewer_id: string }
         Returns: boolean
       }
+      generate_order_number: { Args: never; Returns: string }
+      generate_quote_number: { Args: never; Returns: string }
       get_available_slots: {
         Args: {
           p_duration_minutes?: number
@@ -3468,6 +3822,19 @@ export type Database = {
         | "negotiation"
         | "won"
         | "lost"
+      order_status:
+        | "pending"
+        | "confirmed"
+        | "paid"
+        | "shipped"
+        | "delivered"
+        | "cancelled"
+      payment_status:
+        | "pending"
+        | "processing"
+        | "confirmed"
+        | "failed"
+        | "refunded"
       permission_key:
         | "can_access_conversations"
         | "can_respond_conversations"
@@ -3476,6 +3843,13 @@ export type Database = {
         | "can_access_admin_panel"
         | "can_send_internal_messages"
         | "can_transfer_conversations"
+      quote_status:
+        | "draft"
+        | "sent"
+        | "viewed"
+        | "accepted"
+        | "rejected"
+        | "expired"
       sentiment_type: "positive" | "neutral" | "negative"
     }
     CompositeTypes: {
@@ -3622,6 +3996,21 @@ export const Constants = {
         "won",
         "lost",
       ],
+      order_status: [
+        "pending",
+        "confirmed",
+        "paid",
+        "shipped",
+        "delivered",
+        "cancelled",
+      ],
+      payment_status: [
+        "pending",
+        "processing",
+        "confirmed",
+        "failed",
+        "refunded",
+      ],
       permission_key: [
         "can_access_conversations",
         "can_respond_conversations",
@@ -3630,6 +4019,14 @@ export const Constants = {
         "can_access_admin_panel",
         "can_send_internal_messages",
         "can_transfer_conversations",
+      ],
+      quote_status: [
+        "draft",
+        "sent",
+        "viewed",
+        "accepted",
+        "rejected",
+        "expired",
       ],
       sentiment_type: ["positive", "neutral", "negative"],
     },
