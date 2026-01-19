@@ -6,3 +6,4 @@ export { KanbanBoard, KanbanColumn, KanbanCard, LeadDetailModal, NewLeadModal } 
 export { LeadScoreIndicator, QualificationBreakdown, LeadQualificationHistory } from './qualification';
 export { ProductCatalogManager } from './products';
 export { QuoteBuilderDialog, QuotesList, QuoteDetailModal } from './quotes';
+export { OrdersList, OrderDetailModal, PaymentConfirmationModal } from './orders';
