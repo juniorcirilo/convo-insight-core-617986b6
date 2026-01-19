@@ -11,10 +11,11 @@ import {
 interface QuoteButtonProps {
   conversationId: string;
   leadId?: string;
+  sectorId?: string;
   disabled?: boolean;
 }
 
-export const QuoteButton = ({ conversationId, leadId, disabled }: QuoteButtonProps) => {
+export const QuoteButton = ({ conversationId, leadId, sectorId, disabled }: QuoteButtonProps) => {
   const [open, setOpen] = useState(false);
 
   return (
@@ -41,6 +42,7 @@ export const QuoteButton = ({ conversationId, leadId, disabled }: QuoteButtonPro
         onOpenChange={setOpen}
         conversationId={conversationId}
         leadId={leadId}
+        sectorId={sectorId}
       />
     </>
   );
