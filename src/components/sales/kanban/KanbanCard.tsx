@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Lead } from '@/hooks/sales/useLeads';
 import { Building2, Phone, Mail, DollarSign, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { LeadScoreIndicator } from '../qualification/LeadScoreIndicator';
 
 interface KanbanCardProps {
   lead: Lead;
@@ -67,7 +68,12 @@ export const KanbanCard = ({ lead, onClick }: KanbanCardProps) => {
         
         <div className="flex-1 min-w-0 space-y-2">
           <div className="flex items-start justify-between gap-2">
-            <h4 className="font-medium truncate">{lead.name}</h4>
+            <div className="flex items-center gap-2">
+              <h4 className="font-medium truncate">{lead.name}</h4>
+              {(lead as any).lead_score > 0 && (
+                <LeadScoreIndicator score={(lead as any).lead_score} size="sm" />
+              )}
+            </div>
             <Badge variant="outline" className={cn('text-xs shrink-0', getSourceColor(lead.source))}>
               {lead.source}
             </Badge>
