@@ -3,7 +3,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tables } from "@/integrations/supabase/types";
 import { format } from "date-fns";
-import { Check, CheckCheck, Clock, Reply, Pencil, User, Eye, UserCog, Loader2 } from "lucide-react";
+import { Check, CheckCheck, Clock, Reply, Pencil, User, Eye, UserCog, Loader2, Bot } from "lucide-react";
+import { AIFeedbackButton } from "@/components/ai-agent";
 import { cn } from "@/lib/utils";
 import { QuotedMessagePreview } from "./QuotedMessagePreview";
 import { ImageViewerModal } from "./ImageViewerModal";
@@ -334,7 +335,20 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
               </Popover>
             )}
             {getStatusIcon()}
+            {(message as any).is_ai_generated && (
+              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 ml-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30">
+                <Bot className="h-2.5 w-2.5 mr-0.5" />
+                IA
+              </Badge>
+            )}
           </div>
+          {(message as any).is_ai_generated && isFromMe && (
+            <AIFeedbackButton
+              conversationId={message.conversation_id}
+              messageId={message.message_id}
+              aiResponse={message.content || ""}
+            />
+          )}
         </Card>
         
         {renderReactions()}
