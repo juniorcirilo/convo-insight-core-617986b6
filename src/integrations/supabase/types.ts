@@ -166,7 +166,11 @@ export type Database = {
           detected_intent: string | null
           escalated_at: string | null
           escalated_to: string | null
+          escalation_priority: number | null
           escalation_reason: string | null
+          handoff_context: Json | null
+          handoff_requested_at: string | null
+          handoff_summary: string | null
           id: string
           last_ai_response_at: string | null
           lead_score: number | null
@@ -181,7 +185,11 @@ export type Database = {
           detected_intent?: string | null
           escalated_at?: string | null
           escalated_to?: string | null
+          escalation_priority?: number | null
           escalation_reason?: string | null
+          handoff_context?: Json | null
+          handoff_requested_at?: string | null
+          handoff_summary?: string | null
           id?: string
           last_ai_response_at?: string | null
           lead_score?: number | null
@@ -196,7 +204,11 @@ export type Database = {
           detected_intent?: string | null
           escalated_at?: string | null
           escalated_to?: string | null
+          escalation_priority?: number | null
           escalation_reason?: string | null
+          handoff_context?: Json | null
+          handoff_requested_at?: string | null
+          handoff_summary?: string | null
           id?: string
           last_ai_response_at?: string | null
           lead_score?: number | null
@@ -589,6 +601,187 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      escalation_distribution_config: {
+        Row: {
+          auto_assign_enabled: boolean | null
+          created_at: string
+          distribution_method: string
+          id: string
+          max_concurrent_escalations_per_agent: number | null
+          max_queue_time_minutes: number | null
+          priority_boost_after_minutes: number | null
+          sector_id: string
+          updated_at: string
+        }
+        Insert: {
+          auto_assign_enabled?: boolean | null
+          created_at?: string
+          distribution_method?: string
+          id?: string
+          max_concurrent_escalations_per_agent?: number | null
+          max_queue_time_minutes?: number | null
+          priority_boost_after_minutes?: number | null
+          sector_id: string
+          updated_at?: string
+        }
+        Update: {
+          auto_assign_enabled?: boolean | null
+          created_at?: string
+          distribution_method?: string
+          id?: string
+          max_concurrent_escalations_per_agent?: number | null
+          max_queue_time_minutes?: number | null
+          priority_boost_after_minutes?: number | null
+          sector_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escalation_distribution_config_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: true
+            referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      escalation_notifications: {
+        Row: {
+          created_at: string
+          dismissed_at: string | null
+          escalation_id: string
+          id: string
+          notification_type: string
+          read_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dismissed_at?: string | null
+          escalation_id: string
+          id?: string
+          notification_type?: string
+          read_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dismissed_at?: string | null
+          escalation_id?: string
+          id?: string
+          notification_type?: string
+          read_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escalation_notifications_escalation_id_fkey"
+            columns: ["escalation_id"]
+            isOneToOne: false
+            referencedRelation: "escalation_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalation_notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      escalation_queue: {
+        Row: {
+          ai_summary: string | null
+          assigned_at: string | null
+          assigned_to: string | null
+          conversation_id: string
+          created_at: string
+          customer_sentiment: string | null
+          detected_intent: string | null
+          escalation_reason: string
+          expires_at: string | null
+          id: string
+          instance_id: string | null
+          lead_score: number | null
+          priority: number | null
+          resolution_notes: string | null
+          resolved_at: string | null
+          sector_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          ai_summary?: string | null
+          assigned_at?: string | null
+          assigned_to?: string | null
+          conversation_id: string
+          created_at?: string
+          customer_sentiment?: string | null
+          detected_intent?: string | null
+          escalation_reason?: string
+          expires_at?: string | null
+          id?: string
+          instance_id?: string | null
+          lead_score?: number | null
+          priority?: number | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          sector_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          ai_summary?: string | null
+          assigned_at?: string | null
+          assigned_to?: string | null
+          conversation_id?: string
+          created_at?: string
+          customer_sentiment?: string | null
+          detected_intent?: string | null
+          escalation_reason?: string
+          expires_at?: string | null
+          id?: string
+          instance_id?: string | null
+          lead_score?: number | null
+          priority?: number | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          sector_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escalation_queue_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalation_queue_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalation_queue_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalation_queue_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "sectors"
             referencedColumns: ["id"]
           },
         ]
@@ -2368,6 +2561,10 @@ export type Database = {
       can_view_profile: {
         Args: { _profile_id: string; _viewer_id: string }
         Returns: boolean
+      }
+      get_escalation_wait_time: {
+        Args: { escalation_created_at: string }
+        Returns: number
       }
       get_user_effective_permissions: {
         Args: { _user_id: string }

@@ -3,3 +3,9 @@ export type { AIAgentConfig, AIAgentConfigInsert, AIAgentConfigUpdate } from './
 
 export { useAIAgentSession } from './useAIAgentSession';
 export type { AIAgentSession, ConversationMode } from './useAIAgentSession';
+
+export { useEscalationQueue } from './useEscalationQueue';
+export type { EscalationQueueItem, EscalationQueueStats } from './useEscalationQueue';
+
+export { useEscalationNotifications } from './useEscalationNotifications';
+export type { EscalationNotification } from './useEscalationNotifications';

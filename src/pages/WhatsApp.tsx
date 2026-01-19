@@ -6,11 +6,13 @@ import { useNotifications } from "@/hooks/useNotifications";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useInstanceStatusMonitor } from "@/hooks/useInstanceStatusMonitor";
 import { DisconnectedInstancesBanner } from "@/components/notifications/DisconnectedInstancesBanner";
+import { EscalationAlert } from "@/components/escalation";
 import { Button } from "@/components/ui/button";
 import { Settings, ArrowLeft } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 const WhatsApp = () => {
+  const navigate = useNavigate();
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const { setSelectedConversationId } = useNotifications();
   const [isDetailsSidebarCollapsed, setIsDetailsSidebarCollapsed] = useState(false);
@@ -104,6 +106,9 @@ const WhatsApp = () => {
         </div>
       )}
       </div>
+      
+      {/* Escalation Alert */}
+      <EscalationAlert onOpenQueue={() => navigate('/admin/conversas')} />
     </div>
   );
 };
