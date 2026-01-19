@@ -7,6 +7,7 @@ import { MessagesContainer } from "./MessagesContainer";
 import { MessageInputContainer, MediaSendParams } from "./input";
 import { MessageCircle } from "lucide-react";
 import { Tables } from "@/integrations/supabase/types";
+import { useConversationLead } from "@/hooks/sales/useConversationLead";
 
 type Message = Tables<'whatsapp_messages'>;
 
@@ -20,6 +21,7 @@ export const ChatArea = ({ conversationId }: ChatAreaProps) => {
   const { sentiment, isAnalyzing, analyze } = useWhatsAppSentiment(conversationId);
   const sendMutation = useWhatsAppSend();
   const queryClient = useQueryClient();
+  const { lead } = useConversationLead(conversationId);
 
   // Fetch conversation details including contact
   const { data: conversation } = useQuery({
@@ -115,6 +117,8 @@ export const ChatArea = ({ conversationId }: ChatAreaProps) => {
       <MessageInputContainer
         conversationId={conversationId}
         replyingTo={replyingTo}
+        leadId={lead?.id}
+        sectorId={conversation?.sector_id ?? undefined}
         onSendText={handleSendText}
         onSendMedia={handleSendMedia}
         onCancelReply={handleCancelReply}

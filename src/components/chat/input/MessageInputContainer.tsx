@@ -9,6 +9,7 @@ import { AudioRecorder } from "./AudioRecorder";
 import { MacroSuggestions } from "./MacroSuggestions";
 import { SmartReplySuggestions } from "./SmartReplySuggestions";
 import { ReplyPreview } from "./ReplyPreview";
+import { QuoteButton } from "@/components/chat/QuoteButton";
 import { useWhatsAppMacros } from "@/hooks/whatsapp/useWhatsAppMacros";
 import { useSmartReply } from "@/hooks/whatsapp/useSmartReply";
 import { Tables } from "@/integrations/supabase/types";
@@ -28,6 +29,8 @@ interface MessageInputContainerProps {
   conversationId: string;
   disabled?: boolean;
   replyingTo?: Message | null;
+  leadId?: string;
+  sectorId?: string;
   onSendText: (content: string, quotedMessageId?: string) => void;
   onSendMedia: (params: MediaSendParams) => void;
   onCancelReply?: () => void;
@@ -37,6 +40,8 @@ export const MessageInputContainer = ({
   conversationId, 
   disabled,
   replyingTo,
+  leadId,
+  sectorId,
   onSendText, 
   onSendMedia,
   onCancelReply
@@ -166,6 +171,13 @@ export const MessageInputContainer = ({
         <AIComposerButton
           message={message}
           onComposed={(newMessage) => setMessage(newMessage)}
+          disabled={disabled}
+        />
+        
+        <QuoteButton
+          conversationId={conversationId}
+          leadId={leadId}
+          sectorId={sectorId}
           disabled={disabled}
         />
         
