@@ -176,8 +176,16 @@ serve(async (req) => {
 
     const reversedHistory = (messageHistory || []).reverse();
 
-    // 10. Montar prompt do sistema
-    const systemPrompt = buildSystemPrompt(agentConfig, conversation.contact);
+    // 9.1 Buscar conhecimento relevante da base de conhecimento
+    const relevantKnowledge = await searchRelevantKnowledge(supabase, conversation.sector_id, clientMessage);
+    console.log(`[AI Agent] Found ${relevantKnowledge.length} relevant knowledge items`);
+
+    // 9.2 Buscar templates de resposta relevantes
+    const relevantTemplates = await searchRelevantTemplates(supabase, conversation.sector_id, clientMessage);
+    console.log(`[AI Agent] Found ${relevantTemplates.length} relevant templates`);
+
+    // 10. Montar prompt do sistema com conhecimento integrado
+    const systemPrompt = buildSystemPrompt(agentConfig, conversation.contact, relevantKnowledge, relevantTemplates);
 
     // 11. Montar mensagens para a API
     const aiMessages = [
@@ -329,7 +337,12 @@ function checkEscalationKeywords(message: string, keywords: string[]): boolean {
   return keywords.some(keyword => lowerMessage.includes(keyword.toLowerCase()));
 }
 
-function buildSystemPrompt(config: AIAgentConfig, contact: any): string {
+function buildSystemPrompt(
+  config: AIAgentConfig, 
+  contact: any, 
+  knowledgeItems: Array<{title: string; content: string; category: string}> = [],
+  templates: Array<{name: string; template_content: string; trigger_patterns: string[]}> = []
+): string {
   const toneMap: Record<string, string> = {
     professional: 'profissional, formal e cortês',
     friendly: 'amigável, caloroso e acessível',
@@ -356,6 +369,22 @@ REGRAS IMPORTANTES:
 6. Nunca invente informações sobre produtos, preços ou políticas
 7. Foque em resolver o problema do cliente de forma eficiente`;
 
+  // Add knowledge base items
+  if (knowledgeItems.length > 0) {
+    prompt += `\n\n📚 BASE DE CONHECIMENTO RELEVANTE:`;
+    knowledgeItems.forEach(item => {
+      prompt += `\n- [${item.category.toUpperCase()}] ${item.title}: ${item.content}`;
+    });
+  }
+
+  // Add suggested templates
+  if (templates.length > 0) {
+    prompt += `\n\n💬 TEMPLATES SUGERIDOS (adapte ao contexto):`;
+    templates.forEach(t => {
+      prompt += `\n- ${t.name}: "${t.template_content}"`;
+    });
+  }
+
   if (config.business_context) {
     prompt += `\n\nCONTEXTO DO NEGÓCIO:\n${config.business_context}`;
   }
@@ -369,6 +398,110 @@ REGRAS IMPORTANTES:
   }
 
   return prompt;
+}
+
+// Search relevant knowledge from the knowledge base
+async function searchRelevantKnowledge(
+  supabase: any, 
+  sectorId: string, 
+  message: string
+): Promise<Array<{title: string; content: string; category: string; id: string}>> {
+  try {
+    // Extract keywords from message
+    const keywords = message.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+    
+    if (keywords.length === 0) return [];
+
+    // Search for matching knowledge items
+    const { data, error } = await supabase
+      .from('business_knowledge_base')
+      .select('id, title, content, category, keywords')
+      .eq('sector_id', sectorId)
+      .eq('is_active', true)
+      .order('usage_count', { ascending: false })
+      .limit(10);
+
+    if (error || !data) return [];
+
+    // Filter by keyword matching
+    const matched = data.filter((item: any) => {
+      const itemKeywords = (item.keywords || []).map((k: string) => k.toLowerCase());
+      const itemContent = (item.title + ' ' + item.content).toLowerCase();
+      
+      return keywords.some(kw => 
+        itemKeywords.some((ik: string) => ik.includes(kw)) || 
+        itemContent.includes(kw)
+      );
+    }).slice(0, 5);
+
+    // Update usage count for matched items
+    if (matched.length > 0) {
+      for (const item of matched) {
+        await supabase
+          .from('business_knowledge_base')
+          .update({ 
+            usage_count: (item as any).usage_count + 1,
+            last_used_at: new Date().toISOString()
+          })
+          .eq('id', item.id);
+      }
+    }
+
+    return matched;
+  } catch (error) {
+    console.error('[AI Agent] Error searching knowledge:', error);
+    return [];
+  }
+}
+
+// Search relevant response templates
+async function searchRelevantTemplates(
+  supabase: any, 
+  sectorId: string, 
+  message: string
+): Promise<Array<{name: string; template_content: string; trigger_patterns: string[]; id: string}>> {
+  try {
+    const lowerMessage = message.toLowerCase();
+
+    const { data, error } = await supabase
+      .from('response_templates')
+      .select('id, name, template_content, trigger_patterns')
+      .eq('sector_id', sectorId)
+      .eq('is_active', true)
+      .order('priority', { ascending: false })
+      .limit(20);
+
+    if (error || !data) return [];
+
+    // Filter by trigger pattern matching
+    const matched = data.filter((template: any) => {
+      const patterns = template.trigger_patterns || [];
+      return patterns.some((pattern: string) => 
+        lowerMessage.includes(pattern.toLowerCase())
+      );
+    }).slice(0, 3);
+
+    // Update usage count for matched templates
+    if (matched.length > 0) {
+      for (const template of matched) {
+        const { data: current } = await supabase
+          .from('response_templates')
+          .select('usage_count')
+          .eq('id', template.id)
+          .single();
+          
+        await supabase
+          .from('response_templates')
+          .update({ usage_count: (current?.usage_count || 0) + 1 })
+          .eq('id', template.id);
+      }
+    }
+
+    return matched;
+  } catch (error) {
+    console.error('[AI Agent] Error searching templates:', error);
+    return [];
+  }
 }
 
 async function getOrCreateSession(supabase: any, conversationId: string): Promise<AIAgentSession> {

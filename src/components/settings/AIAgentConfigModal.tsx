@@ -21,7 +21,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Bot, MessageSquare, Clock, AlertTriangle, BookOpen, X } from "lucide-react";
+import { Bot, MessageSquare, Clock, AlertTriangle, BookOpen, Brain } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { KnowledgeBaseManager, ResponseTemplatesEditor, LearningExamplesPanel, KnowledgeInsights } from "@/components/ai-agent";
 import { useAIAgentConfig, AIAgentConfigInsert } from "@/hooks/ai-agent";
 import { Sector } from "@/hooks/useSectors";
 
@@ -222,7 +224,7 @@ export const AIAgentConfigModal = ({ open, onOpenChange, sector }: AIAgentConfig
           </div>
 
           <Tabs defaultValue="persona" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="persona">
                 <MessageSquare className="h-4 w-4 mr-2" />
                 Persona
@@ -238,6 +240,10 @@ export const AIAgentConfigModal = ({ open, onOpenChange, sector }: AIAgentConfig
               <TabsTrigger value="context">
                 <BookOpen className="h-4 w-4 mr-2" />
                 Contexto
+              </TabsTrigger>
+              <TabsTrigger value="dna">
+                <Brain className="h-4 w-4 mr-2" />
+                DNA
               </TabsTrigger>
             </TabsList>
 
@@ -449,6 +455,35 @@ P: Aceitam PIX? R: Sim, aceitamos PIX, cartão e boleto."
                   rows={4}
                 />
               </div>
+            </TabsContent>
+
+            <TabsContent value="dna" className="mt-4">
+              <ScrollArea className="h-[400px] pr-4">
+                <Tabs defaultValue="knowledge" className="w-full">
+                  <TabsList className="grid w-full grid-cols-4 mb-4">
+                    <TabsTrigger value="knowledge">Base de Conhecimento</TabsTrigger>
+                    <TabsTrigger value="templates">Templates</TabsTrigger>
+                    <TabsTrigger value="examples">Exemplos</TabsTrigger>
+                    <TabsTrigger value="insights">Insights</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="knowledge">
+                    <KnowledgeBaseManager sectorId={sector.id} />
+                  </TabsContent>
+                  
+                  <TabsContent value="templates">
+                    <ResponseTemplatesEditor sectorId={sector.id} />
+                  </TabsContent>
+                  
+                  <TabsContent value="examples">
+                    <LearningExamplesPanel sectorId={sector.id} />
+                  </TabsContent>
+                  
+                  <TabsContent value="insights">
+                    <KnowledgeInsights sectorId={sector.id} />
+                  </TabsContent>
+                </Tabs>
+              </ScrollArea>
             </TabsContent>
           </Tabs>
 
