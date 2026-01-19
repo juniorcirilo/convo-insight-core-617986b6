@@ -723,6 +723,134 @@ export type Database = {
           },
         ]
       }
+      lead_qualification_criteria: {
+        Row: {
+          authority_keywords: string[] | null
+          authority_weight: number | null
+          auto_create_lead_threshold: number | null
+          auto_create_leads: boolean | null
+          auto_qualify_threshold: number | null
+          budget_keywords: string[] | null
+          budget_weight: number | null
+          created_at: string | null
+          id: string
+          messages_before_qualification: number | null
+          need_keywords: string[] | null
+          need_weight: number | null
+          qualification_enabled: boolean | null
+          sector_id: string | null
+          timeline_keywords: string[] | null
+          timeline_weight: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          authority_keywords?: string[] | null
+          authority_weight?: number | null
+          auto_create_lead_threshold?: number | null
+          auto_create_leads?: boolean | null
+          auto_qualify_threshold?: number | null
+          budget_keywords?: string[] | null
+          budget_weight?: number | null
+          created_at?: string | null
+          id?: string
+          messages_before_qualification?: number | null
+          need_keywords?: string[] | null
+          need_weight?: number | null
+          qualification_enabled?: boolean | null
+          sector_id?: string | null
+          timeline_keywords?: string[] | null
+          timeline_weight?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          authority_keywords?: string[] | null
+          authority_weight?: number | null
+          auto_create_lead_threshold?: number | null
+          auto_create_leads?: boolean | null
+          auto_qualify_threshold?: number | null
+          budget_keywords?: string[] | null
+          budget_weight?: number | null
+          created_at?: string | null
+          id?: string
+          messages_before_qualification?: number | null
+          need_keywords?: string[] | null
+          need_weight?: number | null
+          qualification_enabled?: boolean | null
+          sector_id?: string | null
+          timeline_keywords?: string[] | null
+          timeline_weight?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_qualification_criteria_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: true
+            referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_qualification_logs: {
+        Row: {
+          ai_reasoning: string | null
+          bant_analysis: Json
+          conversation_id: string | null
+          created_at: string | null
+          id: string
+          lead_id: string | null
+          model_used: string | null
+          new_score: number | null
+          previous_score: number | null
+          score_change: number | null
+          tokens_used: number | null
+          trigger_source: string | null
+        }
+        Insert: {
+          ai_reasoning?: string | null
+          bant_analysis?: Json
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          lead_id?: string | null
+          model_used?: string | null
+          new_score?: number | null
+          previous_score?: number | null
+          score_change?: number | null
+          tokens_used?: number | null
+          trigger_source?: string | null
+        }
+        Update: {
+          ai_reasoning?: string | null
+          bant_analysis?: Json
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          lead_id?: string | null
+          model_used?: string | null
+          new_score?: number | null
+          previous_score?: number | null
+          score_change?: number | null
+          tokens_used?: number | null
+          trigger_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_qualification_logs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_qualification_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_status_history: {
         Row: {
           changed_by: string | null
@@ -771,6 +899,10 @@ export type Database = {
       leads: {
         Row: {
           assigned_to: string | null
+          bant_authority: Json | null
+          bant_budget: Json | null
+          bant_need: Json | null
+          bant_timeline: Json | null
           closed_at: string | null
           company: string | null
           contact_id: string | null
@@ -779,12 +911,17 @@ export type Database = {
           email: string | null
           expected_close_date: string | null
           id: string
+          last_qualification_at: string | null
+          lead_score: number | null
           metadata: Json | null
           name: string
           notes: string | null
           phone: string | null
           pipeline_insight: Json | null
           probability: number | null
+          qualification_data: Json | null
+          qualified_at: string | null
+          qualified_by: string | null
           sector_id: string | null
           source: Database["public"]["Enums"]["lead_source"]
           status: Database["public"]["Enums"]["lead_status"]
@@ -794,6 +931,10 @@ export type Database = {
         }
         Insert: {
           assigned_to?: string | null
+          bant_authority?: Json | null
+          bant_budget?: Json | null
+          bant_need?: Json | null
+          bant_timeline?: Json | null
           closed_at?: string | null
           company?: string | null
           contact_id?: string | null
@@ -802,12 +943,17 @@ export type Database = {
           email?: string | null
           expected_close_date?: string | null
           id?: string
+          last_qualification_at?: string | null
+          lead_score?: number | null
           metadata?: Json | null
           name: string
           notes?: string | null
           phone?: string | null
           pipeline_insight?: Json | null
           probability?: number | null
+          qualification_data?: Json | null
+          qualified_at?: string | null
+          qualified_by?: string | null
           sector_id?: string | null
           source?: Database["public"]["Enums"]["lead_source"]
           status?: Database["public"]["Enums"]["lead_status"]
@@ -817,6 +963,10 @@ export type Database = {
         }
         Update: {
           assigned_to?: string | null
+          bant_authority?: Json | null
+          bant_budget?: Json | null
+          bant_need?: Json | null
+          bant_timeline?: Json | null
           closed_at?: string | null
           company?: string | null
           contact_id?: string | null
@@ -825,12 +975,17 @@ export type Database = {
           email?: string | null
           expected_close_date?: string | null
           id?: string
+          last_qualification_at?: string | null
+          lead_score?: number | null
           metadata?: Json | null
           name?: string
           notes?: string | null
           phone?: string | null
           pipeline_insight?: Json | null
           probability?: number | null
+          qualification_data?: Json | null
+          qualified_at?: string | null
+          qualified_by?: string | null
           sector_id?: string | null
           source?: Database["public"]["Enums"]["lead_source"]
           status?: Database["public"]["Enums"]["lead_status"]
@@ -1688,6 +1843,8 @@ export type Database = {
           instance_id: string
           last_message_at: string | null
           last_message_preview: string | null
+          last_qualification_at: string | null
+          messages_since_qualification: number | null
           metadata: Json | null
           sector_id: string | null
           status: string | null
@@ -1703,6 +1860,8 @@ export type Database = {
           instance_id: string
           last_message_at?: string | null
           last_message_preview?: string | null
+          last_qualification_at?: string | null
+          messages_since_qualification?: number | null
           metadata?: Json | null
           sector_id?: string | null
           status?: string | null
@@ -1718,6 +1877,8 @@ export type Database = {
           instance_id?: string
           last_message_at?: string | null
           last_message_preview?: string | null
+          last_qualification_at?: string | null
+          messages_since_qualification?: number | null
           metadata?: Json | null
           sector_id?: string | null
           status?: string | null
