@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { MoreVertical, Edit, Archive, Download, CheckCircle, RotateCcw, RefreshCw, UserPlus, Building2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAIAgentSession } from '@/hooks/ai-agent';
 import { useConversationAssignment } from '@/hooks/whatsapp/useConversationAssignment';
 import { useTickets } from '@/hooks/useTickets';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -54,6 +55,8 @@ export function ChatHeaderMenu({ conversation, onRefresh, onAnalyze, isAnalyzing
 
   const isInQueue = !conversation?.assigned_to;
 
+  const { assumeConversation, setHybridMode } = useAIAgentSession(conversation?.id);
+
   const handleArchive = () => {
     archiveConversation(conversation.id, {
       onSuccess: () => onRefresh?.(),
@@ -99,16 +102,23 @@ export function ChatHeaderMenu({ conversation, onRefresh, onAnalyze, isAnalyzing
           <DropdownMenuSeparator />
           {isInQueue && (
             <DropdownMenuItem onClick={() => {
-              if (conversation?.id && user?.id) assignConversation({ conversationId: conversation.id, assignedTo: user.id });
+              if (conversation?.id && user?.id) assumeConversation.mutate(user.id);
             }}>
               <UserPlus className="mr-2 h-4 w-4" />
-              Assumir
+              Assumir Conversa
             </DropdownMenuItem>
           )}
 
           <DropdownMenuItem onClick={() => onAnalyze?.()} disabled={isAnalyzing}>
             <RefreshCw className={`mr-2 h-4 w-4 ${isAnalyzing ? 'animate-spin' : ''}`} />
             Analisar
+          </DropdownMenuItem>
+
+          <DropdownMenuItem onClick={() => {
+            if (conversation?.id && user?.id) setHybridMode.mutate(user.id);
+          }}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Modo Híbrido
           </DropdownMenuItem>
 
           {ticket && (

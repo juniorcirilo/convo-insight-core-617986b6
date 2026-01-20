@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bot, User, RefreshCcw, UserPlus } from "lucide-react";
+import { Bot, User, RefreshCw, UserPlus } from "lucide-react";
 import { useAIAgentSession, ConversationMode } from "@/hooks/ai-agent";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -19,7 +19,7 @@ interface ConversationModeControlsProps {
 const modeConfig: Record<ConversationMode, { icon: typeof Bot; label: string; color: string }> = {
   ai: { icon: Bot, label: 'I.A', color: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
   human: { icon: User, label: 'Humano', color: 'bg-green-500/10 text-green-500 border-green-500/20' },
-  hybrid: { icon: RefreshCcw, label: 'Híbrido', color: 'bg-purple-500/10 text-purple-500 border-purple-500/20' },
+  hybrid: { icon: RefreshCw, label: 'Híbrido', color: 'bg-purple-500/10 text-purple-500 border-purple-500/20' },
 };
 
 export const ConversationModeControls = ({ conversationId, conversationMode }: ConversationModeControlsProps) => {
@@ -59,9 +59,9 @@ export const ConversationModeControls = ({ conversationId, conversationMode }: C
       {/* Menu de controle */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-7 px-2">
-            <RefreshCcw className="h-3.5 w-3.5" />
-          </Button>
+            <Button variant="ghost" size="sm" className="h-7 px-2">
+            <RefreshCw className="h-3.5 w-3.5" />
+            </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           {currentMode !== 'human' && (
@@ -78,7 +78,7 @@ export const ConversationModeControls = ({ conversationId, conversationMode }: C
           )}
           {currentMode !== 'hybrid' && (
             <DropdownMenuItem onClick={handleSetHybrid}>
-              <RefreshCcw className="h-4 w-4 mr-2" />
+              <RefreshCw className="h-4 w-4 mr-2" />
               Modo Híbrido
             </DropdownMenuItem>
           )}
