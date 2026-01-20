@@ -110,24 +110,24 @@ const ConversationItem = ({
         <div
           onClick={onClick}
           className={`
-            flex items-center gap-3 p-3 cursor-pointer transition-colors
+            flex flex-col gap-2 p-3 cursor-pointer transition-colors w-full
             hover:bg-sidebar-accent
             ${isSelected ? "bg-sidebar-accent" : ""}
             ${contact?.is_group ? "border-l-2 border-l-primary/50" : ""}
           `}
         >
-          {/* Avatar */}
-          <Avatar className={`h-10 w-10 shrink-0 ${contact?.is_group ? "rounded-lg" : ""}`}>
-            <AvatarImage src={profilePicture || undefined} alt={contactName} />
-            <AvatarFallback className={`bg-primary/10 text-primary text-xs font-medium ${contact?.is_group ? "rounded-lg" : ""}`}>
-              {contact?.is_group ? "👥" : getInitials(contactName)}
-            </AvatarFallback>
-          </Avatar>
+          {/* Header Row: Avatar + Name/Time */}
+          <div className="flex items-center gap-3 w-full">
+            {/* Avatar */}
+            <Avatar className={`h-10 w-10 shrink-0 ${contact?.is_group ? "rounded-lg" : ""}`}>
+              <AvatarImage src={profilePicture || undefined} alt={contactName} />
+              <AvatarFallback className={`bg-primary/10 text-primary text-xs font-medium ${contact?.is_group ? "rounded-lg" : ""}`}>
+                {contact?.is_group ? "👥" : getInitials(contactName)}
+              </AvatarFallback>
+            </Avatar>
 
-          {/* Content */}
-          <div className="flex-1 min-w-0">
-            {/* Name and timestamp row */}
-            <div className="flex items-center justify-between gap-2 mb-1">
+            {/* Name and timestamp - Full width */}
+            <div className="flex items-center justify-between gap-2 flex-1 min-w-0">
               <div className="flex items-center gap-1.5 min-w-0 flex-1">
                 {contact?.is_group && (
                   <span className="text-xs text-muted-foreground">👥</span>
@@ -156,42 +156,45 @@ const ConversationItem = ({
                 {formatTimestamp(lastMessageTime)}
               </span>
             </div>
+          </div>
 
-            {/* Preview and indicators row */}
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                <p className="text-sm text-muted-foreground truncate">
-                  {lastMessage || "Sem mensagens"}
-                </p>
-                {foundByContent && (
-                  <Search className="h-3 w-3 text-muted-foreground shrink-0" />
-                )}
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <ResponseStatusIndicator
-                  isLastMessageFromMe={conversation.isLastMessageFromMe}
-                  conversationStatus={conversation.status || undefined}
-                />
-                {unreadCount > 0 && (
-                  <Badge
-                    variant="default"
-                    className="h-5 min-w-5 px-1.5 rounded-full bg-primary text-primary-foreground text-xs font-medium flex items-center justify-center"
-                  >
-                    {unreadCount > 99 ? "99+" : unreadCount}
-                  </Badge>
-                )}
-              </div>
+          {/* Preview and indicators row */}
+          <div className="flex items-center justify-between gap-2 w-full">
+            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+              <p className="text-sm text-muted-foreground truncate">
+                {lastMessage || "Sem mensagens"}
+              </p>
+              {foundByContent && (
+                <Search className="h-3 w-3 text-muted-foreground shrink-0" />
+              )}
             </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <ResponseStatusIndicator
+                isLastMessageFromMe={conversation.isLastMessageFromMe}
+                conversationStatus={conversation.status || undefined}
+              />
+              {unreadCount > 0 && (
+                <Badge
+                  variant="default"
+                  className="h-5 min-w-5 px-1.5 rounded-full bg-primary text-primary-foreground text-xs font-medium flex items-center justify-center"
+                >
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </Badge>
+              )}
+            </div>
+          </div>
 
-            {/* Topics row */}
+          {/* Footer: Topics, Status and Assignment - Full width */}
+          <div className="flex items-center justify-between gap-2 w-full">
+            {/* Topics */}
             {topics.length > 0 && (
-              <div className="mt-1.5">
+              <div className="flex-1 min-w-0">
                 <TopicBadges topics={topics} size="sm" maxTopics={2} />
               </div>
             )}
-
-            {/* Status and Assignment row */}
-            <div className="mt-1.5 flex items-center gap-2">
+            
+            {/* Status and Assignment */}
+            <div className="flex items-center gap-2 shrink-0">
               <QueueIndicator
                 assignedTo={conversation.assigned_to}
                 assignedToName={conversation.assigned_profile?.full_name}

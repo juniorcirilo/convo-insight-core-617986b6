@@ -111,9 +111,10 @@ serve(async (req) => {
 
     // 3. Call GROQ chat completions
     let aiResponse = '';
+    const { getGroqModel } = await import('../groq-models.ts');
+    const model = getGroqModel('chat_fast');
+    
     try {
-      const { getGroqModel } = await import('../groq-models.ts');
-      const model = getGroqModel('chat_fast');
       const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {

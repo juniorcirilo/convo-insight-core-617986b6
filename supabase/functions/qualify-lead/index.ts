@@ -7,8 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const LOVABLE_API_BASE = "https://api.lovable.dev/v1";
-
 interface BANTAnalysis {
   budget: {
     detected: boolean;
@@ -201,18 +199,29 @@ RETORNE APENAS JSON (sem markdown):
   "reasoning": "explicação breve do porquê desta análise"
 }`;
 
-    // 6. Chamar IA via Lovable Gateway
-    console.log('[qualify-lead] Calling AI for BANT analysis...');
+    // 6. Chamar IA via GROQ
+    console.log('[qualify-lead] Calling GROQ AI for BANT analysis...');
     
-    const aiResponse = await fetch(`${LOVABLE_API_BASE}/chat/completions`, {
+    const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
+    if (!GROQ_API_KEY) {
+      console.warn('[qualify-lead] GROQ_API_KEY not configured');
+      return new Response(
+        JSON.stringify({ error: 'AI not configured (GROQ_API_KEY missing)' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { getGroqModel } = await import('../groq-models.ts');
+    const model = getGroqModel('chat_complex');
+
+    const aiResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseServiceKey}`,
-        'x-supabase-project-ref': supabaseUrl.replace('https://', '').replace('.supabase.co', ''),
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model,
         messages: [
           {
             role: 'system',
@@ -230,7 +239,7 @@ RETORNE APENAS JSON (sem markdown):
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error('[qualify-lead] AI API error:', errorText);
+      console.error('[qualify-lead] GROQ AI API error:', errorText);
       throw new Error(`AI API error: ${aiResponse.status}`);
     }
 
@@ -418,7 +427,7 @@ RETORNE APENAS JSON (sem markdown):
         new_score: newScore,
         bant_analysis: bantAnalysis,
         ai_reasoning: bantAnalysis.reasoning,
-        model_used: 'google/gemini-2.5-flash',
+        model_used: model,
         tokens_used: tokensUsed,
         trigger_source: triggerSource,
       });
