@@ -83,17 +83,7 @@ export function TicketIndicator({ conversationId, sectorGeraTicket }: TicketIndi
           <SLAIndicator ticket={ticket} slaConfig={slaConfig} />
         )}
 
-        {ticket.status === 'aberto' && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs"
-            onClick={handleStartAttending}
-            disabled={updateTicketStatus.isPending}
-          >
-            Iniciar Atendimento
-          </Button>
-        )}
+        {/* Iniciar Atendimento moved to ChatHeader consolidated actions dropdown */}
 
         {ticket.status === 'em_atendimento' && (
           <>

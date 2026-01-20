@@ -86,9 +86,26 @@ export const useWhatsAppMessages = (conversationId: string | null) => {
         filter: `conversation_id=eq.${conversationId}`
       }, (payload) => {
         queryClient.setQueryData(['whatsapp', 'messages', conversationId], (old: Message[] = []) => {
-          return old.map(msg => 
-            msg.id === payload.new.id ? { ...msg, ...payload.new as Message } : msg
-          );
+          // Prefer matching by primary `id` if present
+          const newRow = payload.new as Message;
+          let found = false;
+          const updated = old.map(msg => {
+            if (msg.id === newRow.id) {
+              found = true;
+              return { ...msg, ...newRow };
+            }
+            return msg;
+          });
+
+          if (found) return updated;
+
+          // Fallback: match by `message_id` (external provider id)
+          if ((newRow as any).message_id) {
+            return old.map(msg => msg.message_id === (newRow as any).message_id ? { ...msg, ...newRow } : msg);
+          }
+
+          // No match — return original list
+          return old;
         });
       })
       .subscribe();

@@ -8,6 +8,14 @@ import { Link } from "react-router-dom";
 import { useConversationTopics } from "@/hooks/whatsapp/useConversationTopics";
 import { TopicBadges } from "./topics/TopicBadges";
 import { ChatHeaderMenu } from "./ChatHeaderMenu";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
+import { ChevronDown } from 'lucide-react';
+import { useTickets } from '@/hooks/useTickets';
 import { QueueIndicator } from "@/components/conversations/QueueIndicator";
 import { AssignAgentDialog } from "@/components/conversations/AssignAgentDialog";
 import { EditContactModal } from "./EditContactModal";
@@ -69,6 +77,8 @@ export const ChatHeader = ({ contact, sentiment, isAnalyzing, onAnalyze, convers
   const canAssign = isAdmin || isSupervisor;
   const isAssignedToMe = conversation?.assigned_to === user?.id;
   const canTransfer = canAssign || isAssignedToMe;
+
+  const { ticket, updateTicketStatus } = useTickets(conversationId);
 
   const handleAssumeFromQueue = () => {
     if (conversationId && user?.id) {
@@ -151,47 +161,55 @@ export const ChatHeader = ({ contact, sentiment, isAnalyzing, onAnalyze, convers
             />
           )}
           
-          {/* Ticket Indicator */}
+          {/* Ticket Indicator (badge + SLA only) */}
           {conversationId && (
             <TicketIndicator 
               conversationId={conversationId} 
               sectorGeraTicket={sectorGeraTicket} 
             />
           )}
-          {/* Assignment buttons */}
-          {conversation && isInQueue && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleAssumeFromQueue}
-            >
-              <UserPlus className="w-4 h-4 mr-2" />
-              Assumir
-            </Button>
-          )}
-
-          {conversation && !isInQueue && canTransfer && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsAssignDialogOpen(true)}
-            >
-              <Repeat className="w-4 h-4 mr-2" />
-              Transferir
-            </Button>
-          )}
 
           <SentimentCard sentiment={sentiment} />
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onAnalyze}
-            disabled={isAnalyzing}
-          >
-            <RefreshCw className={`w-4 h-4 ${isAnalyzing ? 'animate-spin' : ''}`} />
-            <span className="ml-2">Analisar</span>
-          </Button>
+
+          {/* Consolidated actions dropdown: Assumir, Analisar, Iniciar Atendimento */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="text-sm">
+                Ações
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              {conversation && isInQueue && (
+                <DropdownMenuItem onClick={handleAssumeFromQueue}>
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Assumir
+                </DropdownMenuItem>
+              )}
+
+              <DropdownMenuItem onClick={onAnalyze} disabled={isAnalyzing}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${isAnalyzing ? 'animate-spin' : ''}`} />
+                Analisar
+              </DropdownMenuItem>
+
+              {conversation && conversationId && (
+                <DropdownMenuItem
+                  onClick={async () => {
+                    if (!ticket || ticket.status !== 'aberto') return;
+                    try {
+                      updateTicketStatus.mutate({ ticketId: ticket.id, status: 'em_atendimento' });
+                    } catch (e) {
+                      // noop
+                    }
+                  }}
+                  disabled={!ticket || ticket.status !== 'aberto'}
+                >
+                  <Building2 className="mr-2 h-4 w-4" />
+                  Iniciar Atendimento
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {conversation && (
             <ChatHeaderMenu conversation={conversation} onRefresh={onRefresh} />
