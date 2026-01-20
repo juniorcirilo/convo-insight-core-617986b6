@@ -43,7 +43,6 @@ const formSchema = z.object({
   instance_id_external: z.string().optional(),
   api_url: z.string().min(1, "URL da API obrigatória").url("URL inválida"),
   api_key: z.string().min(1, "Token/API Key obrigatório"),
-  webhook_endpoint: z.string().optional(),
   provider_type: z.enum(["self_hosted", "cloud"]),
 });
 
@@ -63,13 +62,12 @@ export const AddInstanceDialog = ({ open, onOpenChange }: AddInstanceDialogProps
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
+      defaultValues: {
       name: "",
       instance_name: "",
       instance_id_external: "",
       api_url: "",
       api_key: "",
-      webhook_endpoint: '',
       provider_type: "self_hosted",
     },
   });
@@ -140,7 +138,6 @@ export const AddInstanceDialog = ({ open, onOpenChange }: AddInstanceDialogProps
         instance_id_external: values.provider_type === 'cloud' ? values.instance_id_external : undefined,
         api_url: values.api_url,
         api_key: values.api_key,
-        webhook_endpoint: (values as any).webhook_endpoint,
         provider_type: values.provider_type,
       });
 
@@ -161,7 +158,7 @@ export const AddInstanceDialog = ({ open, onOpenChange }: AddInstanceDialogProps
         }
       }
       // if createdInstanceId is available, also try to auto-apply webhooks
-      if (instanceId) {
+        if (instanceId) {
         // try apply with instanceId so function can read secrets server-side
         try {
           await handleApplyToEvolution(false, instanceId);
@@ -208,7 +205,7 @@ export const AddInstanceDialog = ({ open, onOpenChange }: AddInstanceDialogProps
       try {
         const payload = {
           instanceId,
-          webhookUrl: vals.webhook_endpoint || `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/evolution-webhook`,
+          webhookUrl: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/evolution-webhook`,
           base64: webhookBase64,
           events: selectedEvents,
           force,
@@ -258,16 +255,14 @@ export const AddInstanceDialog = ({ open, onOpenChange }: AddInstanceDialogProps
 
     // No instanceId: validate client-provided fields before invoking
     const instanceIdentifier = vals.provider_type === 'cloud' ? vals.instance_id_external || vals.instance_name : vals.instance_name;
-    const webhook = vals.webhook_endpoint || `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/evolution-webhook`;
 
-    if (!vals.api_url || !vals.api_key || !instanceIdentifier || !webhook) {
+    if (!vals.api_url || !vals.api_key || !instanceIdentifier) {
       console.warn('Missing required parameters for configure-evolution-instance', {
         api_url: vals.api_url,
         api_key: !!vals.api_key,
         instanceIdentifier,
-        webhook,
       });
-      toast.error('Preencha `api_url`, `api_key`, `instance name` e `webhook endpoint` antes de aplicar.');
+      toast.error('Preencha `api_url`, `api_key` e `instance name` antes de aplicar.');
       return;
     }
 
@@ -277,7 +272,7 @@ export const AddInstanceDialog = ({ open, onOpenChange }: AddInstanceDialogProps
         api_url: vals.api_url,
         api_key: vals.api_key,
         instanceIdentifier,
-        webhookUrl: webhook,
+        webhookUrl: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/evolution-webhook`,
         base64: webhookBase64,
         events: selectedEvents,
         force,
@@ -521,25 +516,12 @@ export const AddInstanceDialog = ({ open, onOpenChange }: AddInstanceDialogProps
 
                   <TabsContent value="webhooks">
                     <div className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="webhook_endpoint"
-                        render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Webhook endpoint (opcional)</FormLabel>
-                            <FormControl>
-                              <Input placeholder="https://seu-evolution.com/instance/settings/webhook/{instanceName}" {...field} />
-                            </FormControl>
-                            <FormMessage />
+                            <div className="flex items-center gap-2">
+                              <input id="webhookBase64" type="checkbox" checked={webhookBase64} onChange={(e) => setWebhookBase64(e.target.checked)} />
+                              <label htmlFor="webhookBase64">Webhook Base64</label>
+                            </div>
                           </FormItem>
-                        )}
-                      />
-                      <FormItem>
-                        <div className="flex items-center gap-2">
-                          <input id="webhookBase64" type="checkbox" checked={webhookBase64} onChange={(e) => setWebhookBase64(e.target.checked)} />
-                          <label htmlFor="webhookBase64">Webhook Base64</label>
-                        </div>
-                      </FormItem>
                       <FormItem>
                         <FormLabel>Eventos (Evolution)</FormLabel>
                         <div className="flex gap-2 flex-wrap">

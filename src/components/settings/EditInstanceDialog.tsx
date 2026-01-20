@@ -40,9 +40,8 @@ const formSchema = z.object({
     .min(1, "Nome da instância obrigatório")
     .regex(/^[a-zA-Z0-9_-]+$/, "Apenas letras, números, _ e -"),
   instance_id_external: z.string().optional(),
-  api_url: z.string().min(1, "URL da API obrigatória").url("URL inválida"),
-  api_key: z.string().min(1, "Token/API Key obrigatório"),
-  webhook_endpoint: z.string().optional(),
+  api_url: z.string().optional(),
+  api_key: z.string().optional(),
   provider_type: z.enum(["self_hosted", "cloud"]),
 });
 
@@ -70,7 +69,6 @@ export const EditInstanceDialog = ({
       instance_id_external: instance.instance_id_external || '',
       api_url: '',
       api_key: '',
-      webhook_endpoint: '',
       provider_type: (instance.provider_type as "self_hosted" | "cloud") || 'self_hosted',
     },
   });
@@ -97,13 +95,12 @@ export const EditInstanceDialog = ({
           }
 
           const data = res.data;
-          if (data && data.success) {
+            if (data && data.success) {
             const secrets = data.secrets;
             const instanceData = data.instance;
             if (secrets) {
               form.setValue('api_url', secrets.api_url || '');
               form.setValue('api_key', secrets.api_key || '');
-              form.setValue('webhook_endpoint', secrets.webhook_endpoint || '');
             }
             // Also update form fields from instance if needed
             if (instanceData) {
@@ -115,10 +112,10 @@ export const EditInstanceDialog = ({
           } else {
             console.warn('get-instance-details returned no data or failed', res.error, res.data);
             // fallback to client-side attempt if allowed by RLS (may return empty)
-            try {
+              try {
               const { data: secrets, error: secErr } = await supabase
                 .from('whatsapp_instance_secrets')
-                .select('api_url,api_key,webhook_endpoint')
+                .select('api_url,api_key')
                 .eq('instance_id', instance.id)
                 .maybeSingle();
 
@@ -129,7 +126,6 @@ export const EditInstanceDialog = ({
               if (secrets) {
                 form.setValue('api_url', secrets.api_url || '');
                 form.setValue('api_key', secrets.api_key || '');
-                form.setValue('webhook_endpoint', secrets.webhook_endpoint || '');
               } else {
                 console.log('No secrets returned from client-side fetch (RLS may block access)');
               }
@@ -162,7 +158,6 @@ export const EditInstanceDialog = ({
       instance_name: instance.instance_name,
       instance_id_external: instance.instance_id_external || '',
       api_url: '',
-      webhook_endpoint: '',
       api_key: '',
       provider_type: (instance.provider_type as "self_hosted" | "cloud") || 'self_hosted',
     });
@@ -188,20 +183,15 @@ export const EditInstanceDialog = ({
     const values = form.getValues();
 
     const instanceIdentifier = values.provider_type === 'cloud' ? values.instance_id_external || values.instance_name : values.instance_name;
-    // prefer explicit webhook endpoint set on instance; otherwise use our functions URL
-    const webhookUrl = values.webhook_endpoint && values.webhook_endpoint.length > 0
-      ? values.webhook_endpoint
-      : `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/evolution-webhook`;
 
     // Validate required parameters before invoking the Edge Function
-    if (!values.api_url || !values.api_key || !instanceIdentifier || !webhookUrl) {
+    if (!values.api_url || !values.api_key || !instanceIdentifier) {
       console.warn('Missing required parameters for configure-evolution-instance', {
         api_url: values.api_url,
         api_key: !!values.api_key,
         instanceIdentifier,
-        webhookUrl,
       });
-      toast.error('Preencha `api_url`, `api_key`, `instance name` e `webhook endpoint` antes de aplicar.');
+      toast.error('Preencha `api_url`, `api_key` e `instance name` antes de aplicar.');
       return;
     }
 
@@ -212,8 +202,7 @@ export const EditInstanceDialog = ({
         api_url: values.api_url,
         api_key: values.api_key,
         instanceIdentifier,
-        webhookUrl,
-        webhook_endpoint: values.webhook_endpoint,
+        webhookUrl: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/evolution-webhook`,
         events: selectedEvents,
         force,
       };
@@ -397,19 +386,7 @@ export const EditInstanceDialog = ({
 
               <TabsContent value="webhooks">
                 <div className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="webhook_endpoint"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Webhook Endpoint (full URL)</FormLabel>
-                        <FormControl>
-                          <Input placeholder="https://example.com/manager/configureWebhooks/{instanceName}" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  
                   <FormItem>
                     <div className="flex items-center gap-2">
                       <input id="editWebhookBase64" type="checkbox" checked={webhookBase64} onChange={(e) => setWebhookBase64(e.target.checked)} />
