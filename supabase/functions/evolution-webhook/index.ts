@@ -1155,14 +1155,20 @@ async function processMessageUpdate(payload: EvolutionWebhookPayload, supabase: 
 
     console.log('[evolution-webhook] Processing message update:', updates);
 
-    // Extract status from update
+    // Determine status from multiple possible fields (status, ack, state, type)
     let status = 'sent';
-    if (updates.status === 3 || updates.status === 'READ') status = 'read';
-    else if (updates.status === 2 || updates.status === 'DELIVERY_ACK') status = 'delivered';
-    else if (updates.status === 1 || updates.status === 'SERVER_ACK') status = 'sent';
+    const rawStatus = updates.status ?? updates.ack ?? updates.state ?? updates.type ?? updates.statusText ?? null;
 
-    // Update all messages matching the key
-    const messageId = updates.key?.id;
+    if (rawStatus !== null) {
+      const s = String(rawStatus).toUpperCase();
+      if (s === '3' || s === 'READ' || s.includes('READ')) status = 'read';
+      else if (s === '2' || s === 'DELIVERED' || s.includes('DELIVERY') || s.includes('DELIVERED') || s.includes('DELIVERY_ACK')) status = 'delivered';
+      else if (s === '1' || s === 'SENT' || s.includes('SERVER_ACK') || s.includes('ACK')) status = 'sent';
+    }
+
+    // Try to locate message by id first
+    const messageId = updates.key?.id || updates.message?.key?.id || updates.messageId || updates.id;
+
     if (messageId) {
       const { error } = await supabase
         .from('whatsapp_messages')
@@ -1170,10 +1176,41 @@ async function processMessageUpdate(payload: EvolutionWebhookPayload, supabase: 
         .eq('message_id', messageId);
 
       if (error) {
-        console.error('[evolution-webhook] Error updating message status:', error);
+        console.error('[evolution-webhook] Error updating message status by id:', error);
       } else {
-        console.log('[evolution-webhook] Message status updated to:', status);
+        console.log('[evolution-webhook] Message status updated by id to:', status, 'id:', messageId);
       }
+      return;
+    }
+
+    // If no messageId, attempt to match by remote_jid + timestamp (within small tolerance)
+    const remoteJid = updates.key?.remoteJid || updates.remoteJid || updates.message?.key?.remoteJid;
+    const ts = updates.timestamp || updates.messageTimestamp || updates.t || updates.message?.messageTimestamp;
+
+    if (remoteJid && ts) {
+      try {
+        // Convert timestamp to ISO and define tolerance window +-5 seconds
+        const tsMs = Number(ts) * (String(ts).length > 10 ? 1 : 1000);
+        const from = new Date(tsMs - 5000).toISOString();
+        const to = new Date(tsMs + 5000).toISOString();
+
+        const { error: qErr } = await supabase
+          .from('whatsapp_messages')
+          .update({ status })
+          .eq('remote_jid', remoteJid)
+          .gte('timestamp', from)
+          .lte('timestamp', to);
+
+        if (qErr) {
+          console.error('[evolution-webhook] Error updating message status by remote_jid/timestamp:', qErr);
+        } else {
+          console.log('[evolution-webhook] Message status updated by remote_jid/timestamp to:', status);
+        }
+      } catch (e) {
+        console.error('[evolution-webhook] Error matching message by timestamp:', e);
+      }
+    } else {
+      console.log('[evolution-webhook] No message id or timestamp found to match status update');
     }
   } catch (error) {
     console.error('[evolution-webhook] Error in processMessageUpdate:', error);
