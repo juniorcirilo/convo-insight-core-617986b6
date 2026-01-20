@@ -139,7 +139,7 @@ export const ChatHeader = ({ contact, sentiment, isAnalyzing, onAnalyze, convers
             <ConversationModeControls conversationId={conversationId || null} conversationMode={conversation?.conversation_mode} />
           </div>
 
-          {/* Then queue, ticket and sentiment */}
+          {/* Then queue and ticket */}
           <div className="flex items-center gap-2">
             <QueueIndicator
               assignedTo={conversation.assigned_to}
@@ -148,7 +148,6 @@ export const ChatHeader = ({ contact, sentiment, isAnalyzing, onAnalyze, convers
             {conversationId && (
               <TicketIndicator conversationId={conversationId} sectorGeraTicket={sectorGeraTicket} />
             )}
-            <SentimentCard sentiment={sentiment} />
           </div>
         </div>
       )}

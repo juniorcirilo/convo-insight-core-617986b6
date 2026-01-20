@@ -78,10 +78,7 @@ export function TicketIndicator({ conversationId, sectorGeraTicket }: TicketIndi
           </span>
         </Badge>
 
-        {/* SLA Indicator */}
-        {ticket.status !== 'finalizado' && slaConfig && (
-          <SLAIndicator ticket={ticket} slaConfig={slaConfig} />
-        )}
+        {/* SLA Indicator removed */}
 
         {/* Iniciar Atendimento moved to ChatHeader consolidated actions dropdown */}
 

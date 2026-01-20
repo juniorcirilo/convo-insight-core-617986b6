@@ -2,6 +2,11 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { ChevronLeft, ChevronRight, MessageSquare } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { useWhatsAppSentiment } from '@/hooks/whatsapp';
+import { useTickets } from '@/hooks/useTickets';
+import { useSLAConfig } from '@/hooks/admin/useSLAConfig';
+import { SLAIndicator } from '@/components/admin/SLAIndicator';
 import { ConversationSentiment } from './ConversationSentiment';
 import { ConversationSummaries } from './ConversationSummaries';
 import { ConversationNotes } from './ConversationNotes';
@@ -84,6 +89,14 @@ export function ConversationDetailsSidebar({
           {contactName && (
             <p className="text-xs text-muted-foreground">{contactName}</p>
           )}
+          {/* Small indicators: SLA + Sentiment status */}
+          <div className="mt-2 flex items-center gap-2">
+            {/* SLA indicator (if ticket exists and SLA config present) */}
+            <SLAInlineIndicator conversationId={conversationId} />
+
+            {/* Sentiment quick badge */}
+            <SentimentQuickBadge conversationId={conversationId} />
+          </div>
         </div>
         <Button variant="ghost" size="icon" onClick={onToggleCollapse}>
           <ChevronRight className="h-4 w-4" />
