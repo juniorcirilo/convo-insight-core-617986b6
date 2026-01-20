@@ -15,6 +15,30 @@ interface ConversationDetailsSidebarProps {
   onToggleCollapse: () => void;
 }
 
+function SLAInlineIndicator({ conversationId }: { conversationId: string | null }) {
+  const { ticket } = useTickets(conversationId || undefined);
+  const { data: slaConfigMap } = useSLAConfig();
+
+  if (!ticket) return null;
+  const slaConfig = slaConfigMap?.[ticket.prioridade] || slaConfigMap?.['media'] || null;
+  if (!slaConfig) return null;
+
+  return (
+    <SLAIndicator ticket={ticket} slaConfig={slaConfig} />
+  );
+}
+
+function SentimentQuickBadge({ conversationId }: { conversationId: string | null }) {
+  const { sentiment, isLoading } = useWhatsAppSentiment(conversationId);
+
+  if (isLoading) return null;
+  if (sentiment) return null;
+
+  return (
+    <Badge variant="outline" className="text-xs">Sem análise</Badge>
+  );
+}
+
 export function ConversationDetailsSidebar({
   conversationId,
   contactName,
@@ -60,7 +84,6 @@ export function ConversationDetailsSidebar({
           {contactName && (
             <p className="text-xs text-muted-foreground">{contactName}</p>
           )}
-          {/* Header buttons removed - moved to chat header */}
         </div>
         <Button variant="ghost" size="icon" onClick={onToggleCollapse}>
           <ChevronRight className="h-4 w-4" />
