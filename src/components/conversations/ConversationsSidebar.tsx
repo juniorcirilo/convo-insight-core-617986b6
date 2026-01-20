@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Search, Plus, Settings, Loader2, BarChart3, ChevronRight, ChevronLeft, MessageSquare, Users, TrendingUp, Monitor, LogOut } from "lucide-react";
+import { Search, Plus, Settings, Loader2, BarChart3, ChevronRight, ChevronLeft, MessageSquare, Users, TrendingUp, Monitor, LogOut, MessageCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import ConversationItem from "./ConversationItem";
 import QuickFilterPills from "./QuickFilterPills";
 import NewConversationModal from "./NewConversationModal";
 import { ConversationFiltersPopover } from "./ConversationFiltersPopover";
-import { NotificationToggle } from "@/components/notifications/NotificationToggle";
+// NotificationToggle removed from header per request
 import { UserMenu } from "@/components/auth/UserMenu";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -221,20 +221,16 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
       <div className="p-3 border-b border-sidebar-border">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <UserMenu />
+            {/* Livachat Logo */}
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-green-500 flex items-center justify-center">
+                <MessageCircle className="h-5 w-5 text-white" />
+              </div>
+              <span className="text-lg font-bold text-green-500">livechat</span>
+            </div>
           </div>
           <div className="flex items-center gap-1">
-            <NotificationToggle />
-            {onToggleCollapse && (
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={onToggleCollapse}
-                title="Recolher"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-            )}
+            <UserMenu compact />
           </div>
         </div>
       </div>
