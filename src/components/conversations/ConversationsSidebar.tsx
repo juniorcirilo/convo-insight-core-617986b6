@@ -3,6 +3,7 @@ import { Search, Plus, Settings, Loader2, BarChart3, ChevronRight, ChevronLeft, 
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+// dropdown imports removed; UserMenu handles dropdown
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useWhatsAppConversations } from "@/hooks/whatsapp";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -215,45 +216,15 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
   };
 
   return (
-    <div className="flex flex-col h-full w-96 bg-sidebar">
+    <div className="flex flex-col h-full w-full bg-sidebar">
       {/* Title Header */}
       <div className="p-3 border-b border-sidebar-border">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h1 className="text-lg font-semibold">Conversas</h1>
-            <UserMenu compact />
+            <UserMenu />
           </div>
           <div className="flex items-center gap-1">
             <NotificationToggle />
-            <Link to="/whatsapp/contatos">
-              <Button variant="ghost" size="icon" title="Contatos">
-                <Users className="h-5 w-5" />
-              </Button>
-            </Link>
-            <Link to="/whatsapp/relatorio">
-              <Button variant="ghost" size="icon" title="Relatórios">
-                <BarChart3 className="h-5 w-5" />
-              </Button>
-            </Link>
-            <Link to="/vendas">
-              <Button variant="ghost" size="icon" title="Dashboard de Vendas">
-                <TrendingUp className="h-5 w-5" />
-              </Button>
-            </Link>
-            {/* Monitoring - Admin/Supervisor only */}
-            {(isAdmin || isSupervisor) && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link to="/admin/conversas">
-                    <Button variant="ghost" size="icon">
-                      <Monitor className="h-5 w-5 text-primary" />
-                    </Button>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>Monitoramento de Conversas</TooltipContent>
-              </Tooltip>
-            )}
-            {/* settings moved to footer */}
             {onToggleCollapse && (
               <Button 
                 variant="ghost" 
@@ -367,9 +338,6 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
       {/* Pagination Footer */}
       <div className="p-3 border-t border-sidebar-border flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={handleSignOut} title="Sair">
-            <LogOut className="h-4 w-4" />
-          </Button>
           <span className="text-xs text-muted-foreground">
             {totalCount} conversa{totalCount !== 1 ? 's' : ''}
           </span>
@@ -397,11 +365,7 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Link to="/whatsapp/settings">
-            <Button variant="ghost" size="icon" title="Configurações">
-              <Settings className="h-5 w-5" />
-            </Button>
-          </Link>
+          {/* settings moved into header dropdown */}
         </div>
       </div>
 

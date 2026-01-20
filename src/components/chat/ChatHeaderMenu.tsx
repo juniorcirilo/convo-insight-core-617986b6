@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { MoreVertical, Edit, Archive, Download, CheckCircle, RotateCcw } from 'lucide-react';
+import { MoreVertical, Edit, Archive, Download, CheckCircle, RotateCcw, RefreshCw, UserPlus, Building2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useConversationAssignment } from '@/hooks/whatsapp/useConversationAssignment';
+import { useTickets } from '@/hooks/useTickets';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
@@ -27,9 +30,11 @@ import { toast } from 'sonner';
 interface ChatHeaderMenuProps {
   conversation: any;
   onRefresh?: () => void;
+  onAnalyze?: () => void;
+  isAnalyzing?: boolean;
 }
 
-export function ChatHeaderMenu({ conversation, onRefresh }: ChatHeaderMenuProps) {
+export function ChatHeaderMenu({ conversation, onRefresh, onAnalyze, isAnalyzing }: ChatHeaderMenuProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [showCloseDialog, setShowCloseDialog] = useState(false);
   const [generateSummary, setGenerateSummary] = useState(true);
@@ -42,6 +47,12 @@ export function ChatHeaderMenu({ conversation, onRefresh }: ChatHeaderMenuProps)
     isClosing, 
     isReopening 
   } = useWhatsAppActions();
+
+  const { user } = useAuth();
+  const { assignConversation } = useConversationAssignment();
+  const { ticket, updateTicketStatus } = useTickets(conversation?.id);
+
+  const isInQueue = !conversation?.assigned_to;
 
   const handleArchive = () => {
     archiveConversation(conversation.id, {
@@ -85,6 +96,36 @@ export function ChatHeaderMenu({ conversation, onRefresh }: ChatHeaderMenuProps)
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48 bg-background z-50">
+          <DropdownMenuSeparator />
+          {isInQueue && (
+            <DropdownMenuItem onClick={() => {
+              if (conversation?.id && user?.id) assignConversation({ conversationId: conversation.id, assignedTo: user.id });
+            }}>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Assumir
+            </DropdownMenuItem>
+          )}
+
+          <DropdownMenuItem onClick={() => onAnalyze?.()} disabled={isAnalyzing}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${isAnalyzing ? 'animate-spin' : ''}`} />
+            Analisar
+          </DropdownMenuItem>
+
+          {ticket && (
+            <DropdownMenuItem
+              onClick={() => {
+                if (!ticket || ticket.status !== 'aberto') return;
+                updateTicketStatus.mutate({ ticketId: ticket.id, status: 'em_atendimento' });
+              }}
+              disabled={!ticket || ticket.status !== 'aberto'}
+            >
+              <Building2 className="mr-2 h-4 w-4" />
+              Iniciar Atendimento
+            </DropdownMenuItem>
+          )}
+
+          <DropdownMenuSeparator />
+
           <DropdownMenuItem onClick={() => setIsEditModalOpen(true)}>
             <Edit className="mr-2 h-4 w-4" />
             Editar contato

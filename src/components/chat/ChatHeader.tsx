@@ -1,20 +1,12 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, Settings, UserPlus, Repeat, Pencil, Building2 } from "lucide-react";
+import { Pencil, Building2 } from "lucide-react";
 import { SentimentCard } from "./SentimentCard";
 import { Tables } from "@/integrations/supabase/types";
-import { Link } from "react-router-dom";
 import { useConversationTopics } from "@/hooks/whatsapp/useConversationTopics";
 import { TopicBadges } from "./topics/TopicBadges";
 import { ChatHeaderMenu } from "./ChatHeaderMenu";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from '@/components/ui/dropdown-menu';
-import { ChevronDown } from 'lucide-react';
 import { useTickets } from '@/hooks/useTickets';
 import { QueueIndicator } from "@/components/conversations/QueueIndicator";
 import { AssignAgentDialog } from "@/components/conversations/AssignAgentDialog";
@@ -22,8 +14,6 @@ import { EditContactModal } from "./EditContactModal";
 import { TicketIndicator } from "./TicketIndicator";
 import { ConversationModeControls } from "./ConversationModeControls";
 import { useState, useEffect } from "react";
-import { useAuth } from "@/contexts/AuthContext";
-import { useConversationAssignment } from "@/hooks/whatsapp/useConversationAssignment";
 import { isContactNameMissing } from "@/utils/contactUtils";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -47,9 +37,6 @@ export const ChatHeader = ({ contact, sentiment, isAnalyzing, onAnalyze, convers
   const [isEditContactModalOpen, setIsEditContactModalOpen] = useState(false);
   const [sectorName, setSectorName] = useState<string | null>(null);
   const [sectorGeraTicket, setSectorGeraTicket] = useState<boolean>(false);
-  const { user, isAdmin, isSupervisor } = useAuth();
-  const { assignConversation } = useConversationAssignment();
-  
   const { ticket, updateTicketStatus } = useTickets(conversationId);
 
   // Fetch sector name and gera_ticket
@@ -76,15 +63,6 @@ export const ChatHeader = ({ contact, sentiment, isAnalyzing, onAnalyze, convers
   const displayName = nameIsMissing ? 'Sem nome' : contact.name;
 
   const isInQueue = !conversation?.assigned_to;
-  const canAssign = isAdmin || isSupervisor;
-  const isAssignedToMe = conversation?.assigned_to === user?.id;
-  const canTransfer = canAssign || isAssignedToMe;
-
-  const handleAssumeFromQueue = () => {
-    if (conversationId && user?.id) {
-      assignConversation({ conversationId, assignedTo: user.id });
-    }
-  };
 
   const getInitials = (name: string) => {
     return name
@@ -140,65 +118,11 @@ export const ChatHeader = ({ contact, sentiment, isAnalyzing, onAnalyze, convers
         </div>
 
         <div className="flex items-center gap-2">
-          {/* AI Mode Controls */}
-          {conversationId && (
-            <ConversationModeControls 
-              conversationId={conversationId}
-              conversationMode={conversation?.conversation_mode}
-            />
-          )}
-          
           {/* ticket and sentiment moved to footer */}
 
-          {/* Consolidated actions dropdown: Assumir, Analisar, Iniciar Atendimento */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="text-sm">
-                Ações
-                <ChevronDown className="ml-2 h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              {conversation && isInQueue && (
-                <DropdownMenuItem onClick={handleAssumeFromQueue}>
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Assumir
-                </DropdownMenuItem>
-              )}
-
-              <DropdownMenuItem onClick={onAnalyze} disabled={isAnalyzing}>
-                <RefreshCw className={`mr-2 h-4 w-4 ${isAnalyzing ? 'animate-spin' : ''}`} />
-                Analisar
-              </DropdownMenuItem>
-
-              {conversation && conversationId && (
-                <DropdownMenuItem
-                  onClick={async () => {
-                    if (!ticket || ticket.status !== 'aberto') return;
-                    try {
-                      updateTicketStatus.mutate({ ticketId: ticket.id, status: 'em_atendimento' });
-                    } catch (e) {
-                      // noop
-                    }
-                  }}
-                  disabled={!ticket || ticket.status !== 'aberto'}
-                >
-                  <Building2 className="mr-2 h-4 w-4" />
-                  Iniciar Atendimento
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
           {conversation && (
-            <ChatHeaderMenu conversation={conversation} onRefresh={onRefresh} />
+            <ChatHeaderMenu conversation={conversation} onRefresh={onRefresh} onAnalyze={onAnalyze} isAnalyzing={isAnalyzing} />
           )}
-
-          <Link to="/whatsapp/settings">
-            <Button variant="ghost" size="icon">
-              <Settings className="h-5 w-5" />
-            </Button>
-          </Link>
         </div>
       </div>
 
