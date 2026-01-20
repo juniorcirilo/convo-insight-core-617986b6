@@ -331,7 +331,7 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
         )}
       </ScrollArea>
 
-      {/* Pagination Footer */}
+      {/* Pagination Footer with quick menu buttons */}
       <div className="p-3 border-t border-sidebar-border flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground">
@@ -340,28 +340,67 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
         </div>
 
         <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => setCurrentPage(p => p - 1)}
-            disabled={currentPage === 1 || isLoading}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm min-w-[60px] text-center">
-            {currentPage} / {totalPages || 1}
-          </span>
-          <Button 
-            variant="outline" 
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => setCurrentPage(p => p + 1)}
-            disabled={currentPage >= totalPages || isLoading}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          {/* settings moved into header dropdown */}
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setCurrentPage(p => p - 1)}
+              disabled={currentPage === 1 || isLoading}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm min-w-[60px] text-center">
+              {currentPage} / {totalPages || 1}
+            </span>
+            <Button 
+              variant="outline" 
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setCurrentPage(p => p + 1)}
+              disabled={currentPage >= totalPages || isLoading}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-1 ml-2">
+            <Link to="/whatsapp/contatos">
+              <Button variant="ghost" size="icon" title="Contatos">
+                <Users className="h-4 w-4" />
+              </Button>
+            </Link>
+
+            <Link to="/whatsapp/relatorio">
+              <Button variant="ghost" size="icon" title="Relatórios">
+                <BarChart3 className="h-4 w-4" />
+              </Button>
+            </Link>
+
+            <Link to="/vendas">
+              <Button variant="ghost" size="icon" title="Dashboard de Vendas">
+                <TrendingUp className="h-4 w-4" />
+              </Button>
+            </Link>
+
+            {(isAdmin || isSupervisor) && (
+              <Link to="/admin/conversas">
+                <Button variant="ghost" size="icon" title="Monitoramento">
+                  <Monitor className="h-4 w-4" />
+                </Button>
+              </Link>
+            )}
+
+            <Link to="/whatsapp/settings">
+              <Button variant="ghost" size="icon" title="Configurações">
+                <Settings className="h-4 w-4" />
+              </Button>
+            </Link>
+
+            <Button variant="ghost" size="icon" title="Sair" onClick={handleSignOut}>
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
 

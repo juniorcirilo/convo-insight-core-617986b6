@@ -60,6 +60,7 @@ export function ConversationDetailsSidebar({
           {contactName && (
             <p className="text-xs text-muted-foreground">{contactName}</p>
           )}
+          {/* Header buttons removed - moved to chat header */}
         </div>
         <Button variant="ghost" size="icon" onClick={onToggleCollapse}>
           <ChevronRight className="h-4 w-4" />

@@ -14,9 +14,10 @@ import { EditContactModal } from "./EditContactModal";
 import { TicketIndicator } from "./TicketIndicator";
 import { ConversationModeControls } from "./ConversationModeControls";
 import { useState, useEffect } from "react";
+import { supabase } from '@/integrations/supabase/client';
 import { isContactNameMissing } from "@/utils/contactUtils";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
+
 
 type Contact = Tables<'whatsapp_contacts'>;
 type Sentiment = Tables<'whatsapp_sentiment_analysis'>;
@@ -118,8 +119,6 @@ export const ChatHeader = ({ contact, sentiment, isAnalyzing, onAnalyze, convers
         </div>
 
         <div className="flex items-center gap-2">
-          {/* ticket and sentiment moved to footer */}
-
           {conversation && (
             <ChatHeaderMenu conversation={conversation} onRefresh={onRefresh} onAnalyze={onAnalyze} isAnalyzing={isAnalyzing} />
           )}
@@ -181,3 +180,5 @@ export const ChatHeader = ({ contact, sentiment, isAnalyzing, onAnalyze, convers
     </div>
   );
 };
+
+
