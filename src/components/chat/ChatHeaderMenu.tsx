@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MoreVertical, Edit, Archive, Download, CheckCircle, RotateCcw, RefreshCw, UserPlus, Building2 } from 'lucide-react';
+import { MoreVertical, Edit, Archive, Download, CheckCircle, RotateCcw, RefreshCw, UserPlus, Building2, Bot } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAIAgentSession } from '@/hooks/ai-agent';
 import { useConversationAssignment } from '@/hooks/whatsapp/useConversationAssignment';
@@ -55,7 +55,7 @@ export function ChatHeaderMenu({ conversation, onRefresh, onAnalyze, isAnalyzing
 
   const isInQueue = !conversation?.assigned_to;
 
-  const { assumeConversation, setHybridMode } = useAIAgentSession(conversation?.id);
+  const { assumeConversation, setHybridMode, returnToAI } = useAIAgentSession(conversation?.id);
 
   const handleArchive = () => {
     archiveConversation(conversation.id, {
@@ -119,6 +119,11 @@ export function ChatHeaderMenu({ conversation, onRefresh, onAnalyze, isAnalyzing
           }}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Modo Híbrido
+          </DropdownMenuItem>
+
+          <DropdownMenuItem onClick={() => returnToAI.mutate()}>
+            <Bot className="mr-2 h-4 w-4" />
+            Devolver para I.A
           </DropdownMenuItem>
 
           {ticket && (
