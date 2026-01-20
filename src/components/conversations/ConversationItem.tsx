@@ -4,10 +4,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Search, Pencil } from "lucide-react";
+import { MoreVertical } from "lucide-react";
 import { Tables } from "@/integrations/supabase/types";
 import { ResponseStatusIndicator } from "./ResponseStatusIndicator";
 import { TopicBadges } from "@/components/chat/topics/TopicBadges";
-import { ConversationItemMenu } from "./ConversationItemMenu";
+import { ConversationActions } from "./ConversationActions";
+// ticket and sentiment badges moved to ChatHeader footer
 import { QueueIndicator } from "./QueueIndicator";
 import { EditContactModal } from "@/components/chat/EditContactModal";
 import { isContactNameMissing } from "@/utils/contactUtils";
@@ -99,6 +101,7 @@ const ConversationItem = ({
   
   // Get topics from metadata
   const topics = (conversation.metadata as any)?.topics || [];
+  const sentimentMeta = (conversation.metadata as any)?.sentiment || (conversation as any).sentiment || null;
   
   // Determine if conversation is closed or archived
   const status = conversation.status;
@@ -106,31 +109,33 @@ const ConversationItem = ({
 
   return (
     <>
-      <ConversationItemMenu conversation={conversation}>
-        <div
-          onClick={onClick}
-          className={`
-            flex flex-col gap-2 p-3 cursor-pointer transition-colors w-full
-            hover:bg-sidebar-accent
-            ${isSelected ? "bg-sidebar-accent" : ""}
-            ${contact?.is_group ? "border-l-2 border-l-primary/50" : ""}
-          `}
-        >
-          {/* Header Row: Avatar + Name/Time */}
-          <div className="flex items-center gap-3 w-full">
-            {/* Avatar */}
-            <Avatar className={`h-10 w-10 shrink-0 ${contact?.is_group ? "rounded-lg" : ""}`}>
-              <AvatarImage src={profilePicture || undefined} alt={contactName} />
-              <AvatarFallback className={`bg-primary/10 text-primary text-xs font-medium ${contact?.is_group ? "rounded-lg" : ""}`}>
-                {contact?.is_group ? "👥" : getInitials(contactName)}
-              </AvatarFallback>
-            </Avatar>
+      <div
+        onClick={onClick}
+        className={cn(
+          "flex items-start gap-3 p-3 cursor-pointer transition-colors",
+          "hover:bg-sidebar-accent",
+          isSelected && "bg-sidebar-accent",
+          contact?.is_group && "border-l-2 border-l-primary/50"
+        )}
+      >
+          {/* Avatar */}
+          <Avatar className={cn("h-10 w-10 shrink-0", contact?.is_group && "rounded-lg")}>
+            <AvatarImage src={profilePicture || undefined} alt={contactName} />
+            <AvatarFallback className={cn(
+              "bg-primary/10 text-primary text-xs font-medium",
+              contact?.is_group && "rounded-lg"
+            )}>
+              {contact?.is_group ? "👥" : getInitials(contactName)}
+            </AvatarFallback>
+          </Avatar>
 
-            {/* Name and timestamp - Full width */}
-            <div className="flex items-center justify-between gap-2 flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 min-w-0 flex-1">
+          {/* Content */}
+          <div className="flex-1 min-w-0 space-y-1">
+            {/* Row 1: Name + Timestamp */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 min-w-0">
                 {contact?.is_group && (
-                  <span className="text-xs text-muted-foreground">👥</span>
+                  <span className="text-xs text-muted-foreground shrink-0">👥</span>
                 )}
                 <span className={cn(
                   "font-medium text-sm truncate",
@@ -142,7 +147,7 @@ const ConversationItem = ({
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    className="h-5 w-5 p-0 flex-shrink-0" 
+                    className="h-5 w-5 p-0 shrink-0" 
                     onClick={handleEditClick}
                   >
                     <Pencil className="h-3 w-3 text-muted-foreground" />
@@ -152,63 +157,70 @@ const ConversationItem = ({
                   <span className="text-sm shrink-0">{sentimentEmoji}</span>
                 )}
               </div>
-              <span className="text-xs text-muted-foreground shrink-0">
-                {formatTimestamp(lastMessageTime)}
-              </span>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-xs text-muted-foreground shrink-0">{formatTimestamp(lastMessageTime)}</span>
+                <ConversationActions conversation={conversation}>
+                  <button
+                    onClick={(e) => e.stopPropagation()}
+                    className="p-1 rounded hover:bg-accent/50"
+                    aria-label="Ações"
+                  >
+                    <MoreVertical className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                </ConversationActions>
+              </div>
             </div>
-          </div>
 
-          {/* Preview and indicators row */}
-          <div className="flex items-center justify-between gap-2 w-full">
-            <div className="flex items-center gap-1.5 flex-1 min-w-0">
-              <p className="text-sm text-muted-foreground truncate">
-                {lastMessage || "Sem mensagens"}
-              </p>
-              {foundByContent && (
-                <Search className="h-3 w-3 text-muted-foreground shrink-0" />
-              )}
+            {/* Row 2: Preview + Unread/Status */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1 min-w-0 flex-1">
+                <p className="text-sm text-muted-foreground truncate">
+                  {lastMessage || "Sem mensagens"}
+                </p>
+                {foundByContent && (
+                  <Search className="h-3 w-3 text-muted-foreground shrink-0" />
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <ResponseStatusIndicator
+                  isLastMessageFromMe={conversation.isLastMessageFromMe}
+                  conversationStatus={conversation.status || undefined}
+                />
+                {unreadCount > 0 && (
+                  <Badge
+                    variant="default"
+                    className="h-5 min-w-5 px-1.5 rounded-full bg-primary text-primary-foreground text-xs font-medium flex items-center justify-center"
+                  >
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </Badge>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <ResponseStatusIndicator
-                isLastMessageFromMe={conversation.isLastMessageFromMe}
-                conversationStatus={conversation.status || undefined}
-              />
-              {unreadCount > 0 && (
-                <Badge
-                  variant="default"
-                  className="h-5 min-w-5 px-1.5 rounded-full bg-primary text-primary-foreground text-xs font-medium flex items-center justify-center"
-                >
-                  {unreadCount > 99 ? "99+" : unreadCount}
-                </Badge>
-              )}
-            </div>
-          </div>
 
-          {/* Footer: Topics, Status and Assignment - Full width */}
-          <div className="flex items-center justify-between gap-2 w-full">
-            {/* Topics */}
-            {topics.length > 0 && (
-              <div className="flex-1 min-w-0">
-                <TopicBadges topics={topics} size="sm" maxTopics={2} />
+            {/* Row 3: Topics + Queue/Status (only if has content) */}
+            {(topics.length > 0 || showStatusBadge || conversation.assigned_to) && (
+              <div className="flex items-center justify-between gap-2 pt-0.5">
+                <div className="min-w-0 flex-1">
+                  {topics.length > 0 && (
+                    <TopicBadges topics={topics} size="sm" maxTopics={2} />
+                  )}
+                </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <QueueIndicator
+                        assignedTo={conversation.assigned_to}
+                        assignedToName={conversation.assigned_profile?.full_name}
+                        size="sm"
+                      />
+                      {showStatusBadge && (
+                        <Badge variant="secondary" className="text-xs px-1.5 py-0 h-5">
+                          {status === "closed" ? "Encerrada" : "Arquivada"}
+                        </Badge>
+                      )}
+                    </div>
               </div>
             )}
-            
-            {/* Status and Assignment */}
-            <div className="flex items-center gap-2 shrink-0">
-              <QueueIndicator
-                assignedTo={conversation.assigned_to}
-                assignedToName={conversation.assigned_profile?.full_name}
-                size="sm"
-              />
-              {showStatusBadge && (
-                <Badge variant="secondary" className="text-xs px-2 py-0 h-5">
-                  {status === "closed" ? "Encerrada" : "Arquivada"}
-                </Badge>
-              )}
-            </div>
           </div>
         </div>
-      </ConversationItemMenu>
       
       {/* Edit Contact Modal */}
       {contact && (

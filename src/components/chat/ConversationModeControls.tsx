@@ -17,7 +17,7 @@ interface ConversationModeControlsProps {
 }
 
 const modeConfig: Record<ConversationMode, { icon: typeof Bot; label: string; color: string }> = {
-  ai: { icon: Bot, label: 'AI', color: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
+  ai: { icon: Bot, label: 'I.A', color: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
   human: { icon: User, label: 'Humano', color: 'bg-green-500/10 text-green-500 border-green-500/20' },
   hybrid: { icon: RefreshCcw, label: 'Híbrido', color: 'bg-purple-500/10 text-purple-500 border-purple-500/20' },
 };

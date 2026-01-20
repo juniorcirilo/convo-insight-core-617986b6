@@ -27,7 +27,7 @@ const roleLabels = {
   agent: 'Atendente',
 };
 
-export function UserMenu() {
+export function UserMenu({ compact = false }: { compact?: boolean }) {
   const { profile, role, signOut } = useAuth();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const navigate = useNavigate();
@@ -51,26 +51,43 @@ export function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-3 hover:bg-accent/50 rounded-lg p-2 transition-colors">
-          <div className="relative">
-            <Avatar className="h-10 w-10 border-2 border-border">
-              <AvatarImage src={profile.avatar_url || undefined} alt={profile.full_name} />
-              <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            <Circle 
-              className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 ${statusColors[profile.status]} border-2 border-background rounded-full`}
-              fill="currentColor"
-            />
-          </div>
-          <div className="flex flex-col items-start text-left">
-            <span className="text-sm font-medium text-foreground">{profile.full_name}</span>
-            <Badge variant="secondary" className="text-xs px-1.5 py-0">
-              {roleLabels[role]}
-            </Badge>
-          </div>
-        </button>
+        {compact ? (
+          <button className="flex items-center p-1 rounded-md hover:bg-accent/50 transition-colors">
+            <div className="relative">
+              <Avatar className="h-8 w-8 border-2 border-border">
+                <AvatarImage src={profile.avatar_url || undefined} alt={profile.full_name} />
+                <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <Circle
+                className={`absolute -bottom-1 -right-1 h-2.5 w-2.5 ${statusColors[profile.status]} border-2 border-background rounded-full`}
+                fill="currentColor"
+              />
+            </div>
+          </button>
+        ) : (
+          <button className="flex items-center gap-3 hover:bg-accent/50 rounded-lg p-2 transition-colors">
+            <div className="relative">
+              <Avatar className="h-10 w-10 border-2 border-border">
+                <AvatarImage src={profile.avatar_url || undefined} alt={profile.full_name} />
+                <AvatarFallback className="bg-primary text-primary-foreground font-semibold">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <Circle 
+                className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 ${statusColors[profile.status]} border-2 border-background rounded-full`}
+                fill="currentColor"
+              />
+            </div>
+            <div className="flex flex-col items-start text-left">
+              <span className="text-sm font-medium text-foreground">{profile.full_name}</span>
+              <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                {roleLabels[role]}
+              </Badge>
+            </div>
+          </button>
+        )}
       </DropdownMenuTrigger>
       
       <DropdownMenuContent align="end" className="w-56">

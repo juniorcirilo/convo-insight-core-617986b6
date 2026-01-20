@@ -130,25 +130,12 @@ export const ChatHeader = ({ contact, sentiment, isAnalyzing, onAnalyze, convers
             
             {/* Sector badge and topics */}
             <div className="flex items-center gap-2 mt-1 flex-wrap">
-              {sectorName && (
-                <Badge variant="secondary" className="text-xs flex items-center gap-1">
-                  <Building2 className="h-3 w-3" />
-                  {sectorName}
-                </Badge>
-              )}
               {topicsData?.topics && topicsData.topics.length > 0 && (
                 <TopicBadges topics={topicsData.topics} size="sm" showIcon={true} maxTopics={3} />
               )}
             </div>
             
-            {conversation && (
-              <div className="mt-1">
-                <QueueIndicator
-                  assignedTo={conversation.assigned_to}
-                  assignedToName={conversation.assigned_profile?.full_name}
-                />
-              </div>
-            )}
+            {/* QueueIndicator moved to footer */}
           </div>
         </div>
 
@@ -161,15 +148,7 @@ export const ChatHeader = ({ contact, sentiment, isAnalyzing, onAnalyze, convers
             />
           )}
           
-          {/* Ticket Indicator (badge + SLA only) */}
-          {conversationId && (
-            <TicketIndicator 
-              conversationId={conversationId} 
-              sectorGeraTicket={sectorGeraTicket} 
-            />
-          )}
-
-          <SentimentCard sentiment={sentiment} />
+          {/* ticket and sentiment moved to footer */}
 
           {/* Consolidated actions dropdown: Assumir, Analisar, Iniciar Atendimento */}
           <DropdownMenu>
@@ -222,6 +201,34 @@ export const ChatHeader = ({ contact, sentiment, isAnalyzing, onAnalyze, convers
           </Link>
         </div>
       </div>
+
+      {/* Footer row: Queue, Ticket and Sentiment badges */}
+      {conversation && (
+        <div className="mt-3 flex items-center gap-3 flex-wrap">
+          {/* First: sector + AI mode together */}
+          <div className="flex items-center gap-2">
+            {sectorName && (
+              <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                <Building2 className="h-3 w-3" />
+                {sectorName}
+              </Badge>
+            )}
+            <ConversationModeControls conversationId={conversationId || null} conversationMode={conversation?.conversation_mode} />
+          </div>
+
+          {/* Then queue, ticket and sentiment */}
+          <div className="flex items-center gap-2">
+            <QueueIndicator
+              assignedTo={conversation.assigned_to}
+              assignedToName={conversation.assigned_profile?.full_name}
+            />
+            {conversationId && (
+              <TicketIndicator conversationId={conversationId} sectorGeraTicket={sectorGeraTicket} />
+            )}
+            <SentimentCard sentiment={sentiment} />
+          </div>
+        </div>
+      )}
 
       {/* Assignment Dialog */}
       {conversation && conversationId && (

@@ -32,13 +32,12 @@ export function ConversationFiltersPopover({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="relative">
-          <Settings2 className="h-4 w-4 mr-2" />
-          Filtros
+        <Button variant="outline" size="icon" className="relative h-8 w-8" title="Filtros">
+          <Settings2 className="h-4 w-4" />
           {activeFiltersCount > 0 && (
             <Badge
               variant="default"
-              className="ml-2 h-5 w-5 p-0 flex items-center justify-center rounded-full text-xs"
+              className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center rounded-full text-[10px]"
             >
               {activeFiltersCount}
             </Badge>

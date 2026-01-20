@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
-import { Search, Plus, Settings, Loader2, BarChart3, ChevronRight, ChevronLeft, MessageSquare, Users, TrendingUp, Monitor } from "lucide-react";
+import { Search, Plus, Settings, Loader2, BarChart3, ChevronRight, ChevronLeft, MessageSquare, Users, TrendingUp, Monitor, LogOut } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -35,7 +36,7 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
   const [isNewConversationOpen, setIsNewConversationOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 20;
-  const { user, isAdmin, isSupervisor } = useAuth();
+  const { user, isAdmin, isSupervisor, signOut } = useAuth();
 
   // Debounce search for advanced message search
   const debouncedSearchQuery = useDebounce(search, 300);
@@ -206,12 +207,22 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
     );
   }
 
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut?.();
+    navigate('/auth');
+  };
+
   return (
-    <div className="flex flex-col h-full w-80 bg-sidebar">
+    <div className="flex flex-col h-full w-96 bg-sidebar">
       {/* Title Header */}
       <div className="p-3 border-b border-sidebar-border">
-        <div className="flex items-center justify-between mb-3">
-          <h1 className="text-lg font-semibold">Conversas</h1>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-semibold">Conversas</h1>
+            <UserMenu compact />
+          </div>
           <div className="flex items-center gap-1">
             <NotificationToggle />
             <Link to="/whatsapp/contatos">
@@ -242,11 +253,7 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
                 <TooltipContent>Monitoramento de Conversas</TooltipContent>
               </Tooltip>
             )}
-            <Link to="/whatsapp/settings">
-              <Button variant="ghost" size="icon" title="Configurações">
-                <Settings className="h-5 w-5" />
-              </Button>
-            </Link>
+            {/* settings moved to footer */}
             {onToggleCollapse && (
               <Button 
                 variant="ghost" 
@@ -259,7 +266,6 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
             )}
           </div>
         </div>
-        <UserMenu />
       </div>
 
       {/* Search and new conversation */}
@@ -271,8 +277,18 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
               placeholder="Buscar conversas..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 h-9 bg-sidebar-accent border-sidebar-border"
+              className="pl-9 pr-10 h-9 bg-sidebar-accent border-sidebar-border"
             />
+            <div className="absolute right-2 top-1/2 -translate-y-1/2">
+              <ConversationFiltersPopover
+                statusFilter={statusFilter}
+                onStatusChange={setStatusFilter}
+                sortBy={sortBy}
+                onSortChange={setSortBy}
+                instanceFilter={instanceFilter}
+                onInstanceChange={setInstanceFilter}
+              />
+            </div>
           </div>
           <Button
             size="icon"
@@ -292,14 +308,6 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
             waitingCount={waitingCount}
             queueCount={queueCount}
             myConversationsCount={myConversationsCount}
-          />
-          <ConversationFiltersPopover
-            statusFilter={statusFilter}
-            onStatusChange={setStatusFilter}
-            sortBy={sortBy}
-            onSortChange={setSortBy}
-            instanceFilter={instanceFilter}
-            onInstanceChange={setInstanceFilter}
           />
         </div>
 
@@ -358,9 +366,15 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
 
       {/* Pagination Footer */}
       <div className="p-3 border-t border-sidebar-border flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">
-          {totalCount} conversa{totalCount !== 1 ? 's' : ''}
-        </span>
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={handleSignOut} title="Sair">
+            <LogOut className="h-4 w-4" />
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            {totalCount} conversa{totalCount !== 1 ? 's' : ''}
+          </span>
+        </div>
+
         <div className="flex items-center gap-2">
           <Button 
             variant="outline" 
@@ -383,6 +397,11 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
+          <Link to="/whatsapp/settings">
+            <Button variant="ghost" size="icon" title="Configurações">
+              <Settings className="h-5 w-5" />
+            </Button>
+          </Link>
         </div>
       </div>
 
