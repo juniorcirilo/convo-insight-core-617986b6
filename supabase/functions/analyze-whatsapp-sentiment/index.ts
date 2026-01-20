@@ -121,19 +121,23 @@ ${messagesText}
 Analise o contexto geral e determine o sentimento predominante.`;
 
     console.log('Calling GROQ for sentiment analysis...');
+    const { getGroqModel } = await import('../groq-models.ts');
+    const model = getGroqModel('chat_fast');
 
-    const groqResp = await fetch('https://api.groq.ai/v1/completions', {
+    const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${GROQ_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'groq-1',
-        prompt: `${prompt}\n\nRETORNE APENAS UM JSON COM campos: sentiment, confidence, summary, reasoning`,
+        model,
+        messages: [
+          { role: 'system', content: 'You are a sentiment analysis assistant. Return only valid JSON with keys: sentiment, confidence, summary, reasoning.' },
+          { role: 'user', content: `${prompt}\n\nRETORNE APENAS UM JSON COM campos: sentiment, confidence, summary, reasoning` }
+        ],
         max_tokens: 200,
         temperature: 0.2,
-        n: 1,
       }),
     });
 
@@ -148,16 +152,19 @@ Analise o contexto geral e determine o sentimento predominante.`;
         );
       }
 
-      return new Response(JSON.stringify({ success: false, error: 'AI analysis failed' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ success: false, error: 'AI analysis failed', details: errorText }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const text = await groqResp.text();
+    const parsed = await groqResp.json().catch(async () => {
+      const txt = await groqResp.text();
+      try { return JSON.parse(txt); } catch { return { text: txt }; }
+    });
+
     let result: SentimentResult;
     try {
-      const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      result = JSON.parse(cleaned);
+      result = parsed?.choices?.[0]?.message?.content ? JSON.parse(parsed.choices[0].message.content) : (parsed?.choices?.[0]?.text ? JSON.parse(parsed.choices[0].text) : parsed?.text ? JSON.parse(parsed.text) : parsed);
     } catch (e) {
-      console.error('Failed to parse GROQ response:', text);
+      console.error('Failed to parse GROQ response:', parsed);
       return new Response(JSON.stringify({ success: false, error: 'Invalid AI response format' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
     console.log('Parsed sentiment result:', result);
@@ -183,7 +190,7 @@ Analise o contexto geral e determine o sentimento predominante.`;
         reasoning: result.reasoning,
         messages_analyzed: messages.length,
         metadata: { 
-          model: 'google/gemini-2.5-flash',
+          model,
           analyzed_at: new Date().toISOString()
         }
       }, {

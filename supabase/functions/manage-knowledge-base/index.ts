@@ -273,39 +273,45 @@ async function handleExtract(supabase: any, params: { conversationId: string; se
     .map((m: any) => `${m.is_from_me ? 'Atendente' : 'Cliente'}: ${m.content}`)
     .join('\n');
 
-  // Use GROQ to extract knowledge
-  const groqResp = await fetch('https://api.groq.ai/v1/completions', {
+  // Use GROQ chat completions to extract knowledge
+  const { getGroqModel } = await import('../groq-models.ts');
+  const model = getGroqModel('chat_complex');
+
+  const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${GROQ_API_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'groq-1',
-      prompt: `Você é um especialista em extração de conhecimento de conversas de atendimento ao cliente.\n\nAnalise a conversa e extraia conhecimentos úteis que podem ser reutilizados para futuros atendimentos.\n\nCONVERSA:\n${conversationText}\n\nRETORNE APENAS JSON VÁLIDO no formato {"knowledge_items": [...], "confidence": 0.0-1.0}`,
+      model,
+      messages: [
+        { role: 'system', content: 'Você é um especialista em extração de conhecimento de conversas de atendimento ao cliente. Retorne apenas JSON válido.' },
+        { role: 'user', content: `Analise a conversa e extraia conhecimentos úteis que podem ser reutilizados para futuros atendimentos.\n\nCONVERSA:\n${conversationText}\n\nRETORNE APENAS JSON VÁLIDO no formato {"knowledge_items": [...], "confidence": 0.0-1.0}` }
+      ],
       max_tokens: 1000,
       temperature: 0.3,
-      n: 1,
     }),
   });
 
   if (!groqResp.ok) {
-    throw new Error(`AI extraction failed: ${groqResp.status}`);
+    const err = await groqResp.text();
+    throw new Error(`AI extraction failed: ${groqResp.status} ${err}`);
   }
 
-  const extractedText = await groqResp.text();
+  const extractedParsed = await groqResp.json().catch(async () => {
+    const t = await groqResp.text();
+    try { return JSON.parse(t); } catch { return { text: t }; }
+  });
 
   // Parse JSON response
   let extracted;
   try {
-    // Clean the response in case it has markdown code blocks
-    const cleanedText = extractedText
-      .replace(/```json\n?/g, '')
-      .replace(/```\n?/g, '')
-      .trim();
+    const content = extractedParsed?.choices?.[0]?.message?.content || extractedParsed?.choices?.[0]?.text || extractedParsed?.text || JSON.stringify(extractedParsed);
+    const cleanedText = String(content).replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     extracted = JSON.parse(cleanedText);
-  } catch {
-    console.error('[Knowledge Base] Failed to parse AI response:', extractedText);
+  } catch (err) {
+    console.error('[Knowledge Base] Failed to parse AI response:', extractedParsed);
     return new Response(JSON.stringify({ 
       success: false, 
       reason: 'Failed to parse AI response' 

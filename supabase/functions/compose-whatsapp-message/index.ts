@@ -18,16 +18,18 @@ serve(async (req) => {
       throw new Error('Message and action are required');
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY');
-    const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || Deno.env.get('VITE_SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('VITE_SUPABASE_ANON_KEY');
+    const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY') || Deno.env.get('VITE_GROQ_API_KEY');
 
     if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Supabase configuration missing');
+      console.error('Supabase env missing. SUPABASE_URL:', !!supabaseUrl, 'SUPABASE_KEY:', !!supabaseKey);
+      return new Response(JSON.stringify({ error: 'Supabase configuration missing in function env' }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     if (!GROQ_API_KEY) {
-      throw new Error('GROQ_API_KEY not configured');
+      console.error('GROQ_API_KEY missing in function env');
+      return new Response(JSON.stringify({ error: 'GROQ_API_KEY not configured' }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -136,38 +138,53 @@ Responda apenas com a tradução.`;
     }
 
     console.log('Calling GROQ for composition action:', action);
-    const groqResp = await fetch('https://api.groq.ai/v1/completions', {
+    const { getGroqModel } = await import('../groq-models.ts');
+    // For grammar correction use the tested example model
+    const model = action === 'fix_grammar' ? 'llama-3.3-70b-versatile' : getGroqModel('chat_simple');
+
+    const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${GROQ_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'groq-1',
-        prompt: prompt,
+        model,
+        messages: [
+          { role: 'system', content: prompt },
+          { role: 'user', content: '' }
+        ],
         max_tokens: 300,
         temperature: 0.6,
-        n: 1,
       }),
     });
 
     if (!groqResp.ok) {
-      if (groqResp.status === 429) throw new Error('Rate limit exceeded. Please try again later.');
       const errText = await groqResp.text();
       console.error('GROQ error:', groqResp.status, errText);
-      throw new Error('AI processing failed');
+      // Surface upstream error to caller for easier debugging
+      return new Response(
+        JSON.stringify({ error: 'GROQ API error', status: groqResp.status, details: errText }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const text = await groqResp.text();
     let composedText = '';
     try {
       const parsed = JSON.parse(text);
-      composedText = parsed?.choices?.[0]?.text || parsed?.text || text;
+      composedText = parsed?.choices?.[0]?.message?.content || parsed?.choices?.[0]?.text || parsed?.text || text;
     } catch {
       composedText = text;
     }
 
-    if (!composedText) throw new Error('No response from AI');
+    if (!composedText) {
+      console.error('No composed text returned from GROQ response');
+      return new Response(
+        JSON.stringify({ error: 'No response from AI' }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     console.log('AI composition successful for action:', action);
 

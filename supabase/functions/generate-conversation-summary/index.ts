@@ -95,18 +95,23 @@ Retorne APENAS um JSON válido sem markdown:
     const systemPrompt = 'Você é um assistente de atendimento ao cliente. Gere resumos objetivos e úteis. Sempre responda com JSON válido sem formatação markdown.';
     let aiContent = '';
     try {
-      const groqResp = await fetch('https://api.groq.ai/v1/completions', {
+      const { getGroqModel } = await import('../groq-models.ts');
+      const model = getGroqModel('chat_long_texts');
+
+      const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${GROQ_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'groq-1',
-          prompt: `${systemPrompt}\n\n${prompt}`,
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: prompt }
+          ],
           max_tokens: 800,
           temperature: 0.2,
-          n: 1,
         }),
       });
 
@@ -119,16 +124,15 @@ Retorne APENAS um JSON válido sem markdown:
             { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        throw new Error(`Erro na geração: ${groqResp.status}`);
+        return new Response(JSON.stringify({ error: 'GROQ API error', status: groqResp.status, details: txt }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
-      const text = await groqResp.text();
-      try {
-        const parsed = JSON.parse(text);
-        aiContent = parsed?.choices?.[0]?.text || parsed?.text || text;
-      } catch {
-        aiContent = text;
-      }
+      const parsed = await groqResp.json().catch(async () => {
+        const txt = await groqResp.text();
+        try { return JSON.parse(txt); } catch { return { text: txt }; }
+      });
+
+      aiContent = parsed?.choices?.[0]?.message?.content || parsed?.choices?.[0]?.text || parsed?.text || '';
 
       console.log('Resposta da IA:', aiContent);
     } catch (e) {

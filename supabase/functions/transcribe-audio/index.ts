@@ -82,23 +82,62 @@ Deno.serve(async (req) => {
     }
 
     const audioBuffer = await audioResponse.arrayBuffer();
-    const base64Audio = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
 
     console.log('[transcribe-audio] Audio downloaded, size:', audioBuffer.byteLength);
 
     // Determine mime type
-    const mimeType = message.media_mimetype || 'audio/ogg';
+    const mimeType = message.media_mimetype || 'audio/m4a';
 
-    // GROQ does not currently support audio transcription. Mark as failed and return an explanatory error.
-    await supabase
-      .from('whatsapp_messages')
-      .update({ transcription_status: 'failed' })
-      .eq('id', messageId);
+    // Prepare multipart form for GROQ transcription (example provided)
+    const form = new FormData();
+    const blob = new Blob([audioBuffer], { type: mimeType });
+    form.append('file', blob, 'audio.m4a');
+    form.append('model', 'whisper-large-v3');
 
-    return new Response(
-      JSON.stringify({ error: 'Transcription not supported: configure a dedicated transcription provider (e.g., Whisper or other service).' }),
-      { status: 501, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    // Call GROQ transcription endpoint
+    try {
+      const groqResp = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
+          // Let fetch set Content-Type for multipart/form-data
+        },
+        body: form as unknown as BodyInit,
+      });
+
+      if (!groqResp.ok) {
+        const errText = await groqResp.text();
+        console.error('[transcribe-audio] GROQ transcription error:', groqResp.status, errText);
+        await supabase
+          .from('whatsapp_messages')
+          .update({ transcription_status: 'failed' })
+          .eq('id', messageId);
+        return new Response(JSON.stringify({ error: 'Transcription failed', details: errText }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      const parsed = await groqResp.json().catch(async () => {
+        const t = await groqResp.text();
+        try { return JSON.parse(t); } catch { return { text: t }; }
+      });
+
+      const transcription = parsed?.text ?? parsed?.transcription ?? parsed?.data?.transcription ?? parsed?.results?.[0]?.alternatives?.[0]?.transcript ?? JSON.stringify(parsed);
+
+      // Save transcription
+      await supabase
+        .from('whatsapp_messages')
+        .update({ audio_transcription: transcription, transcription_status: 'completed' })
+        .eq('id', messageId);
+
+      return new Response(JSON.stringify({ success: true, transcription }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+    } catch (err) {
+      console.error('[transcribe-audio] Error calling GROQ transcription:', err);
+      await supabase
+        .from('whatsapp_messages')
+        .update({ transcription_status: 'failed' })
+        .eq('id', messageId);
+      return new Response(JSON.stringify({ error: String(err) }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
 
   } catch (error) {
     console.error('[transcribe-audio] Error:', error);

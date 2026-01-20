@@ -212,39 +212,38 @@ serve(async (req) => {
     let tokensUsed = 0;
 
     try {
-      const groqResp = await fetch('https://api.groq.ai/v1/completions', {
+      // Use GROQ Responses API as requested (example): model openai/gpt-oss-120b and `input`
+      const model = 'openai/gpt-oss-120b';
+      const inputText = [systemPrompt, ...reversedHistory.map(m => `${m.is_from_me ? 'ASSISTANT' : 'USER'}: ${m.content || '[mídia]'}`)].join('\n');
+
+      const groqResp = await fetch('https://api.groq.com/openai/v1/responses', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${GROQ_API_KEY}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          model: 'groq-1',
-          prompt: prompt + '\n\nRESPONDA_DE_FORMA_CONCISA:',
-          max_tokens: 500,
-          temperature: 0.7,
-          n: 1,
-        }),
+        body: JSON.stringify({ model, input: inputText }),
       });
 
       if (!groqResp.ok) {
         const errText = await groqResp.text();
-        console.error('[AI Agent] GROQ error:', groqResp.status, errText);
+        console.error('[AI Agent] GROQ responses error:', groqResp.status, errText);
         if (groqResp.status === 429) {
           return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
-        throw new Error(`GROQ error: ${groqResp.status}`);
+        return new Response(JSON.stringify({ error: 'GROQ Responses API error', status: groqResp.status, details: errText }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
-      const text = await groqResp.text();
-      try {
-        const parsed = JSON.parse(text);
-        aiContent = parsed?.choices?.[0]?.text || parsed?.text || text;
-      } catch {
-        aiContent = text;
-      }
+      const parsed = await groqResp.json().catch(async () => {
+        const txt = await groqResp.text();
+        try { return JSON.parse(txt); } catch { return { text: txt }; }
+      });
+
+      // Parse common response fields: output_text, output[0].content[0].text, or fallback to choices
+      aiContent = parsed?.output_text || parsed?.output?.[0]?.content?.find((c: any) => c.type === 'output_text')?.text || parsed?.output?.[0]?.content?.map((c: any) => c.text || c.value || '').join('\n') || parsed?.choices?.[0]?.message?.content || parsed?.choices?.[0]?.text || parsed?.text || '';
+
     } catch (e) {
-      console.error('[AI Agent] Error calling GROQ:', e);
+      console.error('[AI Agent] Error calling GROQ Responses API:', e);
       throw e;
     }
 
@@ -286,7 +285,7 @@ serve(async (req) => {
       aiContent,
       tokensUsed,
       Date.now() - startTime,
-      'google/gemini-3-flash-preview'
+      model
     );
 
     console.log(`[AI Agent] Response sent successfully in ${Date.now() - startTime}ms`);

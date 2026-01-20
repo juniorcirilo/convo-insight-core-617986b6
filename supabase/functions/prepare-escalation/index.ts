@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const GROQ_API_BASE = 'https://api.groq.ai/v1';
+const GROQ_API_BASE = 'https://api.groq.com/v1';
 
 interface EscalationRequest {
   conversationId: string;
@@ -113,27 +113,31 @@ FORMATO:
 Máximo 150 palavras. Seja direto e objetivo.`;
 
       try {
-        const groqResp = await fetch(`${GROQ_API_BASE}/completions`, {
+        const { getGroqModel } = await import('../groq-models.ts');
+        const model = getGroqModel('chat_complex');
+
+        const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${GROQ_API_KEY}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'groq-1',
-            prompt: `${systemPrompt}\n\nConversa:\n${conversationText}\n\nCliente: ${conversation.contact?.name || 'Desconhecido'}\nMotivo da escalação: ${reason}`,
+            model,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: `Conversa:\n${conversationText}\n\nCliente: ${conversation.contact?.name || 'Desconhecido'}\nMotivo da escalação: ${reason}` }
+            ],
             max_tokens: 500,
           }),
         });
 
         if (groqResp.ok) {
-          const text = await groqResp.text();
-          try {
-            const parsed = JSON.parse(text);
-            aiSummary = parsed?.choices?.[0]?.text || parsed?.text || text;
-          } catch {
-            aiSummary = text;
-          }
+          const parsed = await groqResp.json().catch(async () => {
+            const t = await groqResp.text();
+            try { return JSON.parse(t); } catch { return { text: t }; }
+          });
+          aiSummary = parsed?.choices?.[0]?.message?.content || parsed?.choices?.[0]?.text || parsed?.text || '';
           console.log('[prepare-escalation] AI summary generated successfully');
         } else {
           console.error('[prepare-escalation] AI summary generation failed:', await groqResp.text());

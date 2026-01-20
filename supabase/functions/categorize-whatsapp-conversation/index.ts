@@ -109,21 +109,25 @@ serve(async (req) => {
     const formattedMessages = recentMessages.join('\n');
     console.log(`📝 ${recentMessages.length} mensagens para analisar`);
 
-    // 3. Call GROQ completions
+    // 3. Call GROQ chat completions
     let aiResponse = '';
     try {
-      const groqResp = await fetch('https://api.groq.ai/v1/completions', {
+      const { getGroqModel } = await import('../groq-models.ts');
+      const model = getGroqModel('chat_fast');
+      const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${GROQ_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'groq-1',
-          prompt: `${systemPrompt}\n\nCONVERSA:\n\n${formattedMessages}`,
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: `CONVERSA:\n\n${formattedMessages}` }
+          ],
           max_tokens: 400,
           temperature: 0.2,
-          n: 1,
         }),
       });
 
@@ -139,13 +143,12 @@ serve(async (req) => {
         throw new Error(`AI API error: ${groqResp.status}`);
       }
 
-      const text = await groqResp.text();
-      try {
-        const parsed = JSON.parse(text);
-        aiResponse = parsed?.choices?.[0]?.text || parsed?.text || text;
-      } catch {
-        aiResponse = text;
-      }
+      const parsed = await groqResp.json().catch(async () => {
+        const t = await groqResp.text();
+        try { return JSON.parse(t); } catch { return { text: t }; }
+      });
+
+      aiResponse = parsed?.choices?.[0]?.message?.content || parsed?.choices?.[0]?.text || parsed?.text || '';
 
     } catch (e) {
       console.error('Erro ao chamar GROQ:', e);
@@ -191,7 +194,7 @@ serve(async (req) => {
       primary_topic: result.primary_topic,
       ai_confidence: result.confidence || 0.8,
       categorized_at: new Date().toISOString(),
-      categorization_model: 'google/gemini-2.5-flash',
+      categorization_model: model,
       ai_reasoning: result.reasoning,
       custom_topics: result.custom_topic ? [result.custom_topic] : []
     };

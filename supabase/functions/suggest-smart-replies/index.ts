@@ -86,22 +86,26 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    const { getGroqModel } = await import('../groq-models.ts');
+    const model = getGroqModel('chat_fast');
 
     const systemPrompt = `Você é um assistente que gera respostas CURTAS (até 2 frases) e ÚTEIS para atendimento ao cliente.\n\nREGRAS:\n- Foque em resolver ou encaminhar, não cumprimente à toa\n- Varie o tom: formal, amigável, direto\n- Use português do Brasil\n- Se for sobre agendamento, proponha 1-2 opções de horário\n- Se for instrução operacional, traga passos claros\n- Seja objetivo e útil\n\nCONTEXTO:\n- Cliente: ${contactName}\n- Última mensagem do cliente: "${lastClientMessage.content}"\n- Histórico recente:\n${recentMessages}`;
 
     try {
-      const groqResp = await fetch('https://api.groq.ai/v1/completions', {
+      const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${GROQ_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'groq-1',
-          prompt: `${systemPrompt}\n\nGERE_UM_JSON: Retorne exatamente um JSON com a chave \"suggestions\" contendo 3 objetos com \"text\" e \"tone\" (formal|friendly|direct). Não inclua texto adicional.`,
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: 'GERE_UM_JSON: Retorne exatamente um JSON com a chave "suggestions" contendo 3 objetos com "text" e "tone" (formal|friendly|direct). Não inclua texto adicional.' }
+          ],
           max_tokens: 300,
           temperature: 0.7,
-          n: 1,
         }),
       });
 
@@ -243,20 +247,22 @@ serve(async (req) => {
       try {
         console.log('Calling GROQ AI for suggestions');
         // Request GROQ to return JSON with an array `suggestions` of { text, tone }
-        const groqResp = await fetch('https://api.groq.ai/v1/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${GROQ_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'groq-1',
-            prompt: `${systemPrompt}\n\nGERE_UM_JSON: Retorne exatamente um JSON com a chave \"suggestions\" contendo 3 objetos com \"text\" e \"tone\" (formal|friendly|direct). Não inclua texto adicional.`,
-            max_tokens: 300,
-            temperature: 0.7,
-            n: 1,
-          }),
-        });
+        const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: 'GERE_UM_JSON: Retorne exatamente um JSON com a chave "suggestions" contendo 3 objetos com "text" e "tone" (formal|friendly|direct). Não inclua texto adicional.' }
+          ],
+          max_tokens: 300,
+          temperature: 0.7,
+        }),
+      });
 
         if (groqResp.ok) {
           const text = await groqResp.text();
@@ -307,18 +313,20 @@ serve(async (req) => {
         try {
           console.log('Calling GROQ AI for suggestions');
     }
-          const groqResp = await fetch('https://api.groq.ai/v1/completions', {
+          const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${GROQ_API_KEY}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              model: 'groq-1',
-              prompt: `${systemPrompt}\n\nGERE_UM_JSON: Retorne exatamente um JSON com a chave \"suggestions\" contendo 3 objetos com \"text\" e \"tone\" (formal|friendly|direct). Não inclua texto adicional.`,
+              model,
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: 'GERE_UM_JSON: Retorne exatamente um JSON com a chave "suggestions" contendo 3 objetos com "text" e "tone" (formal|friendly|direct). Não inclua texto adicional.' }
+              ],
               max_tokens: 300,
               temperature: 0.7,
-              n: 1,
             }),
           });
 

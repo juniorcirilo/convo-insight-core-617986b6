@@ -38,13 +38,13 @@ serve(async (req) => {
 
     switch (action) {
       case 'analyze':
-        return await analyzeConversation(supabase, lovableApiKey, conversationId, sectorId);
+        return await analyzeConversation(supabase, GROQ_API_KEY!, conversationId, sectorId);
       case 'mark_good':
         return await markAsGoodExample(supabase, messageId, conversationId, sectorId, userId);
       case 'learn_from_feedback':
-        return await learnFromFeedback(supabase, lovableApiKey, sectorId);
+        return await learnFromFeedback(supabase, GROQ_API_KEY!, sectorId);
       case 'find_patterns':
-        return await findPatterns(supabase, lovableApiKey, sectorId);
+        return await findPatterns(supabase, GROQ_API_KEY!, sectorId);
       default:
         return new Response(JSON.stringify({ error: 'Invalid action' }), {
           status: 400,
@@ -112,34 +112,45 @@ async function analyzeConversation(
     .map((m: any) => `${m.is_from_me ? (m.is_ai_generated ? '[IA]' : '[Humano]') : '[Cliente]'}: ${m.content}`)
     .join('\n');
 
-  // AI analysis prompt using GROQ
+  // AI analysis prompt using GROQ (chat completion)
   try {
-    const groqResp = await fetch('https://api.groq.ai/v1/completions', {
+    const { getGroqModel } = await import('../groq-models.ts');
+    const model = getGroqModel('chat_complex');
+
+    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${GROQ_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'groq-1',
-        prompt: `Você é um especialista em análise de conversas de atendimento e vendas.\n\nCONTEXT: Lead convertido: ${leadConverted ? 'Sim' : 'Não'}, Score alto: ${highScore ? 'Sim' : 'Não'}\n\nCONVERSA:\n${conversationText}\n\nRETORNE UM JSON VÁLIDO COM examples, overall_quality e key_techniques.`,
-        max_tokens: 1500,
+        model,
+        messages: [
+          { role: 'system', content: 'Você é um especialista em análise de conversas de atendimento e vendas. Retorne apenas JSON quando solicitado.' },
+          { role: 'user', content: `CONTEXT: Lead convertido: ${leadConverted ? 'Sim' : 'Não'}, Score alto: ${highScore ? 'Sim' : 'Não'}\n\nCONVERSA:\n${conversationText}\n\nRETORNE UM JSON VÁLIDO COM examples, overall_quality e key_techniques.` }
+        ],
         temperature: 0.3,
+        max_tokens: 1500,
         n: 1,
       }),
     });
 
-    if (!groqResp.ok) {
-      throw new Error(`AI analysis failed: ${groqResp.status}`);
+    if (!resp.ok) {
+      const errText = await resp.text();
+      console.error('[Learn] GROQ error:', errText);
+      return new Response(JSON.stringify({ success: false, reason: 'AI analysis failed', details: errText }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    const text = await groqResp.text();
+    const body = await resp.json();
+    const assistant = body?.choices?.[0]?.message?.content ?? body?.choices?.[0]?.text ?? '';
     let analysis;
     try {
-      const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      const cleanedText = String(assistant).replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       analysis = JSON.parse(cleanedText);
     } catch (err) {
-      console.error('[Learn] Failed to parse AI response:', text);
+      console.error('[Learn] Failed to parse AI response:', assistant);
       return new Response(JSON.stringify({ success: false, reason: 'Failed to parse AI response' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -356,33 +367,43 @@ async function findPatterns(supabase: any, apiKey: string, sectorId: string) {
     .map((ex: any) => `[${ex.scenario_type}]\nCliente: ${ex.input_context}\nResposta: ${ex.ideal_response}`)
     .join('\n\n---\n\n');
 
-  // Use GROQ for pattern analysis
-  const groqPatternsResp = await fetch('https://api.groq.ai/v1/completions', {
+  // Use GROQ (chat) for pattern analysis
+  const { getGroqModel } = await import('../groq-models.ts');
+  const patternsModel = getGroqModel('chat_complex');
+  const patternsResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${GROQ_API_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'groq-1',
-      prompt: `Analise os exemplos de atendimento bem-sucedido e identifique padrões.\n\nEXEMPLOS:\n${examplesText}\n\nRETORNE UM JSON COM keys: patterns, common_techniques, suggested_templates`,
+      model: patternsModel,
+      messages: [
+        { role: 'system', content: 'Analise os exemplos de atendimento bem-sucedido e identifique padrões. Retorne um JSON com keys: patterns, common_techniques, suggested_templates' },
+        { role: 'user', content: `EXEMPLOS:\n${examplesText}\n\nRETORNE UM JSON COM keys: patterns, common_techniques, suggested_templates` }
+      ],
       max_tokens: 1500,
       temperature: 0.3,
       n: 1,
     }),
   });
 
-  if (!groqPatternsResp.ok) {
-    throw new Error(`AI pattern analysis failed: ${groqPatternsResp.status}`);
+  if (!patternsResp.ok) {
+    const err = await patternsResp.text();
+    console.error('[Learn] GROQ error (patterns):', err);
+    return new Response(JSON.stringify({ success: false, reason: 'AI pattern analysis failed', details: err }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
-  const patText = await groqPatternsResp.text();
+  const patBody = await patternsResp.json();
   let patterns;
   try {
-    const cleanedText = patText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const assistant = patBody?.choices?.[0]?.message?.content ?? patBody?.choices?.[0]?.text ?? '';
+    const cleanedText = String(assistant).replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     patterns = JSON.parse(cleanedText);
-  } catch {
-    console.error('[Learn] Failed to parse patterns:', patText);
+  } catch (err) {
+    console.error('[Learn] Failed to parse patterns:', err);
     return new Response(JSON.stringify({ success: false, reason: 'Failed to parse pattern analysis' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
