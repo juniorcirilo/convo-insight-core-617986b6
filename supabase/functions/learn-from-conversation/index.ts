@@ -22,11 +22,11 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    if (!lovableApiKey) {
-      return new Response(JSON.stringify({ error: 'AI not configured' }), {
+    if (!GROQ_API_KEY) {
+      return new Response(JSON.stringify({ error: 'AI not configured (GROQ_API_KEY missing)' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -112,79 +112,38 @@ async function analyzeConversation(
     .map((m: any) => `${m.is_from_me ? (m.is_ai_generated ? '[IA]' : '[Humano]') : '[Cliente]'}: ${m.content}`)
     .join('\n');
 
-  // AI analysis prompt
-  const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        {
-          role: 'system',
-          content: `Você é um especialista em análise de conversas de atendimento e vendas.
-
-Analise a conversa e extraia exemplos de aprendizado - momentos onde o atendente respondeu de forma eficaz.
-
-CONTEXTO:
-- Lead convertido: ${leadConverted ? 'Sim' : 'Não'}
-- Score alto: ${highScore ? 'Sim' : 'Não'}
-
-RETORNE JSON VÁLIDO:
-{
-  "examples": [
-    {
-      "input_context": "O que o cliente disse/perguntou",
-      "ideal_response": "A resposta que funcionou bem",
-      "scenario_type": "greeting|objection_handling|closing|support|pricing|scheduling|follow_up",
-      "tags": ["tag1", "tag2"],
-      "quality_score": 0.0-1.0,
-      "reasoning": "Por que essa resposta foi eficaz"
-    }
-  ],
-  "overall_quality": 0.0-1.0,
-  "key_techniques": ["técnica 1", "técnica 2"]
-}
-
-Foque em respostas HUMANAS de qualidade. Extraia 2-5 exemplos se houver.
-Se não houver bons exemplos, retorne: {"examples": [], "overall_quality": 0, "key_techniques": []}`
-        },
-        {
-          role: 'user',
-          content: `CONVERSA:\n${conversationText}`
-        }
-      ],
-      max_tokens: 1500,
-      temperature: 0.3,
-    }),
-  });
-
-  if (!aiResponse.ok) {
-    throw new Error(`AI analysis failed: ${aiResponse.status}`);
-  }
-
-  const aiData = await aiResponse.json();
-  const responseText = aiData.choices?.[0]?.message?.content || '';
-
-  // Parse response
-  let analysis;
+  // AI analysis prompt using GROQ
   try {
-    const cleanedText = responseText
-      .replace(/```json\n?/g, '')
-      .replace(/```\n?/g, '')
-      .trim();
-    analysis = JSON.parse(cleanedText);
-  } catch {
-    console.error('[Learn] Failed to parse AI response:', responseText);
-    return new Response(JSON.stringify({ 
-      success: false, 
-      reason: 'Failed to parse AI response' 
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    const groqResp = await fetch('https://api.groq.ai/v1/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'groq-1',
+        prompt: `Você é um especialista em análise de conversas de atendimento e vendas.\n\nCONTEXT: Lead convertido: ${leadConverted ? 'Sim' : 'Não'}, Score alto: ${highScore ? 'Sim' : 'Não'}\n\nCONVERSA:\n${conversationText}\n\nRETORNE UM JSON VÁLIDO COM examples, overall_quality e key_techniques.`,
+        max_tokens: 1500,
+        temperature: 0.3,
+        n: 1,
+      }),
     });
-  }
+
+    if (!groqResp.ok) {
+      throw new Error(`AI analysis failed: ${groqResp.status}`);
+    }
+
+    const text = await groqResp.text();
+    let analysis;
+    try {
+      const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      analysis = JSON.parse(cleanedText);
+    } catch (err) {
+      console.error('[Learn] Failed to parse AI response:', text);
+      return new Response(JSON.stringify({ success: false, reason: 'Failed to parse AI response' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
   // Save learning examples
   if (analysis.examples && analysis.examples.length > 0) {
@@ -397,70 +356,34 @@ async function findPatterns(supabase: any, apiKey: string, sectorId: string) {
     .map((ex: any) => `[${ex.scenario_type}]\nCliente: ${ex.input_context}\nResposta: ${ex.ideal_response}`)
     .join('\n\n---\n\n');
 
-  const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+  // Use GROQ for pattern analysis
+  const groqPatternsResp = await fetch('https://api.groq.ai/v1/completions', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${apiKey}`,
+      'Authorization': `Bearer ${GROQ_API_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        {
-          role: 'system',
-          content: `Analise os exemplos de atendimento bem-sucedido e identifique padrões.
-
-RETORNE JSON:
-{
-  "patterns": [
-    {
-      "name": "Nome do padrão",
-      "description": "Descrição do padrão identificado",
-      "applicable_scenarios": ["scenario1", "scenario2"],
-      "template_suggestion": "Template de resposta baseado no padrão"
-    }
-  ],
-  "common_techniques": ["técnica 1", "técnica 2"],
-  "suggested_templates": [
-    {
-      "name": "Nome do template",
-      "category": "greeting|objection|closing|support",
-      "template_content": "Conteúdo do template com {{variáveis}}",
-      "trigger_patterns": ["padrão trigger 1"]
-    }
-  ]
-}`
-        },
-        {
-          role: 'user',
-          content: `EXEMPLOS:\n${examplesText}`
-        }
-      ],
+      model: 'groq-1',
+      prompt: `Analise os exemplos de atendimento bem-sucedido e identifique padrões.\n\nEXEMPLOS:\n${examplesText}\n\nRETORNE UM JSON COM keys: patterns, common_techniques, suggested_templates`,
       max_tokens: 1500,
       temperature: 0.3,
+      n: 1,
     }),
   });
 
-  if (!aiResponse.ok) {
-    throw new Error(`AI pattern analysis failed: ${aiResponse.status}`);
+  if (!groqPatternsResp.ok) {
+    throw new Error(`AI pattern analysis failed: ${groqPatternsResp.status}`);
   }
 
-  const aiData = await aiResponse.json();
-  const responseText = aiData.choices?.[0]?.message?.content || '';
-
+  const patText = await groqPatternsResp.text();
   let patterns;
   try {
-    const cleanedText = responseText
-      .replace(/```json\n?/g, '')
-      .replace(/```\n?/g, '')
-      .trim();
+    const cleanedText = patText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     patterns = JSON.parse(cleanedText);
   } catch {
-    console.error('[Learn] Failed to parse patterns:', responseText);
-    return new Response(JSON.stringify({ 
-      success: false, 
-      reason: 'Failed to parse pattern analysis' 
-    }), {
+    console.error('[Learn] Failed to parse patterns:', patText);
+    return new Response(JSON.stringify({ success: false, reason: 'Failed to parse pattern analysis' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

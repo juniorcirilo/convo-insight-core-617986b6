@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const LOVABLE_API_BASE = 'https://ai.gateway.lovable.dev/v1';
+const GROQ_API_BASE = 'https://api.groq.ai/v1';
 
 interface EscalationRequest {
   conversationId: string;
@@ -23,7 +23,7 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -94,7 +94,7 @@ serve(async (req) => {
     let aiSummary = '';
     let handoffContext: Record<string, any> = {};
 
-    if (lovableApiKey && messages && messages.length > 0) {
+    if (GROQ_API_KEY && messages && messages.length > 0) {
       const conversationText = messages
         .reverse()
         .map(m => `${m.is_from_me ? 'Agente/Bot' : 'Cliente'}: ${m.content || '[mídia]'}`)
@@ -113,28 +113,30 @@ FORMATO:
 Máximo 150 palavras. Seja direto e objetivo.`;
 
       try {
-        const aiResponse = await fetch(`${LOVABLE_API_BASE}/chat/completions`, {
+        const groqResp = await fetch(`${GROQ_API_BASE}/completions`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${lovableApiKey}`,
+            'Authorization': `Bearer ${GROQ_API_KEY}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'google/gemini-2.5-flash',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: `Conversa:\n${conversationText}\n\nCliente: ${conversation.contact?.name || 'Desconhecido'}\nMotivo da escalação: ${reason}` }
-            ],
+            model: 'groq-1',
+            prompt: `${systemPrompt}\n\nConversa:\n${conversationText}\n\nCliente: ${conversation.contact?.name || 'Desconhecido'}\nMotivo da escalação: ${reason}`,
             max_tokens: 500,
           }),
         });
 
-        if (aiResponse.ok) {
-          const aiData = await aiResponse.json();
-          aiSummary = aiData.choices?.[0]?.message?.content || '';
+        if (groqResp.ok) {
+          const text = await groqResp.text();
+          try {
+            const parsed = JSON.parse(text);
+            aiSummary = parsed?.choices?.[0]?.text || parsed?.text || text;
+          } catch {
+            aiSummary = text;
+          }
           console.log('[prepare-escalation] AI summary generated successfully');
         } else {
-          console.error('[prepare-escalation] AI summary generation failed:', await aiResponse.text());
+          console.error('[prepare-escalation] AI summary generation failed:', await groqResp.text());
         }
       } catch (aiError) {
         console.error('[prepare-escalation] Error generating AI summary:', aiError);

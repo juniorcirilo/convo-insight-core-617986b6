@@ -59,10 +59,10 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
 
-    if (!lovableApiKey) {
-      console.error('LOVABLE_API_KEY não configurada');
+    if (!GROQ_API_KEY) {
+      console.error('GROQ_API_KEY não configurada');
       return new Response(
         JSON.stringify({ error: 'Configuração de IA não encontrada' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -109,42 +109,48 @@ serve(async (req) => {
     const formattedMessages = recentMessages.join('\n');
     console.log(`📝 ${recentMessages.length} mensagens para analisar`);
 
-    // 3. Chamar Lovable AI Gateway
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `CONVERSA:\n\n${formattedMessages}` }
-        ],
-      }),
-    });
+    // 3. Call GROQ completions
+    let aiResponse = '';
+    try {
+      const groqResp = await fetch('https://api.groq.ai/v1/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'groq-1',
+          prompt: `${systemPrompt}\n\nCONVERSA:\n\n${formattedMessages}`,
+          max_tokens: 400,
+          temperature: 0.2,
+          n: 1,
+        }),
+      });
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limit excedido. Tente novamente em alguns minutos.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      if (!groqResp.ok) {
+        const txt = await groqResp.text();
+        console.error('GROQ error:', groqResp.status, txt);
+        if (groqResp.status === 429) {
+          return new Response(
+            JSON.stringify({ error: 'Rate limit excedido. Tente novamente em alguns minutos.' }),
+            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        throw new Error(`AI API error: ${groqResp.status}`);
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Créditos de IA esgotados.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+
+      const text = await groqResp.text();
+      try {
+        const parsed = JSON.parse(text);
+        aiResponse = parsed?.choices?.[0]?.text || parsed?.text || text;
+      } catch {
+        aiResponse = text;
       }
-      const errorText = await response.text();
-      console.error('Erro na API:', errorText);
-      throw new Error(`AI API error: ${response.status}`);
+
+    } catch (e) {
+      console.error('Erro ao chamar GROQ:', e);
+      throw e;
     }
-
-    const aiData = await response.json();
-    const aiResponse = aiData.choices[0].message.content.trim();
 
     // 4. Parse JSON (remover markdown se houver)
     const cleanJson = aiResponse

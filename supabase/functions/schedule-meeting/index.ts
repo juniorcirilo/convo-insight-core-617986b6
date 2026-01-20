@@ -52,10 +52,10 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
 
-    if (!lovableApiKey) {
-      return new Response(JSON.stringify({ error: 'AI not configured' }), {
+    if (!GROQ_API_KEY) {
+      return new Response(JSON.stringify({ error: 'AI not configured (GROQ_API_KEY missing)' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -175,34 +175,32 @@ EXEMPLOS DE DETECÇÃO:
 
 Se o cliente selecionar uma opção numérica (1, 2, 3...) após oferta de horários, é confirm_selection.`;
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+  // Use GROQ to detect scheduling intent
+  const groqResp = await fetch('https://api.groq.ai/v1/completions', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${apiKey}`,
+      'Authorization': `Bearer ${GROQ_API_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'google/gemini-3-flash-preview',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: message }
-      ],
+      model: 'groq-1',
+      prompt: `${systemPrompt}\n\n${message}`,
       max_tokens: 500,
       temperature: 0.1,
+      n: 1,
     }),
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('[Schedule Meeting] AI error:', errorText);
+  if (!groqResp.ok) {
+    const errorText = await groqResp.text();
+    console.error('[Schedule Meeting] GROQ error:', errorText);
     return new Response(JSON.stringify({ error: 'AI detection failed' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  const aiData = await response.json();
-  const content = aiData.choices?.[0]?.message?.content || '{}';
+  const content = await groqResp.text();
   
   try {
     // Clean up potential markdown formatting

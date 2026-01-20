@@ -54,10 +54,10 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
 
-    if (!lovableApiKey) {
-      console.error('[AI Agent] LOVABLE_API_KEY not configured');
+    if (!GROQ_API_KEY) {
+      console.error('[AI Agent] GROQ_API_KEY not configured');
       return new Response(JSON.stringify({ error: 'AI not configured' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -201,45 +201,52 @@ serve(async (req) => {
       await new Promise(resolve => setTimeout(resolve, agentConfig.response_delay_seconds * 1000));
     }
 
-    // 13. Chamar Lovable AI Gateway
-    console.log('[AI Agent] Calling Lovable AI Gateway...');
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
-        messages: aiMessages,
-        max_tokens: 500,
-        temperature: 0.7,
-      }),
-    });
+    // 13. Call GROQ completions endpoint
+    console.log('[AI Agent] Calling GROQ for response...');
+    const prompt = [
+      `SYSTEM: ${systemPrompt}`,
+      ...reversedHistory.map(m => `${m.is_from_me ? 'ASSISTANT' : 'USER'}: ${m.content || '[mídia]'}`)
+    ].join('\n');
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('[AI Agent] AI Gateway error:', aiResponse.status, errorText);
-      
-      if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
-          status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: 'Payment required' }), {
-          status: 402,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+    let aiContent = '';
+    let tokensUsed = 0;
+
+    try {
+      const groqResp = await fetch('https://api.groq.ai/v1/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'groq-1',
+          prompt: prompt + '\n\nRESPONDA_DE_FORMA_CONCISA:',
+          max_tokens: 500,
+          temperature: 0.7,
+          n: 1,
+        }),
+      });
+
+      if (!groqResp.ok) {
+        const errText = await groqResp.text();
+        console.error('[AI Agent] GROQ error:', groqResp.status, errText);
+        if (groqResp.status === 429) {
+          return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        throw new Error(`GROQ error: ${groqResp.status}`);
       }
 
-      throw new Error(`AI Gateway error: ${aiResponse.status}`);
+      const text = await groqResp.text();
+      try {
+        const parsed = JSON.parse(text);
+        aiContent = parsed?.choices?.[0]?.text || parsed?.text || text;
+      } catch {
+        aiContent = text;
+      }
+    } catch (e) {
+      console.error('[AI Agent] Error calling GROQ:', e);
+      throw e;
     }
-
-    const aiData = await aiResponse.json();
-    const aiContent = aiData.choices?.[0]?.message?.content || '';
-    const tokensUsed = aiData.usage?.total_tokens || 0;
 
     console.log('[AI Agent] AI Response:', aiContent.substring(0, 100) + '...');
 

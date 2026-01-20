@@ -37,10 +37,6 @@ export const useSmartReply = (conversationId: string | null) => {
 
       if (error) {
         console.warn('Smart reply function error with no data:', error);
-        const msg = (error?.message || '').toString();
-        if (msg.includes('LOVABLE_API_KEY') || msg.includes('not configured') || msg.includes('No API key')) {
-          return { suggestions: [], context: null, error: 'AI provider not configured' } as SmartReplyResponse;
-        }
         throw error;
       }
 
@@ -65,10 +61,6 @@ export const useSmartReply = (conversationId: string | null) => {
 
       if (error) {
         console.warn('Smart reply refresh error with no data:', error);
-        const msg = (error?.message || '').toString();
-        if (msg.includes('LOVABLE_API_KEY') || msg.includes('not configured') || msg.includes('No API key')) {
-          return { suggestions: [], context: null, error: 'AI provider not configured' } as SmartReplyResponse;
-        }
         throw error;
       }
 

@@ -13,13 +13,13 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
 
-    if (!lovableApiKey) {
-      console.error('[transcribe-audio] LOVABLE_API_KEY not configured');
+    if (!GROQ_API_KEY) {
+      console.error('[transcribe-audio] GROQ_API_KEY not configured');
       return new Response(
-        JSON.stringify({ error: 'API key not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Transcription not supported: GROQ does not provide audio transcription' }),
+        { status: 501, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -89,72 +89,15 @@ Deno.serve(async (req) => {
     // Determine mime type
     const mimeType = message.media_mimetype || 'audio/ogg';
 
-    // Call Lovable AI for transcription using Gemini
-    const response = await fetch('https://api.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: 'Transcreva este áudio em português. Retorne APENAS o texto transcrito, sem explicações ou formatação adicional. Se não conseguir entender o áudio, responda com "[Áudio inaudível]".'
-              },
-              {
-                type: 'input_audio',
-                input_audio: {
-                  data: base64Audio,
-                  format: mimeType.includes('ogg') ? 'ogg' : mimeType.includes('mp3') ? 'mp3' : 'wav'
-                }
-              }
-            ]
-          }
-        ],
-        max_tokens: 1000,
-        temperature: 0.1,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[transcribe-audio] AI API error:', response.status, errorText);
-      
-      await supabase
-        .from('whatsapp_messages')
-        .update({ transcription_status: 'failed' })
-        .eq('id', messageId);
-      
-      return new Response(
-        JSON.stringify({ error: 'Transcription failed' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const result = await response.json();
-    const transcription = result.choices?.[0]?.message?.content?.trim() || '';
-
-    console.log('[transcribe-audio] Transcription result:', transcription.substring(0, 100));
-
-    // Save transcription
+    // GROQ does not currently support audio transcription. Mark as failed and return an explanatory error.
     await supabase
       .from('whatsapp_messages')
-      .update({
-        audio_transcription: transcription,
-        transcription_status: 'completed',
-      })
+      .update({ transcription_status: 'failed' })
       .eq('id', messageId);
 
-    console.log('[transcribe-audio] Transcription saved successfully');
-
     return new Response(
-      JSON.stringify({ success: true, transcription }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: 'Transcription not supported: configure a dedicated transcription provider (e.g., Whisper or other service).' }),
+      { status: 501, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {

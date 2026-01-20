@@ -241,10 +241,10 @@ async function handleImport(supabase: any, params: { items: KnowledgeItem[]; sec
 // Extract knowledge from conversation using AI
 async function handleExtract(supabase: any, params: { conversationId: string; sectorId: string }) {
   const { conversationId, sectorId } = params;
-  const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+  const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
 
-  if (!lovableApiKey) {
-    return new Response(JSON.stringify({ error: 'AI not configured' }), {
+  if (!GROQ_API_KEY) {
+    return new Response(JSON.stringify({ error: 'AI not configured (GROQ_API_KEY missing)' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -273,54 +273,27 @@ async function handleExtract(supabase: any, params: { conversationId: string; se
     .map((m: any) => `${m.is_from_me ? 'Atendente' : 'Cliente'}: ${m.content}`)
     .join('\n');
 
-  // Use AI to extract knowledge
-  const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+  // Use GROQ to extract knowledge
+  const groqResp = await fetch('https://api.groq.ai/v1/completions', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${lovableApiKey}`,
+      'Authorization': `Bearer ${GROQ_API_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        {
-          role: 'system',
-          content: `Você é um especialista em extração de conhecimento de conversas de atendimento ao cliente.
-
-Analise a conversa e extraia conhecimentos úteis que podem ser reutilizados para futuros atendimentos.
-
-RETORNE APENAS JSON VÁLIDO no seguinte formato:
-{
-  "knowledge_items": [
-    {
-      "category": "faq|product|policy|procedure|pricing|script",
-      "title": "Título breve e descritivo",
-      "content": "Explicação completa e útil",
-      "subcategory": "subcategoria opcional"
-    }
-  ],
-  "confidence": 0.0-1.0
-}
-
-Extraia apenas informações factuais e úteis. Não extraia opiniões ou informações pessoais do cliente.
-Se não houver conhecimento útil para extrair, retorne: {"knowledge_items": [], "confidence": 0}`
-        },
-        {
-          role: 'user',
-          content: `CONVERSA:\n${conversationText}`
-        }
-      ],
+      model: 'groq-1',
+      prompt: `Você é um especialista em extração de conhecimento de conversas de atendimento ao cliente.\n\nAnalise a conversa e extraia conhecimentos úteis que podem ser reutilizados para futuros atendimentos.\n\nCONVERSA:\n${conversationText}\n\nRETORNE APENAS JSON VÁLIDO no formato {"knowledge_items": [...], "confidence": 0.0-1.0}`,
       max_tokens: 1000,
       temperature: 0.3,
+      n: 1,
     }),
   });
 
-  if (!aiResponse.ok) {
-    throw new Error(`AI extraction failed: ${aiResponse.status}`);
+  if (!groqResp.ok) {
+    throw new Error(`AI extraction failed: ${groqResp.status}`);
   }
 
-  const aiData = await aiResponse.json();
-  const extractedText = aiData.choices?.[0]?.message?.content || '';
+  const extractedText = await groqResp.text();
 
   // Parse JSON response
   let extracted;

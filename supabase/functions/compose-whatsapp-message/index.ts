@@ -20,14 +20,14 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY');
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
 
     if (!supabaseUrl || !supabaseKey) {
       throw new Error('Supabase configuration missing');
     }
 
-    if (!lovableApiKey) {
-      throw new Error('LOVABLE_API_KEY not configured');
+    if (!GROQ_API_KEY) {
+      throw new Error('GROQ_API_KEY not configured');
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -135,42 +135,39 @@ Responda apenas com a tradução.`;
         throw new Error(`Unknown action: ${action}`);
     }
 
-    console.log('Calling Lovable AI with action:', action);
-
-    // Chamar Lovable AI Gateway
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    console.log('Calling GROQ for composition action:', action);
+    const groqResp = await fetch('https://api.groq.ai/v1/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'user', content: prompt }
-        ],
+        model: 'groq-1',
+        prompt: prompt,
+        max_tokens: 300,
+        temperature: 0.6,
+        n: 1,
       }),
     });
 
-    // Tratar erros de rate limit e pagamento
-    if (!aiResponse.ok) {
-      if (aiResponse.status === 429) {
-        throw new Error('Rate limit exceeded. Please try again later.');
-      }
-      if (aiResponse.status === 402) {
-        throw new Error('Payment required. Please add credits.');
-      }
-      const errorText = await aiResponse.text();
-      console.error('AI Gateway error:', aiResponse.status, errorText);
+    if (!groqResp.ok) {
+      if (groqResp.status === 429) throw new Error('Rate limit exceeded. Please try again later.');
+      const errText = await groqResp.text();
+      console.error('GROQ error:', groqResp.status, errText);
       throw new Error('AI processing failed');
     }
 
-    const aiData = await aiResponse.json();
-    const composedText = aiData.choices?.[0]?.message?.content;
-
-    if (!composedText) {
-      throw new Error('No response from AI');
+    const text = await groqResp.text();
+    let composedText = '';
+    try {
+      const parsed = JSON.parse(text);
+      composedText = parsed?.choices?.[0]?.text || parsed?.text || text;
+    } catch {
+      composedText = text;
     }
+
+    if (!composedText) throw new Error('No response from AI');
 
     console.log('AI composition successful for action:', action);
 
