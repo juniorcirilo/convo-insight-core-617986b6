@@ -73,15 +73,15 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
     
     switch (message.status) {
       case 'sending':
-        return <Clock className="w-3 h-3" />;
+        return <span className="flex items-center gap-1 text-xs"><Clock className="w-3 h-3" /> Enviando</span>;
       case 'sent':
-        return <Check className="w-3 h-3" />;
+        return <span className="flex items-center gap-1 text-xs"><Check className="w-3 h-3" /> Enviada</span>;
       case 'delivered':
-        return <CheckCheck className="w-3 h-3" />;
+        return <span className="flex items-center gap-1 text-xs"><CheckCheck className="w-3 h-3" /> Entregue</span>;
       case 'read':
-        return <CheckCheck className="w-3 h-3 text-blue-500" />;
+        return <span className="flex items-center gap-1 text-xs"><CheckCheck className="w-3 h-3 text-blue-500" /> Lida</span>;
       default:
-        return <Check className="w-3 h-3" />;
+        return <span className="flex items-center gap-1 text-xs"><Check className="w-3 h-3" /> Enviada</span>;
     }
   };
 

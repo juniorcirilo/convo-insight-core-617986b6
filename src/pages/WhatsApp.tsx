@@ -9,7 +9,7 @@ import { DisconnectedInstancesBanner } from "@/components/notifications/Disconne
 import { EscalationAlert } from "@/components/escalation";
 import { Button } from "@/components/ui/button";
 import { Settings, ArrowLeft } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 const WhatsApp = () => {
   const navigate = useNavigate();
@@ -20,6 +20,12 @@ const WhatsApp = () => {
   const { instances } = useWhatsAppInstances();
   const { disconnectedInstances } = useInstanceStatusMonitor();
   const isMobile = useIsMobile();
+
+  // If route param present, use it as selected conversation
+  const { conversationId: routeConversationId } = useParams();
+  useEffect(() => {
+    if (routeConversationId) setSelectedConversation(routeConversationId);
+  }, [routeConversationId]);
 
   // Show all conversations from all instances by default
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | undefined>(undefined);
@@ -36,6 +42,8 @@ const WhatsApp = () => {
 
   const handleSelectConversation = (id: string | null) => {
     setSelectedConversation(id);
+    if (id) navigate(`/whatsapp/${id}`);
+    else navigate('/whatsapp');
   };
 
   const handleBackToSidebar = () => {

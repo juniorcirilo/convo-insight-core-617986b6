@@ -55,6 +55,14 @@ const App = () => {
                     }
                   />
                   <Route
+                    path="/whatsapp/:conversationId"
+                    element={
+                      <ProtectedRoute>
+                        <WhatsApp />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
                     path="/whatsapp"
                     element={
                       <ProtectedRoute>

@@ -198,7 +198,8 @@ export const useWhatsAppConversations = (filters?: ConversationsFilters) => {
   });
 
   useEffect(() => {
-    const channel = supabase
+    // Subscribe to conversation changes
+    const conversationsChannel = supabase
       .channel('conversations-changes')
       .on('postgres_changes', {
         event: '*',
@@ -209,8 +210,22 @@ export const useWhatsAppConversations = (filters?: ConversationsFilters) => {
       })
       .subscribe();
 
+    // Subscribe to new messages to update conversation list in real-time
+    const messagesChannel = supabase
+      .channel('messages-for-conversations')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'whatsapp_messages'
+      }, () => {
+        // Invalidate conversations when a new message arrives
+        queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
+      })
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(conversationsChannel);
+      supabase.removeChannel(messagesChannel);
     };
   }, [queryClient]);
 

@@ -1,12 +1,26 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
+import { useMarkMessagesRead } from './useMarkMessagesRead';
 
 type Message = Tables<'whatsapp_messages'>;
 
 export const useWhatsAppMessages = (conversationId: string | null) => {
   const queryClient = useQueryClient();
+  const markMessagesRead = useMarkMessagesRead();
+  const lastMarkedConversationRef = useRef<string | null>(null);
+  const markReadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Debounced mark as read function
+  const debouncedMarkAsRead = useCallback((convId: string) => {
+    if (markReadTimeoutRef.current) {
+      clearTimeout(markReadTimeoutRef.current);
+    }
+    markReadTimeoutRef.current = setTimeout(() => {
+      markMessagesRead.mutate({ conversationId: convId });
+    }, 500); // 500ms debounce
+  }, [markMessagesRead]);
 
   const { data: messages = [], isLoading, error } = useQuery({
     queryKey: ['whatsapp', 'messages', conversationId],
@@ -25,16 +39,21 @@ export const useWhatsAppMessages = (conversationId: string | null) => {
     enabled: !!conversationId,
   });
 
-  // Mark conversation as read when opened
+  // Mark messages as read bidirectionally when conversation is opened
   useEffect(() => {
-    if (conversationId) {
-      supabase
-        .from('whatsapp_conversations')
-        .update({ unread_count: 0 })
-        .eq('id', conversationId)
-        .then();
+    if (conversationId && conversationId !== lastMarkedConversationRef.current) {
+      lastMarkedConversationRef.current = conversationId;
+      
+      // Call the edge function to mark messages as read (bidirectional with Evolution API)
+      debouncedMarkAsRead(conversationId);
     }
-  }, [conversationId]);
+    
+    return () => {
+      if (markReadTimeoutRef.current) {
+        clearTimeout(markReadTimeoutRef.current);
+      }
+    };
+  }, [conversationId, debouncedMarkAsRead]);
 
   // Realtime subscription for new and edited messages
   useEffect(() => {
@@ -53,6 +72,12 @@ export const useWhatsAppMessages = (conversationId: string | null) => {
           if (exists) return old;
           return [...old, payload.new as Message];
         });
+        
+        // If message is from client (not from me), mark as read immediately
+        const newMessage = payload.new as Message;
+        if (!newMessage.is_from_me) {
+          debouncedMarkAsRead(conversationId);
+        }
       })
       .on('postgres_changes', {
         event: 'UPDATE',
@@ -71,7 +96,7 @@ export const useWhatsAppMessages = (conversationId: string | null) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [conversationId, queryClient]);
+  }, [conversationId, queryClient, debouncedMarkAsRead]);
 
   return {
     messages,
