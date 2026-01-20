@@ -50,6 +50,8 @@ export const ChatHeader = ({ contact, sentiment, isAnalyzing, onAnalyze, convers
   const { user, isAdmin, isSupervisor } = useAuth();
   const { assignConversation } = useConversationAssignment();
   
+  const { ticket, updateTicketStatus } = useTickets(conversationId);
+
   // Fetch sector name and gera_ticket
   useEffect(() => {
     if (conversation?.sector_id) {
@@ -77,8 +79,6 @@ export const ChatHeader = ({ contact, sentiment, isAnalyzing, onAnalyze, convers
   const canAssign = isAdmin || isSupervisor;
   const isAssignedToMe = conversation?.assigned_to === user?.id;
   const canTransfer = canAssign || isAssignedToMe;
-
-  const { ticket, updateTicketStatus } = useTickets(conversationId);
 
   const handleAssumeFromQueue = () => {
     if (conversationId && user?.id) {
