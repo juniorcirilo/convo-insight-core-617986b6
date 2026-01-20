@@ -75,7 +75,8 @@ export const AddInstanceDialog = ({ open, onOpenChange }: AddInstanceDialogProps
   });
 
   const providerType = form.watch("provider_type");
-  const [selectedEvents, setSelectedEvents] = useState<string[]>(['MESSAGES_UPSERT','MESSAGES_UPDATE','CONNECTION_UPDATE']);
+  const [selectedEvents, setSelectedEvents] = useState<string[]>(['MESSAGES_UPSERT','MESSAGES_UPDATE','CONNECTION_UPDATE','MESSAGES_DELETE']);
+  const [webhookBase64, setWebhookBase64] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
 
   const handleTestConnection = async () => {
@@ -208,6 +209,7 @@ export const AddInstanceDialog = ({ open, onOpenChange }: AddInstanceDialogProps
         const payload = {
           instanceId,
           webhookUrl: vals.webhook_endpoint || `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/evolution-webhook`,
+          base64: webhookBase64,
           events: selectedEvents,
           force,
         };
@@ -276,6 +278,7 @@ export const AddInstanceDialog = ({ open, onOpenChange }: AddInstanceDialogProps
         api_key: vals.api_key,
         instanceIdentifier,
         webhookUrl: webhook,
+        base64: webhookBase64,
         events: selectedEvents,
         force,
       };
@@ -532,6 +535,12 @@ export const AddInstanceDialog = ({ open, onOpenChange }: AddInstanceDialogProps
                         )}
                       />
                       <FormItem>
+                        <div className="flex items-center gap-2">
+                          <input id="webhookBase64" type="checkbox" checked={webhookBase64} onChange={(e) => setWebhookBase64(e.target.checked)} />
+                          <label htmlFor="webhookBase64">Webhook Base64</label>
+                        </div>
+                      </FormItem>
+                      <FormItem>
                         <FormLabel>Eventos (Evolution)</FormLabel>
                         <div className="flex gap-2 flex-wrap">
                           {['MESSAGES_UPSERT','MESSAGES_UPDATE','CONNECTION_UPDATE'].map(ev => (
@@ -550,9 +559,6 @@ export const AddInstanceDialog = ({ open, onOpenChange }: AddInstanceDialogProps
                       <div className="flex gap-2">
                         <Button type="button" variant="outline" onClick={() => handleApplyToEvolution(false)} disabled={isApplying}>
                           {isApplying ? 'Aplicando...' : 'Configurar no Evolution'}
-                        </Button>
-                        <Button type="button" onClick={() => handleApplyToEvolution(true)} disabled={isApplying}>
-                          Forçar configurações
                         </Button>
                       </div>
                     </div>
@@ -733,7 +739,7 @@ export const AddInstanceDialog = ({ open, onOpenChange }: AddInstanceDialogProps
                   <FormItem>
                     <FormLabel>Eventos (Evolution)</FormLabel>
                     <div className="flex gap-2 flex-wrap">
-                      {['MESSAGES_UPSERT','MESSAGES_UPDATE','CONNECTION_UPDATE'].map(ev => (
+                      {['MESSAGES_UPSERT','MESSAGES_UPDATE','CONNECTION_UPDATE','MESSAGES_DELETE'].map(ev => (
                         <Button
                           key={ev}
                           size="sm"
@@ -745,14 +751,11 @@ export const AddInstanceDialog = ({ open, onOpenChange }: AddInstanceDialogProps
                       ))}
                     </div>
                   </FormItem>
-                  <div className="flex gap-2">
-                    <Button type="button" variant="outline" onClick={() => handleApplyToEvolution(false)} disabled={isApplying}>
-                      {isApplying ? 'Aplicando...' : 'Configurar no Evolution'}
-                    </Button>
-                    <Button type="button" onClick={() => handleApplyToEvolution(true)} disabled={isApplying}>
-                      Forçar configurações
-                    </Button>
-                  </div>
+                    <div className="flex gap-2">
+                      <Button type="button" variant="outline" onClick={() => handleApplyToEvolution(false)} disabled={isApplying}>
+                        {isApplying ? 'Aplicando...' : 'Configurar no Evolution'}
+                      </Button>
+                    </div>
                 </div>
 
                 <div className="flex gap-2">

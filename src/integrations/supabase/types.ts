@@ -3291,6 +3291,7 @@ export type Database = {
         Row: {
           api_key: string
           api_url: string
+          webhook_endpoint: string | null
           created_at: string | null
           id: string
           instance_id: string
@@ -3299,6 +3300,7 @@ export type Database = {
         Insert: {
           api_key: string
           api_url: string
+          webhook_endpoint?: string | null
           created_at?: string | null
           id?: string
           instance_id: string
@@ -3307,6 +3309,7 @@ export type Database = {
         Update: {
           api_key?: string
           api_url?: string
+          webhook_endpoint?: string | null
           created_at?: string | null
           id?: string
           instance_id?: string

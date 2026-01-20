@@ -76,7 +76,8 @@ export const EditInstanceDialog = ({
   });
 
   const providerType = form.watch("provider_type");
-  const [selectedEvents, setSelectedEvents] = useState<string[]>(['MESSAGES_UPSERT','MESSAGES_UPDATE','CONNECTION_UPDATE']);
+  const [selectedEvents, setSelectedEvents] = useState<string[]>(['MESSAGES_UPSERT','MESSAGES_UPDATE','CONNECTION_UPDATE','MESSAGES_DELETE']);
+  const [webhookBase64, setWebhookBase64] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [secretsLoaded, setSecretsLoaded] = useState(false);
 
@@ -390,9 +391,6 @@ export const EditInstanceDialog = ({
                     <Button type="button" variant="outline" onClick={() => handleApplyToEvolution(false)} disabled={isApplying}>
                       {isApplying ? 'Aplicando...' : 'Aplicar no Evolution'}
                     </Button>
-                    <Button type="button" onClick={() => handleApplyToEvolution(true)} disabled={isApplying}>
-                      Forçar configurações
-                    </Button>
                   </div>
                 </div>
               </TabsContent>
@@ -413,9 +411,15 @@ export const EditInstanceDialog = ({
                     )}
                   />
                   <FormItem>
+                    <div className="flex items-center gap-2">
+                      <input id="editWebhookBase64" type="checkbox" checked={webhookBase64} onChange={(e) => setWebhookBase64(e.target.checked)} />
+                      <label htmlFor="editWebhookBase64">Webhook Base64</label>
+                    </div>
+                  </FormItem>
+                  <FormItem>
                     <FormLabel>Eventos (Evolution)</FormLabel>
                     <div className="flex gap-2 flex-wrap">
-                      {['MESSAGES_UPSERT','MESSAGES_UPDATE','CONNECTION_UPDATE'].map(ev => (
+                      {['MESSAGES_UPSERT','MESSAGES_UPDATE','CONNECTION_UPDATE','MESSAGES_DELETE'].map(ev => (
                         <Button
                           key={ev}
                           size="sm"
