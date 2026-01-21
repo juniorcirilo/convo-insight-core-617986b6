@@ -79,7 +79,7 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
       case 'delivered':
         return <CheckCheck className="w-4 h-4 text-primary-foreground/80" />;
       case 'read':
-        return <CheckCheck className="w-4 h-4 text-white" />;
+        return <CheckCheck className="w-4 h-4 text-sky-400" />;
       default:
         return <Check className="w-4 h-4 text-primary-foreground/70" />;
     }
