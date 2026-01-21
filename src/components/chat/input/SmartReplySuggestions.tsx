@@ -68,7 +68,7 @@ export const SmartReplySuggestions = ({
         <ScrollArea className="w-full">
           <div className="flex gap-1.5 pb-1">
             {suggestions.map((suggestion, index) => {
-              const config = toneConfig[suggestion.tone];
+              const config = toneConfig[suggestion.tone as keyof typeof toneConfig] || toneConfig.friendly;
               return (
                 <TooltipProvider key={index}>
                   <Tooltip>

@@ -37,8 +37,8 @@ export const useWhatsAppMessages = (conversationId: string | null) => {
       return data as Message[];
     },
     enabled: !!conversationId,
-    // Refetch more frequently to catch status updates
-    refetchInterval: 5000,
+    // Disable refetchInterval - rely on realtime subscriptions for updates
+    refetchInterval: false,
   });
 
   // Mark messages as read bidirectionally when conversation is opened

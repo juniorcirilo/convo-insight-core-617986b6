@@ -1333,49 +1333,9 @@ async function processMessageUpdate(payload: EvolutionWebhookPayload, supabase: 
         }
       }
 
-      // Try to find by remoteJid + timestamp if ID methods didn't match
-      if (!updated) {
-        const ts = update.timestamp || update.messageTimestamp || update.t || 
-                   update.message?.messageTimestamp || data.messageTimestamp ||
-                   update.update?.timestamp;
-
-        if (remoteJid && ts) {
-          try {
-            // Also try to find by lid if remoteJid is a lid
-            const { lid } = normalizePhoneNumber(remoteJid);
-            
-            // Convert timestamp to ISO and define tolerance window +-10 seconds
-            const tsMs = Number(ts) * (String(ts).length > 10 ? 1 : 1000);
-            const from = new Date(tsMs - 10000).toISOString();
-            const to = new Date(tsMs + 10000).toISOString();
-
-            let query = supabase
-              .from('whatsapp_messages')
-              .update({ status })
-              .gte('timestamp', from)
-              .lte('timestamp', to)
-              .eq('is_from_me', true);
-
-            // Try matching by remote_jid or sender_lid
-            if (lid) {
-              query = query.or(`remote_jid.eq.${remoteJid},sender_lid.eq.${lid}`);
-            } else {
-              query = query.eq('remote_jid', remoteJid);
-            }
-
-            const { data: updatedMsgs, error: qErr } = await query.select('id');
-
-            if (qErr) {
-              console.error('[evolution-webhook] Error updating message status by remote_jid/timestamp:', qErr);
-            } else if (updatedMsgs && updatedMsgs.length > 0) {
-              console.log(`[evolution-webhook] Message status updated by remote_jid/timestamp to: ${status}, count: ${updatedMsgs.length}`);
-              updated = true;
-            }
-          } catch (e) {
-            console.error('[evolution-webhook] Error matching message by timestamp:', e);
-          }
-        }
-      }
+      // NOTE: Removed timestamp-based fallback matching as it was causing 
+      // status updates to affect multiple messages incorrectly.
+      // Status updates MUST have a valid keyId or messageId to work correctly.
       
       if (!updated && !keyId && !messageId) {
         console.log('[evolution-webhook] No message id or timestamp found to match status update');

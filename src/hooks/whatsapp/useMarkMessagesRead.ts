@@ -30,12 +30,8 @@ export const useMarkMessagesRead = () => {
       return data as MarkReadResult;
     },
     onSuccess: (data, variables) => {
-      // Invalidate messages query to refresh status
-      queryClient.invalidateQueries({ 
-        queryKey: ['whatsapp', 'messages', variables.conversationId] 
-      });
-      
-      // Invalidate conversations to update unread count
+      // Don't invalidate messages query - let realtime subscription handle updates
+      // Only invalidate conversations to update unread count
       queryClient.invalidateQueries({ 
         queryKey: ['whatsapp', 'conversations'] 
       });
