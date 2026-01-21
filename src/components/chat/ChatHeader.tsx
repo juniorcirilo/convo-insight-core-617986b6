@@ -2,6 +2,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Pencil, Building2 } from "lucide-react";
+import { formatPhoneForDisplay } from "@/utils/phoneUtils";
 import { SentimentCard } from "./SentimentCard";
 import { Tables } from "@/integrations/supabase/types";
 import { useConversationTopics } from "@/hooks/whatsapp/useConversationTopics";
@@ -104,7 +105,7 @@ export const ChatHeader = ({ contact, sentiment, isAnalyzing, onAnalyze, convers
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              {contact.phone_number}
+              {formatPhoneForDisplay(contact.phone_number)}
             </p>
             
             {/* Sector badge and topics */}

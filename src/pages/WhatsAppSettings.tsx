@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Plus, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { InstancesList, AddInstanceDialog, TeamMembersList, AssignmentRulesManager, InstanceSetupCollapsible, SetupGuideCollapsible, SecuritySettings, WebhooksManager, ApiTokensManager, SectorsManager, AIAssistantSettings } from "@/components/settings";
+import { InstancesList, AddInstanceDialog, TeamMembersList, AssignmentRulesManager, InstanceSetupCollapsible, SetupGuideCollapsible, SecuritySettings, WebhooksManager, ApiTokensManager, SectorsManager, AIAssistantSettings, WidgetSettings } from "@/components/settings";
 import { MacrosManager } from "@/components/macros";
 import { CampaignsManager } from "@/components/campaigns";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,7 +13,7 @@ const WhatsAppSettings = () => {
   const { isAdmin } = useAuth();
 
   const allowedTabs = isAdmin
-    ? ["setup", "instances", "sectors", "macros", "assignment", "campaigns", "webhooks", "api", "ai", "team", "security"]
+    ? ["setup", "instances", "sectors", "macros", "assignment", "campaigns", "widget", "webhooks", "api", "ai", "team", "security"]
     : ["setup", "instances", "sectors", "macros", "assignment"];
 
   const currentTabParam = searchParams.get("tab") || "setup";
@@ -73,6 +73,7 @@ const WhatsAppSettings = () => {
             <TabsTrigger value="macros">Macros</TabsTrigger>
             <TabsTrigger value="assignment">Atribuição</TabsTrigger>
             {isAdmin && <TabsTrigger value="campaigns">Campanhas</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="widget">Widget</TabsTrigger>}
             {isAdmin && <TabsTrigger value="webhooks">Webhooks</TabsTrigger>}
             {isAdmin && <TabsTrigger value="api">API</TabsTrigger>}
             {isAdmin && <TabsTrigger value="ai">Assistente I.A</TabsTrigger>}
@@ -113,6 +114,12 @@ const WhatsAppSettings = () => {
           {isAdmin && (
             <TabsContent value="campaigns" className="mt-6">
               <CampaignsManager />
+            </TabsContent>
+          )}
+
+          {isAdmin && (
+            <TabsContent value="widget" className="mt-6">
+              <WidgetSettings />
             </TabsContent>
           )}
 

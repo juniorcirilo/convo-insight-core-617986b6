@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat Widget</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    }
+
+    :root {
+      --primary: #10B981;
+      --primary-dark: #059669;
+      --bg: #ffffff;
+      --bg-secondary: #f3f4f6;
+      --text: #1f2937;
+      --text-secondary: #6b7280;
+      --border: #e5e7eb;
+    }
+
+    body {
+      background: transparent;
+    }
+
+    /* Widget Button */
+    .widget-button {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: var(--primary);
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s, box-shadow 0.2s;
+      z-index: 9999;
+    }
+
+    .widget-button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    .widget-button svg {
+      width: 28px;
+      height: 28px;
+      fill: white;
+    }
+
+    .widget-button.small { width: 48px; height: 48px; }
+    .widget-button.small svg { width: 22px; height: 22px; }
+    .widget-button.large { width: 72px; height: 72px; }
+    .widget-button.large svg { width: 32px; height: 32px; }
+
+    .widget-button.bottom-left {
+      right: auto;
+      left: 20px;
+    }
+
+    /* Widget Container */
+    .widget-container {
+      position: fixed;
+      bottom: 90px;
+      right: 20px;
+      width: 380px;
+      height: 520px;
+      max-height: calc(100vh - 120px);
+      background: var(--bg);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      z-index: 9998;
+    }
+
+    .widget-container.open {
+      display: flex;
+      animation: slideUp 0.3s ease;
+    }
+
+    .widget-container.bottom-left {
+      right: auto;
+      left: 20px;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Header */
+    .widget-header {
+      background: var(--primary);
+      color: white;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .widget-header-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .widget-header-avatar svg {
+      width: 24px;
+      height: 24px;
+      fill: white;
+    }
+
+    .widget-header-info h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .widget-header-info p {
+      font-size: 13px;
+      opacity: 0.9;
+    }
+
+    .widget-close {
+      margin-left: auto;
+      background: none;
+      border: none;
+      color: white;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 50%;
+      transition: background 0.2s;
+    }
+
+    .widget-close:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    /* Messages */
+    .widget-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: var(--bg-secondary);
+    }
+
+    .widget-message {
+      max-width: 85%;
+      padding: 12px 16px;
+      border-radius: 16px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .widget-message.visitor {
+      align-self: flex-end;
+      background: var(--primary);
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+
+    .widget-message.agent {
+      align-self: flex-start;
+      background: var(--bg);
+      color: var(--text);
+      border-bottom-left-radius: 4px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    .widget-message-time {
+      font-size: 11px;
+      opacity: 0.7;
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      justify-content: flex-end;
+    }
+
+    .widget-message-status {
+      display: inline-flex;
+    }
+
+    .widget-message-status svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .widget-message.visitor .widget-message-status svg {
+      fill: rgba(255, 255, 255, 0.7);
+    }
+
+    .widget-message.visitor .widget-message-status.read svg {
+      fill: #60a5fa;
+    }
+
+    /* Welcome Screen */
+    .widget-welcome {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 24px;
+      background: var(--bg-secondary);
+    }
+
+    .widget-welcome h3 {
+      font-size: 24px;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+
+    .widget-welcome p {
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+
+    /* Form */
+    .widget-form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .widget-input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .widget-input:focus {
+      border-color: var(--primary);
+    }
+
+    .widget-submit {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 14px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .widget-submit:hover {
+      background: var(--primary-dark);
+    }
+
+    .widget-submit:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* Input Area */
+    .widget-input-area {
+      padding: 16px;
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+    }
+
+    .widget-input-area input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      font-size: 14px;
+      outline: none;
+    }
+
+    .widget-input-area input:focus {
+      border-color: var(--primary);
+    }
+
+    .widget-send {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--primary);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+
+    .widget-send:hover {
+      background: var(--primary-dark);
+    }
+
+    .widget-send svg {
+      width: 20px;
+      height: 20px;
+      fill: white;
+    }
+
+    /* Offline */
+    .widget-offline {
+      background: #fef3c7;
+      color: #92400e;
+      padding: 12px 16px;
+      font-size: 13px;
+      text-align: center;
+    }
+
+    /* Loading */
+    .widget-loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+
+    .widget-loading-spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Responsive */
+    @media (max-width: 420px) {
+      .widget-container {
+        width: calc(100vw - 24px);
+        right: 12px;
+        left: 12px;
+        bottom: 80px;
+        height: calc(100vh - 100px);
+        max-height: none;
+      }
+
+      .widget-container.bottom-left {
+        right: 12px;
+      }
+
+      .widget-button {
+        bottom: 12px;
+        right: 12px;
+      }
+
+      .widget-button.bottom-left {
+        left: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Widget Button -->
+  <button class="widget-button" id="widgetButton" onclick="toggleWidget()">
+    <svg id="chatIcon" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+    <svg id="closeIcon" style="display:none" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+  </button>
+
+  <!-- Widget Container -->
+  <div class="widget-container" id="widgetContainer">
+    <!-- Header -->
+    <div class="widget-header">
+      <div class="widget-header-avatar">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+      </div>
+      <div class="widget-header-info">
+        <h3 id="widgetTitle">Olá! 👋</h3>
+        <p id="widgetSubtitle">Estamos online</p>
+      </div>
+      <button class="widget-close" onclick="toggleWidget()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+
+    <!-- Content -->
+    <div id="widgetContent">
+      <!-- Loading -->
+      <div class="widget-loading" id="widgetLoading">
+        <div class="widget-loading-spinner"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      // Get widget ID from script tag or URL
+      const scriptTag = document.currentScript || document.querySelector('script[data-widget-id]');
+      const WIDGET_ID = scriptTag?.dataset?.widgetId || new URLSearchParams(window.location.search).get('id');
+      const API_URL = scriptTag?.dataset?.apiUrl || window.location.origin.replace(/:\d+$/, ':54321') + '/functions/v1/widget-api';
+
+      let config = null;
+      let conversationId = null;
+      let visitorToken = localStorage.getItem('widget_token_' + WIDGET_ID);
+      let isOpen = false;
+      let messages = [];
+      let pollingInterval = null;
+
+      // Initialize
+      async function init() {
+        if (!WIDGET_ID) {
+          console.error('Widget ID not provided');
+          return;
+        }
+
+        try {
+          const res = await fetch(`${API_URL}/config?id=${WIDGET_ID}`);
+          if (!res.ok) throw new Error('Failed to load widget');
+          
+          config = await res.json();
+          applyConfig();
+          
+          // If we have a token, load existing conversation
+          if (visitorToken) {
+            await loadMessages();
+          }
+        } catch (err) {
+          console.error('Widget init error:', err);
+        }
+      }
+
+      function applyConfig() {
+        if (!config) return;
+
+        // Apply colors
+        document.documentElement.style.setProperty('--primary', config.primary_color);
+        document.documentElement.style.setProperty('--primary-dark', adjustColor(config.primary_color, -20));
+
+        // Apply position
+        const btn = document.getElementById('widgetButton');
+        const container = document.getElementById('widgetContainer');
+        if (config.position === 'bottom-left') {
+          btn.classList.add('bottom-left');
+          container.classList.add('bottom-left');
+        }
+
+        // Apply size
+        if (config.button_size === 'small') btn.classList.add('small');
+        if (config.button_size === 'large') btn.classList.add('large');
+
+        // Apply texts
+        document.getElementById('widgetTitle').textContent = config.welcome_title;
+        document.getElementById('widgetSubtitle').textContent = config.is_online ? 'Estamos online' : 'Fora do horário';
+
+        // Show content
+        renderContent();
+      }
+
+      function renderContent() {
+        const content = document.getElementById('widgetContent');
+        
+        // If offline, show message
+        if (!config.is_online) {
+          content.innerHTML = `
+            <div class="widget-offline">${config.offline_message}</div>
+            ${visitorToken ? renderMessages() : renderForm()}
+          `;
+          return;
+        }
+
+        // If no conversation yet, show form
+        if (!visitorToken) {
+          content.innerHTML = renderWelcome();
+        } else {
+          content.innerHTML = renderChat();
+          scrollToBottom();
+          startPolling();
+        }
+      }
+
+      function renderWelcome() {
+        return `
+          <div class="widget-welcome">
+            <h3>${config.welcome_title}</h3>
+            <p>${config.welcome_message}</p>
+            ${renderForm()}
+          </div>
+        `;
+      }
+
+      function renderForm() {
+        let fields = '';
+        if (config.require_name) {
+          fields += `<input type="text" class="widget-input" id="visitorName" placeholder="Seu nome" required>`;
+        }
+        if (config.require_email) {
+          fields += `<input type="email" class="widget-input" id="visitorEmail" placeholder="Seu e-mail">`;
+        }
+        if (config.require_phone) {
+          fields += `<input type="tel" class="widget-input" id="visitorPhone" placeholder="Seu telefone (WhatsApp)" required>`;
+        }
+        
+        return `
+          <form class="widget-form" onsubmit="startConversation(event)">
+            ${fields}
+            <button type="submit" class="widget-submit">Iniciar conversa</button>
+          </form>
+        `;
+      }
+
+      function renderChat() {
+        return `
+          <div class="widget-messages" id="widgetMessages">
+            ${messages.map(m => `
+              <div class="widget-message ${m.is_from_visitor ? 'visitor' : 'agent'}">
+                ${m.content}
+                <div class="widget-message-time">
+                  ${formatTime(m.created_at)}
+                  ${m.is_from_visitor ? renderStatusIcon(m.status) : ''}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          <div class="widget-input-area">
+            <input type="text" id="messageInput" placeholder="Digite sua mensagem..." onkeypress="handleKeyPress(event)">
+            <button class="widget-send" onclick="sendMessage()">
+              <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            </button>
+          </div>
+        `;
+      }
+
+      function renderStatusIcon(status) {
+        const icons = {
+          sending: '<span class="widget-message-status"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" opacity="0.5"/></svg></span>',
+          sent: '<span class="widget-message-status"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></span>',
+          delivered: '<span class="widget-message-status"><svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm4.24-1.41L11.66 16.17 7.48 12l-1.41 1.41L11.66 19l12-12-1.42-1.41zM.41 13.41L6 19l1.41-1.41L1.83 12 .41 13.41z"/></svg></span>',
+          read: '<span class="widget-message-status read"><svg viewBox="0 0 24 24"><path d="M18 7l-1.41-1.41-6.34 6.34 1.41 1.41L18 7zm4.24-1.41L11.66 16.17 7.48 12l-1.41 1.41L11.66 19l12-12-1.42-1.41zM.41 13.41L6 19l1.41-1.41L1.83 12 .41 13.41z"/></svg></span>',
+          failed: '<span class="widget-message-status"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" fill="#ef4444"/></svg></span>'
+        };
+        return icons[status] || icons.sent;
+      }
+
+      function renderMessages() {
+        return `
+          <div class="widget-messages" id="widgetMessages">
+            ${messages.map(m => `
+              <div class="widget-message ${m.is_from_visitor ? 'visitor' : 'agent'}">
+                ${m.content}
+                <div class="widget-message-time">
+                  ${formatTime(m.created_at)}
+                  ${m.is_from_visitor ? renderStatusIcon(m.status) : ''}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          <div class="widget-input-area">
+            <input type="text" id="messageInput" placeholder="Digite sua mensagem..." onkeypress="handleKeyPress(event)">
+            <button class="widget-send" onclick="sendMessage()">
+              <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            </button>
+          </div>
+        `;
+      }
+
+      // Start conversation
+      window.startConversation = async function(e) {
+        e.preventDefault();
+        
+        const name = document.getElementById('visitorName')?.value;
+        const email = document.getElementById('visitorEmail')?.value;
+        const phone = document.getElementById('visitorPhone')?.value;
+
+        try {
+          const res = await fetch(`${API_URL}/conversation`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              widget_id: WIDGET_ID,
+              visitor_name: name,
+              visitor_email: email,
+              visitor_phone: phone,
+              user_agent: navigator.userAgent,
+              referrer_url: document.referrer,
+              page_url: window.location.href
+            })
+          });
+
+          if (!res.ok) {
+            const err = await res.json();
+            alert(err.error || 'Erro ao iniciar conversa');
+            return;
+          }
+
+          const data = await res.json();
+          conversationId = data.conversation_id;
+          visitorToken = data.token;
+          localStorage.setItem('widget_token_' + WIDGET_ID, visitorToken);
+          
+          renderContent();
+        } catch (err) {
+          console.error('Error starting conversation:', err);
+          alert('Erro ao iniciar conversa. Tente novamente.');
+        }
+      };
+
+      // Send message
+      window.sendMessage = async function() {
+        const input = document.getElementById('messageInput');
+        const content = input?.value?.trim();
+        if (!content) return;
+
+        input.value = '';
+
+        // Add message locally with sending status
+        const tempMsg = {
+          content,
+          is_from_visitor: true,
+          status: 'sending',
+          created_at: new Date().toISOString()
+        };
+        messages.push(tempMsg);
+        updateMessages();
+
+        try {
+          const res = await fetch(`${API_URL}/message`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Widget-Token': visitorToken
+            },
+            body: JSON.stringify({ content })
+          });
+          
+          if (res.ok) {
+            tempMsg.status = 'sent';
+          } else {
+            tempMsg.status = 'failed';
+          }
+          updateMessages();
+        } catch (err) {
+          console.error('Error sending message:', err);
+          tempMsg.status = 'failed';
+          updateMessages();
+        }
+      };
+
+      window.handleKeyPress = function(e) {
+        if (e.key === 'Enter') {
+          sendMessage();
+        }
+      };
+
+      // Load messages
+      async function loadMessages() {
+        try {
+          const res = await fetch(`${API_URL}/messages`, {
+            headers: { 'X-Widget-Token': visitorToken }
+          });
+          
+          if (res.ok) {
+            const data = await res.json();
+            messages = data.messages || [];
+          }
+        } catch (err) {
+          console.error('Error loading messages:', err);
+        }
+      }
+
+      function updateMessages() {
+        const container = document.getElementById('widgetMessages');
+        if (!container) return;
+
+        container.innerHTML = messages.map(m => `
+          <div class="widget-message ${m.is_from_visitor ? 'visitor' : 'agent'}">
+            ${m.content}
+            <div class="widget-message-time">
+              ${formatTime(m.created_at)}
+              ${m.is_from_visitor ? renderStatusIcon(m.status) : ''}
+            </div>
+          </div>
+        `).join('');
+
+        scrollToBottom();
+      }
+
+      function scrollToBottom() {
+        const container = document.getElementById('widgetMessages');
+        if (container) {
+          container.scrollTop = container.scrollHeight;
+        }
+      }
+
+      function startPolling() {
+        if (pollingInterval) clearInterval(pollingInterval);
+        pollingInterval = setInterval(async () => {
+          if (!isOpen) return;
+          await loadMessages();
+          updateMessages();
+        }, 3000);
+      }
+
+      function formatTime(dateStr) {
+        const date = new Date(dateStr);
+        return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      }
+
+      function adjustColor(color, amount) {
+        const hex = color.replace('#', '');
+        const r = Math.max(0, Math.min(255, parseInt(hex.substr(0, 2), 16) + amount));
+        const g = Math.max(0, Math.min(255, parseInt(hex.substr(2, 2), 16) + amount));
+        const b = Math.max(0, Math.min(255, parseInt(hex.substr(4, 2), 16) + amount));
+        return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+      }
+
+      // Toggle widget
+      window.toggleWidget = function() {
+        isOpen = !isOpen;
+        const container = document.getElementById('widgetContainer');
+        const chatIcon = document.getElementById('chatIcon');
+        const closeIcon = document.getElementById('closeIcon');
+        
+        if (isOpen) {
+          container.classList.add('open');
+          chatIcon.style.display = 'none';
+          closeIcon.style.display = 'block';
+          if (visitorToken) {
+            startPolling();
+            markMessagesAsRead();
+          }
+        } else {
+          container.classList.remove('open');
+          chatIcon.style.display = 'block';
+          closeIcon.style.display = 'none';
+          if (pollingInterval) clearInterval(pollingInterval);
+        }
+      };
+
+      async function markMessagesAsRead() {
+        if (!visitorToken) return;
+        try {
+          await fetch(`${API_URL}/read`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Widget-Token': visitorToken
+            }
+          });
+        } catch (err) {
+          console.error('Error marking as read:', err);
+        }
+      }
+
+      // Initialize
+      init();
+    })();
+  </script>
+</body>
+</html>

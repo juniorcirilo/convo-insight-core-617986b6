@@ -23,3 +23,42 @@ verify_jwt = false
 
 [functions.process-meeting-reminders]
 verify_jwt = false
+
+[functions.widget-api]
+verify_jwt = false
+
+[functions.evolution-webhook]
+verify_jwt = false
+
+[functions.check-instances-status]
+verify_jwt = false
+
+[functions.configure-evolution-instance]
+verify_jwt = false
+
+[functions.send-whatsapp-message]
+verify_jwt = false
+
+[functions.test-evolution-connection]
+verify_jwt = false
+
+[functions.test-instance-connection]
+verify_jwt = false
+
+[functions.get-instance-details]
+verify_jwt = false
+
+[functions.ensure-user-profile]
+verify_jwt = false
+
+[functions.admin-reset-password]
+verify_jwt = false
+
+[functions.edit-whatsapp-message]
+verify_jwt = false
+
+[functions.get-media-signed-url]
+verify_jwt = false
+
+[functions.mark-messages-read]
+verify_jwt = false

@@ -1229,6 +1229,7 @@ async function processMessageUpdate(payload: EvolutionWebhookPayload, supabase: 
     // Format 3: { data: [{ key: {...}, update: {...} }] }
     // Format 4: { data: { key: {...}, status: 3 } } (direct status on key level)
     // Format 5: { data: { keyId, messageId, status } } (Evolution Cloud format)
+    // Format 6: { data: { key: {...}, ack: 3 } } (ACK format)
     
     let updates: any[] = [];
     
@@ -1247,33 +1248,54 @@ async function processMessageUpdate(payload: EvolutionWebhookPayload, supabase: 
       updates = [data];
     }
     
-    console.log('[evolution-webhook] Processing message update(s):', JSON.stringify(updates).substring(0, 1000));
+    console.log('[evolution-webhook] Processing message update(s):', JSON.stringify(updates).substring(0, 1500));
 
     for (const update of updates) {
       // Extract status from multiple possible fields
       let status = 'sent';
-      const rawStatus = update.status ?? update.ack ?? update.state ?? update.type ?? update.statusText ?? data.status ?? data.ack ?? null;
+      const rawStatus = update.status ?? update.ack ?? update.state ?? update.type ?? 
+                        update.statusText ?? data.status ?? data.ack ?? 
+                        update.update?.status ?? update.update?.ack ?? null;
 
       if (rawStatus !== null) {
         const s = String(rawStatus).toUpperCase();
         // WhatsApp status codes:
         // 0 = ERROR, 1 = PENDING/SENT, 2 = DELIVERED/RECEIVED, 3 = READ, 4 = PLAYED (for audio)
-        if (s === '4' || s === 'PLAYED') status = 'read'; // PLAYED is basically read for audio
-        else if (s === '3' || s === 'READ' || s.includes('READ')) status = 'read';
-        else if (s === '2' || s === 'DELIVERED' || s === 'RECEIVED' || s.includes('DELIVERY') || s.includes('DELIVERED') || s.includes('DELIVERY_ACK')) status = 'delivered';
-        else if (s === '1' || s === 'SENT' || s === 'PENDING' || s.includes('SERVER_ACK') || s.includes('ACK')) status = 'sent';
-        else if (s === '0' || s === 'ERROR' || s === 'FAILED') status = 'failed';
+        // Also handle string values
+        if (s === '4' || s === 'PLAYED') {
+          status = 'read'; // PLAYED is basically read for audio
+        } else if (s === '3' || s === 'READ' || s.includes('READ')) {
+          status = 'read';
+        } else if (s === '2' || s === 'DELIVERED' || s === 'RECEIVED' || 
+                   s.includes('DELIVERY') || s.includes('DELIVERED') || 
+                   s.includes('DELIVERY_ACK') || s === 'RECEIVED_BY_DEVICE') {
+          status = 'delivered';
+        } else if (s === '1' || s === 'SENT' || s === 'PENDING' || 
+                   s.includes('SERVER_ACK') || s.includes('ACK') || s === 'ON_SERVER') {
+          status = 'sent';
+        } else if (s === '0' || s === 'ERROR' || s === 'FAILED') {
+          status = 'failed';
+        }
       }
 
       // Try to locate message by multiple ID fields
       // keyId is the actual WhatsApp message ID (3EB0...)
       // messageId might be Evolution's internal ID
-      const keyId = update.keyId || update.key?.id || data.keyId || data.key?.id;
-      const messageId = update.messageId || update.message?.key?.id || update.id || data.messageId;
-      const remoteJid = update.key?.remoteJid || update.remoteJid || update.message?.key?.remoteJid || data.key?.remoteJid || data.remoteJid;
-      const fromMe = update.key?.fromMe ?? update.fromMe ?? data.key?.fromMe ?? data.fromMe;
+      const keyId = update.keyId || update.key?.id || data.keyId || data.key?.id || 
+                    update.update?.key?.id || update.message?.key?.id;
+      const messageId = update.messageId || update.message?.key?.id || update.id || 
+                        data.messageId || update.update?.id;
+      const remoteJid = update.key?.remoteJid || update.remoteJid || 
+                        update.message?.key?.remoteJid || data.key?.remoteJid || 
+                        data.remoteJid || update.update?.key?.remoteJid;
+      const fromMe = update.key?.fromMe ?? update.fromMe ?? data.key?.fromMe ?? 
+                     data.fromMe ?? update.update?.key?.fromMe;
       
-      console.log(`[evolution-webhook] Update: keyId=${keyId}, messageId=${messageId}, remoteJid=${remoteJid}, fromMe=${fromMe}, status=${status}, rawStatus=${rawStatus}`);
+      console.log(`[evolution-webhook] Status Update: keyId=${keyId}, messageId=${messageId}, remoteJid=${remoteJid}, fromMe=${fromMe}, status=${status}, rawStatus=${rawStatus}`);
+
+      // Only update status for messages FROM ME (outgoing messages)
+      // Status updates for incoming messages don't make sense
+      let updated = false;
 
       // Try keyId first (this is the actual WhatsApp message ID)
       if (keyId) {
@@ -1281,72 +1303,84 @@ async function processMessageUpdate(payload: EvolutionWebhookPayload, supabase: 
           .from('whatsapp_messages')
           .update({ status })
           .eq('message_id', keyId)
-          .select('id, message_id')
+          .eq('is_from_me', true)  // Only update outgoing messages
+          .select('id, message_id, status')
           .maybeSingle();
 
         if (error) {
           console.error('[evolution-webhook] Error updating message status by keyId:', error);
         } else if (updatedMsg) {
-          console.log('[evolution-webhook] Message status updated by keyId to:', status, 'keyId:', keyId, 'dbId:', updatedMsg.id);
-          continue; // Move to next update
+          console.log('[evolution-webhook] Message status updated by keyId:', status, 'keyId:', keyId, 'dbId:', updatedMsg.id);
+          updated = true;
         }
       }
 
       // Try messageId if keyId didn't work
-      if (messageId && messageId !== keyId) {
+      if (!updated && messageId && messageId !== keyId) {
         const { data: updatedMsg, error } = await supabase
           .from('whatsapp_messages')
           .update({ status })
           .eq('message_id', messageId)
-          .select('id, message_id')
+          .eq('is_from_me', true)
+          .select('id, message_id, status')
           .maybeSingle();
 
         if (error) {
           console.error('[evolution-webhook] Error updating message status by messageId:', error);
         } else if (updatedMsg) {
-          console.log('[evolution-webhook] Message status updated by messageId to:', status, 'messageId:', messageId, 'dbId:', updatedMsg.id);
-          continue; // Move to next update
+          console.log('[evolution-webhook] Message status updated by messageId:', status, 'messageId:', messageId, 'dbId:', updatedMsg.id);
+          updated = true;
         }
       }
 
       // Try to find by remoteJid + timestamp if ID methods didn't match
-      const ts = update.timestamp || update.messageTimestamp || update.t || update.message?.messageTimestamp || data.messageTimestamp;
+      if (!updated) {
+        const ts = update.timestamp || update.messageTimestamp || update.t || 
+                   update.message?.messageTimestamp || data.messageTimestamp ||
+                   update.update?.timestamp;
 
-      if (remoteJid && ts) {
-        try {
-          // Also try to find by lid if remoteJid is a lid
-          const { lid } = normalizePhoneNumber(remoteJid);
-          
-          // Convert timestamp to ISO and define tolerance window +-10 seconds
-          const tsMs = Number(ts) * (String(ts).length > 10 ? 1 : 1000);
-          const from = new Date(tsMs - 10000).toISOString();
-          const to = new Date(tsMs + 10000).toISOString();
+        if (remoteJid && ts) {
+          try {
+            // Also try to find by lid if remoteJid is a lid
+            const { lid } = normalizePhoneNumber(remoteJid);
+            
+            // Convert timestamp to ISO and define tolerance window +-10 seconds
+            const tsMs = Number(ts) * (String(ts).length > 10 ? 1 : 1000);
+            const from = new Date(tsMs - 10000).toISOString();
+            const to = new Date(tsMs + 10000).toISOString();
 
-          let query = supabase
-            .from('whatsapp_messages')
-            .update({ status })
-            .gte('timestamp', from)
-            .lte('timestamp', to);
+            let query = supabase
+              .from('whatsapp_messages')
+              .update({ status })
+              .gte('timestamp', from)
+              .lte('timestamp', to)
+              .eq('is_from_me', true);
 
-          // Try matching by remote_jid or sender_lid
-          if (lid) {
-            query = query.or(`remote_jid.eq.${remoteJid},sender_lid.eq.${lid}`);
-          } else {
-            query = query.eq('remote_jid', remoteJid);
+            // Try matching by remote_jid or sender_lid
+            if (lid) {
+              query = query.or(`remote_jid.eq.${remoteJid},sender_lid.eq.${lid}`);
+            } else {
+              query = query.eq('remote_jid', remoteJid);
+            }
+
+            const { data: updatedMsgs, error: qErr } = await query.select('id');
+
+            if (qErr) {
+              console.error('[evolution-webhook] Error updating message status by remote_jid/timestamp:', qErr);
+            } else if (updatedMsgs && updatedMsgs.length > 0) {
+              console.log(`[evolution-webhook] Message status updated by remote_jid/timestamp to: ${status}, count: ${updatedMsgs.length}`);
+              updated = true;
+            }
+          } catch (e) {
+            console.error('[evolution-webhook] Error matching message by timestamp:', e);
           }
-
-          const { data: updatedMsgs, error: qErr } = await query.select('id');
-
-          if (qErr) {
-            console.error('[evolution-webhook] Error updating message status by remote_jid/timestamp:', qErr);
-          } else if (updatedMsgs && updatedMsgs.length > 0) {
-            console.log(`[evolution-webhook] Message status updated by remote_jid/timestamp to: ${status}, count: ${updatedMsgs.length}`);
-          }
-        } catch (e) {
-          console.error('[evolution-webhook] Error matching message by timestamp:', e);
         }
-      } else if (!keyId && !messageId) {
+      }
+      
+      if (!updated && !keyId && !messageId) {
         console.log('[evolution-webhook] No message id or timestamp found to match status update');
+      } else if (!updated) {
+        console.log('[evolution-webhook] Could not find message to update status for keyId:', keyId, 'messageId:', messageId);
       }
     }
   } catch (error) {
@@ -1465,8 +1499,11 @@ Deno.serve(async (req) => {
     // Handle various event naming conventions from Evolution API
     const eventLower = (payload.event || '').toLowerCase().replace(/_/g, '.');
     
+    // Log event for debugging
+    console.log('[evolution-webhook] Normalized event:', eventLower);
+    
     switch (true) {
-      case eventLower === 'messages.upsert' || eventLower === 'messages.upsert':
+      case eventLower === 'messages.upsert':
         // Check if it's an edited message
         if (isEditedMessage(payload.data?.message)) {
           await processMessageEdit(payload, supabase);
@@ -1474,14 +1511,28 @@ Deno.serve(async (req) => {
           await processMessageUpsert(payload, supabase);
         }
         break;
-      case eventLower === 'messages.update' || eventLower === 'message.update':
-      case eventLower === 'messages.ack' || eventLower === 'message.ack':
-      case eventLower === 'send.message' || eventLower === 'message.status':
+      
+      // Handle all status update events
+      case eventLower === 'messages.update':
+      case eventLower === 'message.update':
+      case eventLower === 'messages.ack':
+      case eventLower === 'message.ack':
+      case eventLower === 'send.message':
+      case eventLower === 'message.status':
+      case eventLower === 'messages.status':
+      case eventLower === 'message.delivery':
+      case eventLower === 'messages.delivery':
+      case eventLower.includes('ack'):
+      case eventLower.includes('delivery'):
+      case eventLower.includes('status'):
+        console.log('[evolution-webhook] Processing status update event:', eventLower);
         await processMessageUpdate(payload, supabase);
         break;
+        
       case eventLower === 'connection.update':
         await processConnectionUpdate(payload, supabase);
         break;
+        
       default:
         console.log('[evolution-webhook] Unhandled event type:', payload.event);
     }
