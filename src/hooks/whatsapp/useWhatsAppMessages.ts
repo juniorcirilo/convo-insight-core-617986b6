@@ -22,7 +22,7 @@ export const useWhatsAppMessages = (conversationId: string | null) => {
     }, 500); // 500ms debounce
   }, [markMessagesRead]);
 
-  const { data: messages = [], isLoading, error } = useQuery({
+  const { data: messages = [], isLoading, error, refetch } = useQuery({
     queryKey: ['whatsapp', 'messages', conversationId],
     queryFn: async () => {
       if (!conversationId) return [];
@@ -37,6 +37,8 @@ export const useWhatsAppMessages = (conversationId: string | null) => {
       return data as Message[];
     },
     enabled: !!conversationId,
+    // Refetch more frequently to catch status updates
+    refetchInterval: 5000,
   });
 
   // Mark messages as read bidirectionally when conversation is opened
@@ -55,9 +57,11 @@ export const useWhatsAppMessages = (conversationId: string | null) => {
     };
   }, [conversationId, debouncedMarkAsRead]);
 
-  // Realtime subscription for new and edited messages
+  // Realtime subscription for new, updated and deleted messages
   useEffect(() => {
     if (!conversationId) return;
+
+    console.log('[useWhatsAppMessages] Setting up realtime subscription for:', conversationId);
 
     const channel = supabase
       .channel(`messages-${conversationId}`)
@@ -67,6 +71,7 @@ export const useWhatsAppMessages = (conversationId: string | null) => {
         table: 'whatsapp_messages',
         filter: `conversation_id=eq.${conversationId}`
       }, (payload) => {
+        console.log('[useWhatsAppMessages] INSERT received:', payload.new);
         queryClient.setQueryData(['whatsapp', 'messages', conversationId], (old: Message[] = []) => {
           const exists = old.some(msg => msg.id === payload.new.id);
           if (exists) return old;
@@ -85,32 +90,44 @@ export const useWhatsAppMessages = (conversationId: string | null) => {
         table: 'whatsapp_messages',
         filter: `conversation_id=eq.${conversationId}`
       }, (payload) => {
+        console.log('[useWhatsAppMessages] UPDATE received:', payload.new);
         queryClient.setQueryData(['whatsapp', 'messages', conversationId], (old: Message[] = []) => {
           // Prefer matching by primary `id` if present
           const newRow = payload.new as Message;
-          let found = false;
           const updated = old.map(msg => {
+            // Match by id
             if (msg.id === newRow.id) {
-              found = true;
+              console.log('[useWhatsAppMessages] Updating message by id:', msg.id, 'old status:', msg.status, 'new status:', newRow.status);
+              return { ...msg, ...newRow };
+            }
+            // Fallback: match by message_id (external provider id)
+            if (msg.message_id && msg.message_id === newRow.message_id) {
+              console.log('[useWhatsAppMessages] Updating message by message_id:', msg.message_id, 'old status:', msg.status, 'new status:', newRow.status);
               return { ...msg, ...newRow };
             }
             return msg;
           });
 
-          if (found) return updated;
-
-          // Fallback: match by `message_id` (external provider id)
-          if ((newRow as any).message_id) {
-            return old.map(msg => msg.message_id === (newRow as any).message_id ? { ...msg, ...newRow } : msg);
-          }
-
-          // No match — return original list
-          return old;
+          return updated;
         });
       })
-      .subscribe();
+      .on('postgres_changes', {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'whatsapp_messages',
+        filter: `conversation_id=eq.${conversationId}`
+      }, (payload) => {
+        console.log('[useWhatsAppMessages] DELETE received:', payload.old);
+        queryClient.setQueryData(['whatsapp', 'messages', conversationId], (old: Message[] = []) => {
+          return old.filter(msg => msg.id !== (payload.old as any).id);
+        });
+      })
+      .subscribe((status) => {
+        console.log('[useWhatsAppMessages] Subscription status:', status);
+      });
 
     return () => {
+      console.log('[useWhatsAppMessages] Removing channel for:', conversationId);
       supabase.removeChannel(channel);
     };
   }, [conversationId, queryClient, debouncedMarkAsRead]);
@@ -119,5 +136,6 @@ export const useWhatsAppMessages = (conversationId: string | null) => {
     messages,
     isLoading,
     error,
+    refetch,
   };
 };

@@ -198,6 +198,8 @@ export const useWhatsAppConversations = (filters?: ConversationsFilters) => {
   });
 
   useEffect(() => {
+    console.log('[useWhatsAppConversations] Setting up realtime subscriptions');
+    
     // Subscribe to conversation changes
     const conversationsChannel = supabase
       .channel('conversations-changes')
@@ -205,25 +207,41 @@ export const useWhatsAppConversations = (filters?: ConversationsFilters) => {
         event: '*',
         schema: 'public',
         table: 'whatsapp_conversations'
-      }, () => {
+      }, (payload) => {
+        console.log('[useWhatsAppConversations] Conversation change:', payload.eventType, payload.new);
         queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[useWhatsAppConversations] Conversations subscription status:', status);
+      });
 
-    // Subscribe to new messages to update conversation list in real-time
+    // Subscribe to new/updated messages to update conversation list in real-time
     const messagesChannel = supabase
       .channel('messages-for-conversations')
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'whatsapp_messages'
-      }, () => {
+      }, (payload) => {
+        console.log('[useWhatsAppConversations] New message received:', payload.new);
         // Invalidate conversations when a new message arrives
         queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
       })
-      .subscribe();
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'whatsapp_messages'
+      }, (payload) => {
+        console.log('[useWhatsAppConversations] Message updated:', payload.new);
+        // Also invalidate when message status changes (sent -> delivered -> read)
+        queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
+      })
+      .subscribe((status) => {
+        console.log('[useWhatsAppConversations] Messages subscription status:', status);
+      });
 
     return () => {
+      console.log('[useWhatsAppConversations] Removing realtime channels');
       supabase.removeChannel(conversationsChannel);
       supabase.removeChannel(messagesChannel);
     };

@@ -152,64 +152,69 @@ export const MessageInputContainer = ({
       />
       
       <div className="p-4">
-        <div className="relative flex gap-2 items-end">
-          {showMacroSuggestions && (
-            <MacroSuggestions
-              macros={filteredMacros}
-              onSelect={handleMacroSelect}
-            />
-          )}
-        
-        <EmojiPickerButton onEmojiSelect={handleEmojiSelect} disabled={disabled} />
-        
-        <MediaUploadButton 
-          conversationId={conversationId}
-          onSendMedia={onSendMedia}
-          disabled={disabled}
-        />
-        
-        <AIComposerButton
-          message={message}
-          onComposed={(newMessage) => setMessage(newMessage)}
-          disabled={disabled}
-        />
-        
-        <QuoteButton
-          conversationId={conversationId}
-          leadId={leadId}
-          sectorId={sectorId}
-          disabled={disabled}
-        />
-        
-        <Textarea
-          ref={textareaRef}
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Digite uma mensagem..."
-          className="min-h-[44px] max-h-32 resize-none"
-          disabled={disabled}
-        />
-        
-        {message.trim() ? (
-          <Button
-            onClick={handleSend}
-            size="icon"
-            disabled={disabled}
-          >
-            <Send className="w-4 h-4" />
-          </Button>
-        ) : (
-          <Button
-            onClick={() => setIsRecording(true)}
-            size="icon"
-            variant="outline"
-            disabled={disabled}
-          >
-            <Mic className="w-4 h-4" />
-          </Button>
+        {showMacroSuggestions && (
+          <MacroSuggestions
+            macros={filteredMacros}
+            onSelect={handleMacroSelect}
+          />
         )}
+        
+        <div className="flex gap-2 items-end">
+          <div className="relative flex-1 rounded-md border border-input bg-background">
+            <Textarea
+              ref={textareaRef}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Digite uma mensagem..."
+              className="min-h-[44px] max-h-32 resize-none border-0 pr-40 focus-visible:ring-0 focus-visible:ring-offset-0"
+              disabled={disabled}
+            />
+            
+            <div className="absolute right-2 bottom-2 flex gap-1 items-center bg-background">
+              <EmojiPickerButton onEmojiSelect={handleEmojiSelect} disabled={disabled} />
+              
+              <MediaUploadButton 
+                conversationId={conversationId}
+                onSendMedia={onSendMedia}
+                disabled={disabled}
+              />
+              
+              <AIComposerButton
+                message={message}
+                onComposed={(newMessage) => setMessage(newMessage)}
+                disabled={disabled}
+              />
+              
+              <QuoteButton
+                conversationId={conversationId}
+                leadId={leadId}
+                sectorId={sectorId}
+                disabled={disabled}
+              />
+            </div>
+          </div>
+          
+          {message.trim() ? (
+            <Button
+              onClick={handleSend}
+              size="icon"
+              disabled={disabled}
+            >
+              <Send className="w-4 h-4" />
+            </Button>
+          ) : (
+            <Button
+              onClick={() => setIsRecording(true)}
+              size="icon"
+              variant="outline"
+              disabled={disabled}
+            >
+              <Mic className="w-4 h-4" />
+            </Button>
+          )}
         </div>
+        
         <p className="text-xs text-muted-foreground mt-1">
           Enter para enviar, Shift+Enter para nova linha
         </p>

@@ -73,15 +73,15 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
     
     switch (message.status) {
       case 'sending':
-        return <Clock className="w-4 h-4 text-muted-foreground" />;
+        return <Clock className="w-4 h-4 text-primary-foreground/60" />;
       case 'sent':
-        return <Check className="w-4 h-4 text-muted-foreground" />;
+        return <Check className="w-4 h-4 text-primary-foreground/70" />;
       case 'delivered':
-        return <CheckCheck className="w-4 h-4 text-muted-foreground" />;
+        return <CheckCheck className="w-4 h-4 text-primary-foreground/80" />;
       case 'read':
-        return <CheckCheck className="w-4 h-4 text-blue-500" />;
+        return <CheckCheck className="w-4 h-4 text-white" />;
       default:
-        return <Check className="w-4 h-4 text-muted-foreground" />;
+        return <Check className="w-4 h-4 text-primary-foreground/70" />;
     }
   };
 
@@ -157,7 +157,7 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
             {message.transcription_status === 'processing' && (
               <p className={cn(
                 "text-xs italic",
-                isFromMe ? "text-primary-foreground/70" : "text-muted-foreground"
+                isFromMe ? "text-white/70" : "text-muted-foreground"
               )}>
                 Transcrevendo...
               </p>
@@ -165,7 +165,7 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
             {message.audio_transcription && (
               <div className={cn(
                 "text-xs p-2 rounded-md",
-                isFromMe ? "bg-primary-foreground/10" : "bg-muted"
+                isFromMe ? "bg-white/10 text-white" : "bg-muted"
               )}>
                 <p className="font-medium mb-0.5 text-[10px] uppercase tracking-wide opacity-70">Transcrição</p>
                 <p>{message.audio_transcription}</p>
@@ -308,7 +308,7 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
             <span
               className={cn(
                 'text-xs',
-                isFromMe ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                isFromMe ? 'text-white/90' : 'text-muted-foreground'
               )}
             >
               {time}
@@ -319,7 +319,7 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
                   <button 
                     className={cn(
                       "text-xs italic hover:underline cursor-pointer",
-                      isFromMe ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                      isFromMe ? 'text-white/80' : 'text-muted-foreground'
                     )}
                   >
                     Editado
@@ -336,7 +336,7 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
             )}
             {getStatusIcon()}
             {(message as any).is_ai_generated && (
-              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 ml-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30">
+              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 ml-1 bg-white/20 text-white border-white/30">
                 <Bot className="h-2.5 w-2.5 mr-0.5" />
                 IA
               </Badge>
