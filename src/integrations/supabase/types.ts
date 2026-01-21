@@ -7,10 +7,30 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.1"
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -3051,6 +3071,7 @@ export type Database = {
           id: string
           instance_id: string
           is_group: boolean | null
+          lid: string | null
           metadata: Json | null
           name: string
           notes: string | null
@@ -3069,6 +3090,7 @@ export type Database = {
           id?: string
           instance_id: string
           is_group?: boolean | null
+          lid?: string | null
           metadata?: Json | null
           name: string
           notes?: string | null
@@ -3087,6 +3109,7 @@ export type Database = {
           id?: string
           instance_id?: string
           is_group?: boolean | null
+          lid?: string | null
           metadata?: Json | null
           name?: string
           notes?: string | null
@@ -3291,29 +3314,29 @@ export type Database = {
         Row: {
           api_key: string
           api_url: string
-          webhook_endpoint: string | null
           created_at: string | null
           id: string
           instance_id: string
           updated_at: string | null
+          webhook_endpoint: string | null
         }
         Insert: {
           api_key: string
           api_url: string
-          webhook_endpoint?: string | null
           created_at?: string | null
           id?: string
           instance_id: string
           updated_at?: string | null
+          webhook_endpoint?: string | null
         }
         Update: {
           api_key?: string
           api_url?: string
-          webhook_endpoint?: string | null
           created_at?: string | null
           id?: string
           instance_id?: string
           updated_at?: string | null
+          webhook_endpoint?: string | null
         }
         Relationships: [
           {
@@ -3468,6 +3491,7 @@ export type Database = {
           original_content: string | null
           quoted_message_id: string | null
           remote_jid: string
+          sender_lid: string | null
           sent_by: string | null
           status: string | null
           ticket_id: string | null
@@ -3492,6 +3516,7 @@ export type Database = {
           original_content?: string | null
           quoted_message_id?: string | null
           remote_jid: string
+          sender_lid?: string | null
           sent_by?: string | null
           status?: string | null
           ticket_id?: string | null
@@ -3516,6 +3541,7 @@ export type Database = {
           original_content?: string | null
           quoted_message_id?: string | null
           remote_jid?: string
+          sender_lid?: string | null
           sent_by?: string | null
           status?: string | null
           ticket_id?: string | null
@@ -3979,6 +4005,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: ["admin", "supervisor", "agent"],
@@ -4035,3 +4064,4 @@ export const Constants = {
     },
   },
 } as const
+

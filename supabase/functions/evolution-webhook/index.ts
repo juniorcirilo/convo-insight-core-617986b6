@@ -18,8 +18,18 @@ interface EvolutionWebhookPayload {
 }
 
 // Normalize phone number by removing WhatsApp suffixes
-function normalizePhoneNumber(remoteJid: string): { phone: string; isGroup: boolean } {
+// Also extracts lid (LinkedIn ID) when present
+function normalizePhoneNumber(remoteJid: string): { phone: string; isGroup: boolean; lid: string | null } {
   const isGroup = remoteJid.includes('@g.us');
+  const isLid = remoteJid.includes('@lid');
+  
+  // Extract lid if present (format: xxxx:yyyy@lid or xxxx@lid)
+  let lid: string | null = null;
+  if (isLid) {
+    lid = remoteJid.replace('@lid', '');
+    console.log(`[evolution-webhook] Extracted lid: ${lid}`);
+  }
+  
   let phone = remoteJid
     .replace('@s.whatsapp.net', '')
     .replace('@g.us', '')
@@ -37,7 +47,25 @@ function normalizePhoneNumber(remoteJid: string): { phone: string; isGroup: bool
     console.log(`[evolution-webhook] Brazilian phone normalized: ${phone}`);
   }
   
-  return { phone, isGroup };
+  return { phone, isGroup, lid };
+}
+
+// Extract participant lid from message data (for group messages or alternative sender identification)
+function extractParticipantLid(data: any): string | null {
+  // Check various places where lid might be present
+  const participant = data.key?.participant || data.participant || null;
+  
+  if (participant && participant.includes('@lid')) {
+    return participant.replace('@lid', '');
+  }
+  
+  // Check if remoteJid itself is a lid
+  const remoteJid = data.key?.remoteJid;
+  if (remoteJid && remoteJid.includes('@lid')) {
+    return remoteJid.replace('@lid', '');
+  }
+  
+  return null;
 }
 
 // Detect message type from Evolution API message object
@@ -230,6 +258,7 @@ async function fetchAndUpdateProfilePicture(
 }
 
 // Find or create contact - only update name if message is FROM contact
+// Now supports finding by phone_number OR lid
 async function findOrCreateContact(
   supabase: any,
   instanceId: string,
@@ -240,7 +269,8 @@ async function findOrCreateContact(
   apiUrl?: string,
   apiKey?: string,
   instanceName?: string,
-  providerType: string = 'self_hosted'
+  providerType: string = 'self_hosted',
+  lid: string | null = null
 ): Promise<string | null> {
   try {
     // Gerar variantes do número para números brasileiros
@@ -258,15 +288,36 @@ async function findOrCreateContact(
       phoneVariants.push(withNinth);
     }
 
-    console.log(`[evolution-webhook] Searching contacts with variants: ${phoneVariants.join(', ')}`);
+    console.log(`[evolution-webhook] Searching contacts with variants: ${phoneVariants.join(', ')} and lid: ${lid}`);
 
-    // Buscar contato existente com qualquer variante
-    const { data: existingContact } = await supabase
-      .from('whatsapp_contacts')
-      .select('id, name, phone_number, is_group')
-      .eq('instance_id', instanceId)
-      .in('phone_number', phoneVariants)
-      .maybeSingle();
+    // First, try to find by lid if available (more unique identifier)
+    let existingContact = null;
+    
+    if (lid) {
+      const { data: lidContact } = await supabase
+        .from('whatsapp_contacts')
+        .select('id, name, phone_number, is_group, lid')
+        .eq('instance_id', instanceId)
+        .eq('lid', lid)
+        .maybeSingle();
+      
+      if (lidContact) {
+        existingContact = lidContact;
+        console.log(`[evolution-webhook] Contact found by lid: ${lid}`);
+      }
+    }
+
+    // If not found by lid, search by phone number variants
+    if (!existingContact) {
+      const { data: phoneContact } = await supabase
+        .from('whatsapp_contacts')
+        .select('id, name, phone_number, is_group, lid')
+        .eq('instance_id', instanceId)
+        .in('phone_number', phoneVariants)
+        .maybeSingle();
+      
+      existingContact = phoneContact;
+    }
 
     // Se encontrou com formato antigo, atualizar para formato normalizado
     if (existingContact && existingContact.phone_number !== phoneNumber) {
@@ -281,6 +332,18 @@ async function findOrCreateContact(
     }
 
     if (existingContact) {
+      // Update lid if we have one and it's different or not set
+      if (lid && existingContact.lid !== lid) {
+        await supabase
+          .from('whatsapp_contacts')
+          .update({ 
+            lid: lid,
+            updated_at: new Date().toISOString() 
+          })
+          .eq('id', existingContact.id);
+        console.log(`[evolution-webhook] Contact lid updated: ${existingContact.id} -> ${lid}`);
+      }
+
       // Update is_group if contact exists but is_group is incorrect
       if (isGroup && !existingContact.is_group) {
         await supabase
@@ -327,6 +390,7 @@ async function findOrCreateContact(
         phone_number: phoneNumber,
         name: contactName,
         is_group: isGroup,
+        lid: lid,
       })
       .select('id')
       .single();
@@ -336,7 +400,7 @@ async function findOrCreateContact(
       return null;
     }
 
-    console.log(`[evolution-webhook] Contact created: ${newContact.id} Name: ${name}`);
+    console.log(`[evolution-webhook] Contact created: ${newContact.id} Name: ${name} Lid: ${lid}`);
     
     // Buscar foto de perfil em background (fire-and-forget)
     if (apiUrl && apiKey && instanceName) {
@@ -945,9 +1009,14 @@ async function processMessageUpsert(payload: EvolutionWebhookPayload, supabase: 
       return;
     }
 
-    // Normalize phone number
-    const { phone, isGroup } = normalizePhoneNumber(key.remoteJid);
-    console.log('[evolution-webhook] Normalized phone:', phone, 'isGroup:', isGroup);
+    // Normalize phone number and extract lid
+    const { phone, isGroup, lid } = normalizePhoneNumber(key.remoteJid);
+    
+    // Also check for participant lid (especially in group messages)
+    const participantLid = extractParticipantLid(data);
+    const effectiveLid = lid || participantLid;
+    
+    console.log('[evolution-webhook] Normalized phone:', phone, 'isGroup:', isGroup, 'lid:', effectiveLid);
 
     // Find or create contact
     // If message is from me, use phone number instead of pushName (which would be the instance owner's name)
@@ -961,7 +1030,8 @@ async function processMessageUpsert(payload: EvolutionWebhookPayload, supabase: 
       secrets.api_url,
       secrets.api_key,
       evolutionInstanceId,
-      instanceData.provider_type || 'self_hosted'
+      instanceData.provider_type || 'self_hosted',
+      effectiveLid
     );
 
     if (!contactId) {
@@ -1034,7 +1104,7 @@ async function processMessageUpsert(payload: EvolutionWebhookPayload, supabase: 
     // Create message timestamp
     const timestamp = new Date(messageTimestamp * 1000).toISOString();
 
-    // Save message
+    // Save message with sender_lid for tracking
     const { error: messageError } = await supabase
       .from('whatsapp_messages')
       .insert({
@@ -1050,6 +1120,7 @@ async function processMessageUpsert(payload: EvolutionWebhookPayload, supabase: 
         quoted_message_id: quotedMessageId,
         timestamp,
         ticket_id: currentTicketId,
+        sender_lid: effectiveLid,
       });
 
     if (messageError) {
@@ -1147,70 +1218,98 @@ async function processMessageUpsert(payload: EvolutionWebhookPayload, supabase: 
   }
 }
 
-// Process message update event (status changes)
+// Process message update event (status changes: sent, delivered, read)
 async function processMessageUpdate(payload: EvolutionWebhookPayload, supabase: any) {
   try {
-    const { data } = payload;
-    const updates = data.update || data;
+    const { instance, data } = payload;
+    
+    // Handle different Evolution API payload formats
+    // Format 1: { data: { key: { id, remoteJid }, update: { status } } }
+    // Format 2: { data: { id, remoteJid, status } }
+    // Format 3: { data: [{ id, remoteJid, status }] }
+    
+    const updates = Array.isArray(data) ? data : [data.update || data];
+    
+    console.log('[evolution-webhook] Processing message update(s):', JSON.stringify(updates).substring(0, 500));
 
-    console.log('[evolution-webhook] Processing message update:', updates);
+    for (const update of updates) {
+      // Extract status from multiple possible fields
+      let status = 'sent';
+      const rawStatus = update.status ?? update.ack ?? update.state ?? update.type ?? update.statusText ?? null;
 
-    // Determine status from multiple possible fields (status, ack, state, type)
-    let status = 'sent';
-    const rawStatus = updates.status ?? updates.ack ?? updates.state ?? updates.type ?? updates.statusText ?? null;
-
-    if (rawStatus !== null) {
-      const s = String(rawStatus).toUpperCase();
-      if (s === '3' || s === 'READ' || s.includes('READ')) status = 'read';
-      else if (s === '2' || s === 'DELIVERED' || s.includes('DELIVERY') || s.includes('DELIVERED') || s.includes('DELIVERY_ACK')) status = 'delivered';
-      else if (s === '1' || s === 'SENT' || s.includes('SERVER_ACK') || s.includes('ACK')) status = 'sent';
-    }
-
-    // Try to locate message by id first
-    const messageId = updates.key?.id || updates.message?.key?.id || updates.messageId || updates.id;
-
-    if (messageId) {
-      const { error } = await supabase
-        .from('whatsapp_messages')
-        .update({ status })
-        .eq('message_id', messageId);
-
-      if (error) {
-        console.error('[evolution-webhook] Error updating message status by id:', error);
-      } else {
-        console.log('[evolution-webhook] Message status updated by id to:', status, 'id:', messageId);
+      if (rawStatus !== null) {
+        const s = String(rawStatus).toUpperCase();
+        // WhatsApp status codes:
+        // 0 = ERROR, 1 = PENDING/SENT, 2 = DELIVERED, 3 = READ, 4 = PLAYED (for audio)
+        if (s === '4' || s === 'PLAYED') status = 'read'; // PLAYED is basically read for audio
+        else if (s === '3' || s === 'READ' || s.includes('READ')) status = 'read';
+        else if (s === '2' || s === 'DELIVERED' || s.includes('DELIVERY') || s.includes('DELIVERED') || s.includes('DELIVERY_ACK')) status = 'delivered';
+        else if (s === '1' || s === 'SENT' || s === 'PENDING' || s.includes('SERVER_ACK') || s.includes('ACK')) status = 'sent';
+        else if (s === '0' || s === 'ERROR' || s === 'FAILED') status = 'failed';
       }
-      return;
-    }
 
-    // If no messageId, attempt to match by remote_jid + timestamp (within small tolerance)
-    const remoteJid = updates.key?.remoteJid || updates.remoteJid || updates.message?.key?.remoteJid;
-    const ts = updates.timestamp || updates.messageTimestamp || updates.t || updates.message?.messageTimestamp;
+      // Try to locate message by id first (most reliable)
+      const messageId = update.key?.id || update.message?.key?.id || update.messageId || update.id;
+      const remoteJid = update.key?.remoteJid || update.remoteJid || update.message?.key?.remoteJid;
+      
+      console.log(`[evolution-webhook] Update: messageId=${messageId}, remoteJid=${remoteJid}, status=${status}`);
 
-    if (remoteJid && ts) {
-      try {
-        // Convert timestamp to ISO and define tolerance window +-5 seconds
-        const tsMs = Number(ts) * (String(ts).length > 10 ? 1 : 1000);
-        const from = new Date(tsMs - 5000).toISOString();
-        const to = new Date(tsMs + 5000).toISOString();
-
-        const { error: qErr } = await supabase
+      if (messageId) {
+        const { data: updatedMsg, error } = await supabase
           .from('whatsapp_messages')
           .update({ status })
-          .eq('remote_jid', remoteJid)
-          .gte('timestamp', from)
-          .lte('timestamp', to);
+          .eq('message_id', messageId)
+          .select('id')
+          .maybeSingle();
 
-        if (qErr) {
-          console.error('[evolution-webhook] Error updating message status by remote_jid/timestamp:', qErr);
-        } else {
-          console.log('[evolution-webhook] Message status updated by remote_jid/timestamp to:', status);
+        if (error) {
+          console.error('[evolution-webhook] Error updating message status by id:', error);
+        } else if (updatedMsg) {
+          console.log('[evolution-webhook] Message status updated by id to:', status, 'id:', messageId);
+          continue; // Move to next update
         }
-      } catch (e) {
-        console.error('[evolution-webhook] Error matching message by timestamp:', e);
+        // If message not found by id, try other methods below
       }
-    } else {
-      console.log('[evolution-webhook] No message id or timestamp found to match status update');
+
+      // Try to find by remoteJid + timestamp if messageId didn't match
+      const ts = update.timestamp || update.messageTimestamp || update.t || update.message?.messageTimestamp;
+
+      if (remoteJid && ts) {
+        try {
+          // Also try to find by lid if remoteJid is a lid
+          const { lid } = normalizePhoneNumber(remoteJid);
+          
+          // Convert timestamp to ISO and define tolerance window +-10 seconds
+          const tsMs = Number(ts) * (String(ts).length > 10 ? 1 : 1000);
+          const from = new Date(tsMs - 10000).toISOString();
+          const to = new Date(tsMs + 10000).toISOString();
+
+          let query = supabase
+            .from('whatsapp_messages')
+            .update({ status })
+            .gte('timestamp', from)
+            .lte('timestamp', to);
+
+          // Try matching by remote_jid or sender_lid
+          if (lid) {
+            query = query.or(`remote_jid.eq.${remoteJid},sender_lid.eq.${lid}`);
+          } else {
+            query = query.eq('remote_jid', remoteJid);
+          }
+
+          const { data: updatedMsgs, error: qErr } = await query.select('id');
+
+          if (qErr) {
+            console.error('[evolution-webhook] Error updating message status by remote_jid/timestamp:', qErr);
+          } else if (updatedMsgs && updatedMsgs.length > 0) {
+            console.log(`[evolution-webhook] Message status updated by remote_jid/timestamp to: ${status}, count: ${updatedMsgs.length}`);
+          }
+        } catch (e) {
+          console.error('[evolution-webhook] Error matching message by timestamp:', e);
+        }
+      } else if (!messageId) {
+        console.log('[evolution-webhook] No message id or timestamp found to match status update');
+      }
     }
   } catch (error) {
     console.error('[evolution-webhook] Error in processMessageUpdate:', error);
