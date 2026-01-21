@@ -119,38 +119,37 @@ export const ChatHeader = ({ contact, sentiment, isAnalyzing, onAnalyze, convers
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Footer badges moved here */}
           {conversation && (
-            <ChatHeaderMenu conversation={conversation} onRefresh={onRefresh} onAnalyze={onAnalyze} isAnalyzing={isAnalyzing} />
+            <>
+              {/* First: sector + AI mode together */}
+              <div className="flex items-center gap-2">
+                {sectorName && (
+                  <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                    <Building2 className="h-3 w-3" />
+                    {sectorName}
+                  </Badge>
+                )}
+                <ConversationModeControls conversationId={conversationId || null} conversationMode={conversation?.conversation_mode} />
+              </div>
+
+              {/* Then queue and ticket */}
+              <div className="flex items-center gap-2">
+                <QueueIndicator
+                  assignedTo={conversation.assigned_to}
+                  assignedToName={conversation.assigned_profile?.full_name}
+                />
+                {conversationId && (
+                  <TicketIndicator conversationId={conversationId} sectorGeraTicket={sectorGeraTicket} />
+                )}
+              </div>
+              
+              {/* Menu dropdown */}
+              <ChatHeaderMenu conversation={conversation} onRefresh={onRefresh} onAnalyze={onAnalyze} isAnalyzing={isAnalyzing} />
+            </>
           )}
         </div>
       </div>
-
-      {/* Footer row: Queue, Ticket and Sentiment badges */}
-      {conversation && (
-        <div className="mt-3 flex items-center gap-3 flex-wrap">
-          {/* First: sector + AI mode together */}
-          <div className="flex items-center gap-2">
-            {sectorName && (
-              <Badge variant="secondary" className="text-xs flex items-center gap-1">
-                <Building2 className="h-3 w-3" />
-                {sectorName}
-              </Badge>
-            )}
-            <ConversationModeControls conversationId={conversationId || null} conversationMode={conversation?.conversation_mode} />
-          </div>
-
-          {/* Then queue and ticket */}
-          <div className="flex items-center gap-2">
-            <QueueIndicator
-              assignedTo={conversation.assigned_to}
-              assignedToName={conversation.assigned_profile?.full_name}
-            />
-            {conversationId && (
-              <TicketIndicator conversationId={conversationId} sectorGeraTicket={sectorGeraTicket} />
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Assignment Dialog */}
       {conversation && conversationId && (
