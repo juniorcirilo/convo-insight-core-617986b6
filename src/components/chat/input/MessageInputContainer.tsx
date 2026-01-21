@@ -167,7 +167,7 @@ export const MessageInputContainer = ({
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Digite uma mensagem..."
-              className="min-h-[44px] max-h-32 resize-none border-0 pr-40 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="min-h-[44px] max-h-96 resize-y border-0 pr-56 focus-visible:ring-0 focus-visible:ring-offset-0"
               disabled={disabled}
             />
             
@@ -192,27 +192,29 @@ export const MessageInputContainer = ({
                 sectorId={sectorId}
                 disabled={disabled}
               />
+              
+              <Button
+                type="button"
+                onClick={() => setIsRecording(true)}
+                size="icon"
+                variant="ghost"
+                disabled={disabled}
+                className="h-9 w-9 shrink-0"
+              >
+                <Mic className="w-4 h-4" />
+              </Button>
+              
+              <Button
+                type="button"
+                onClick={handleSend}
+                size="icon"
+                disabled={disabled || !message.trim()}
+                className="h-9 w-9 shrink-0"
+              >
+                <Send className="w-4 h-4" />
+              </Button>
             </div>
           </div>
-          
-          {message.trim() ? (
-            <Button
-              onClick={handleSend}
-              size="icon"
-              disabled={disabled}
-            >
-              <Send className="w-4 h-4" />
-            </Button>
-          ) : (
-            <Button
-              onClick={() => setIsRecording(true)}
-              size="icon"
-              variant="outline"
-              disabled={disabled}
-            >
-              <Mic className="w-4 h-4" />
-            </Button>
-          )}
         </div>
         
         <p className="text-xs text-muted-foreground mt-1">
