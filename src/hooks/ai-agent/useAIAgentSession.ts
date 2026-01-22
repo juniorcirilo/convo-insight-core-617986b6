@@ -140,7 +140,57 @@ export const useAIAgentSession = (conversationId?: string | null) => {
 
   const assumeConversation = useMutation({
     mutationFn: async (userId: string) => {
-      return changeMode.mutateAsync({ mode: 'human', userId });
+      if (!conversationId) throw new Error('No conversation ID');
+      
+      // 1. Atribuir conversa ao agente
+      const { error: assignError } = await supabase
+        .from('whatsapp_conversations')
+        .update({ 
+          assigned_to: userId,
+          conversation_mode: 'human'
+        })
+        .eq('id', conversationId);
+      
+      if (assignError) throw assignError;
+      
+      // 2. Atualizar sessão AI
+      const sessionUpdate = {
+        mode: 'human' as const,
+        escalated_at: new Date().toISOString(),
+        escalation_reason: 'manual_takeover',
+        escalated_to: userId,
+      };
+
+      const { data: existingSession } = await supabase
+        .from('ai_agent_sessions')
+        .select('id')
+        .eq('conversation_id', conversationId)
+        .maybeSingle();
+
+      if (existingSession) {
+        await supabase
+          .from('ai_agent_sessions')
+          .update(sessionUpdate)
+          .eq('conversation_id', conversationId);
+      } else {
+        await supabase
+          .from('ai_agent_sessions')
+          .insert({
+            conversation_id: conversationId,
+            ...sessionUpdate,
+          });
+      }
+
+      return 'human';
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ai-agent-session', conversationId] });
+      queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
+      toast.success('Conversa assumida com sucesso');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Erro ao assumir conversa');
     },
   });
 

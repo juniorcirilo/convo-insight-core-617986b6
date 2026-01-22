@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { MoreVertical, Edit, Archive, Download, CheckCircle, RotateCcw, RefreshCw, UserPlus, Building2, Bot } from 'lucide-react';
+import { MoreVertical, Edit, Archive, Download, CheckCircle, RotateCcw, RefreshCw, UserPlus, Building2, Bot, ArrowRightLeft } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAIAgentSession } from '@/hooks/ai-agent';
 import { useConversationAssignment } from '@/hooks/whatsapp/useConversationAssignment';
 import { useTickets } from '@/hooks/useTickets';
 import { Checkbox } from '@/components/ui/checkbox';
+import { AssignAgentDialog } from '@/components/conversations/AssignAgentDialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,6 +40,7 @@ export function ChatHeaderMenu({ conversation, onRefresh, onAnalyze, isAnalyzing
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [showCloseDialog, setShowCloseDialog] = useState(false);
   const [generateSummary, setGenerateSummary] = useState(true);
+  const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
 
   const { 
     archiveConversation, 
@@ -139,6 +141,14 @@ export function ChatHeaderMenu({ conversation, onRefresh, onAnalyze, isAnalyzing
             </DropdownMenuItem>
           )}
 
+          {/* Transferir conversa - só mostra se tem alguém atribuído */}
+          {!isInQueue && (
+            <DropdownMenuItem onClick={() => setIsTransferDialogOpen(true)}>
+              <ArrowRightLeft className="mr-2 h-4 w-4" />
+              Transferir
+            </DropdownMenuItem>
+          )}
+
           <DropdownMenuSeparator />
 
           <DropdownMenuItem onClick={() => setIsEditModalOpen(true)}>
@@ -214,6 +224,16 @@ export function ChatHeaderMenu({ conversation, onRefresh, onAnalyze, isAnalyzing
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Transfer Dialog */}
+      <AssignAgentDialog
+        open={isTransferDialogOpen}
+        onOpenChange={setIsTransferDialogOpen}
+        conversationId={conversation?.id}
+        currentAssignee={conversation?.assigned_to}
+        isTransfer={true}
+        onSuccess={onRefresh}
+      />
     </>
   );
 }
