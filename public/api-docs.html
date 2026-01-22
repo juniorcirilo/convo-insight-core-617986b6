@@ -157,8 +157,14 @@
   <script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-standalone-preset.js" charset="UTF-8"></script>
   <script>
     window.onload = function() {
+      // Get base URL dynamically
+      const baseUrl = window.location.origin;
+      // Get Supabase URL from same host but port 54321
+      const host = window.location.hostname;
+      const supabaseUrl = `http://${host}:54321/functions/v1`;
+      
       const ui = SwaggerUIBundle({
-        url: "/swagger.json",
+        url: baseUrl + "/swagger.json",
         dom_id: '#swagger-ui',
         deepLinking: true,
         presets: [
@@ -181,6 +187,10 @@
         syntaxHighlight: {
           activate: true,
           theme: "monokai"
+        },
+        onComplete: function() {
+          // Override server URL based on current hostname
+          console.log('[Swagger] Using Supabase URL:', supabaseUrl);
         }
       });
       

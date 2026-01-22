@@ -14,12 +14,12 @@
   },
   "servers": [
     {
-      "url": "http://localhost:54321/functions/v1",
-      "description": "Ambiente Local (Supabase)"
+      "url": "http://192.168.3.100:54321/functions/v1",
+      "description": "Servidor Principal"
     },
     {
-      "url": "http://192.168.3.100:54321/functions/v1",
-      "description": "Ambiente de Desenvolvimento"
+      "url": "http://localhost:54321/functions/v1",
+      "description": "Localhost"
     }
   ],
   "tags": [
