@@ -35,6 +35,20 @@ const insertTicketEventMarker = async (
   ticketNumber: number,
   eventType: 'ticket_opened' | 'ticket_closed'
 ) => {
+  // Get the timestamp of the last message to ensure marker appears after it
+  const { data: lastMessage } = await supabase
+    .from('whatsapp_messages')
+    .select('timestamp')
+    .eq('conversation_id', conversationId)
+    .order('timestamp', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  // Use a timestamp 1 second BEFORE the last message to ensure marker appears before it
+  const markerTimestamp = lastMessage?.timestamp 
+    ? new Date(new Date(lastMessage.timestamp).getTime() - 1000).toISOString()
+    : new Date().toISOString();
+
   const markerId = `${eventType}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
   const { error } = await supabase
     .from('whatsapp_messages')
@@ -46,7 +60,7 @@ const insertTicketEventMarker = async (
       message_type: eventType,
       is_from_me: true,
       status: 'sent',
-      timestamp: new Date().toISOString(),
+      timestamp: markerTimestamp,
     });
   
   if (error) {

@@ -31,7 +31,8 @@ export const useWhatsAppMessages = (conversationId: string | null) => {
         .from('whatsapp_messages')
         .select('*')
         .eq('conversation_id', conversationId)
-        .order('timestamp', { ascending: true });
+        .order('timestamp', { ascending: true })
+        .order('created_at', { ascending: true });
 
       if (error) throw error;
       return data as Message[];

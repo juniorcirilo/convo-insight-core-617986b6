@@ -73,6 +73,20 @@ export const useWhatsAppActions = () => {
         .eq('id', conversationId);
       if (error) throw error;
 
+      // Get the timestamp of the last message to ensure marker appears after it
+      const { data: lastMessage } = await supabase
+        .from('whatsapp_messages')
+        .select('timestamp')
+        .eq('conversation_id', conversationId)
+        .order('timestamp', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // Use a timestamp 1 second BEFORE the last message to ensure marker appears before it
+      const markerTimestamp = lastMessage?.timestamp 
+        ? new Date(new Date(lastMessage.timestamp).getTime() - 1000).toISOString()
+        : new Date().toISOString();
+
       // Insert ticket_closed marker
       const ticketNumber = lastTicket?.numero || 0;
       const markerId = `closed-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -86,7 +100,7 @@ export const useWhatsAppActions = () => {
           message_type: 'ticket_closed',
           is_from_me: true,
           status: 'sent',
-          timestamp: new Date().toISOString(),
+          timestamp: markerTimestamp,
         });
 
       try {
@@ -129,6 +143,20 @@ export const useWhatsAppActions = () => {
         .eq('id', conversationId);
       if (error) throw error;
 
+      // Get the timestamp of the last message to ensure marker appears after it
+      const { data: lastMessage } = await supabase
+        .from('whatsapp_messages')
+        .select('timestamp')
+        .eq('conversation_id', conversationId)
+        .order('timestamp', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // Use a timestamp 1 second BEFORE the last message to ensure marker appears before it
+      const markerTimestamp = lastMessage?.timestamp 
+        ? new Date(new Date(lastMessage.timestamp).getTime() - 1000).toISOString()
+        : new Date().toISOString();
+
       // Insert conversation_reopened marker
       const ticketNumber = lastTicket?.numero || 0;
       const markerId = `reopened-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -142,7 +170,7 @@ export const useWhatsAppActions = () => {
           message_type: 'conversation_reopened',
           is_from_me: true,
           status: 'sent',
-          timestamp: new Date().toISOString(),
+          timestamp: markerTimestamp,
         });
 
       try {

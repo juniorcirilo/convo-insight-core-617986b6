@@ -740,6 +740,20 @@ async function createTicketIfNeeded(
 
     console.log('[evolution-webhook] Ticket created:', newTicket.id, 'numero:', newTicket.numero);
     
+    // Get the timestamp of the last message to ensure marker appears after it
+    const { data: lastMessage } = await supabase
+      .from('whatsapp_messages')
+      .select('timestamp')
+      .eq('conversation_id', conversationId)
+      .order('timestamp', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    // Use a timestamp 1 second BEFORE the last message to ensure marker appears before it
+    const markerTimestamp = lastMessage?.timestamp 
+      ? new Date(new Date(lastMessage.timestamp).getTime() - 1000).toISOString()
+      : new Date().toISOString();
+
     // Insert ticket opened event marker
     const { error: markerError } = await supabase
       .from('whatsapp_messages')
@@ -751,7 +765,7 @@ async function createTicketIfNeeded(
         message_type: 'ticket_opened',
         is_from_me: true,
         status: 'sent',
-        timestamp: new Date().toISOString(),
+        timestamp: markerTimestamp,
       });
     
     if (markerError) {
@@ -830,6 +844,20 @@ async function findOrCreateConversation(
         wasReopened = true;
         shouldCreateNewTicket = true; // Customer message triggers NEW ticket
         
+        // Get the timestamp of the last message to ensure marker appears after it
+        const { data: lastMessage } = await supabase
+          .from('whatsapp_messages')
+          .select('timestamp')
+          .eq('conversation_id', existingConversation.id)
+          .order('timestamp', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        // Use a timestamp 1 second BEFORE the last message to ensure marker appears before it
+        const markerTimestamp = lastMessage?.timestamp 
+          ? new Date(new Date(lastMessage.timestamp).getTime() - 1000).toISOString()
+          : new Date().toISOString();
+
         // Insert conversation reopened marker
         const ticketNumber = lastTicket?.numero || 0;
         const markerId = `reopened-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -843,7 +871,7 @@ async function findOrCreateConversation(
             message_type: 'conversation_reopened',
             is_from_me: true,
             status: 'sent',
-            timestamp: new Date().toISOString(),
+            timestamp: markerTimestamp,
           });
         
         if (markerError) {
@@ -1198,11 +1226,13 @@ async function processMessageUpsert(payload: EvolutionWebhookPayload, supabase: 
       console.log('[evolution-webhook] Conversation was reopened, marker and webhook already dispatched');
     }
 
-    // Create ticket if sector requires it (only for messages from client, not from me)
-    // If conversation was reopened by customer message, force new ticket creation
+    // Create ticket if sector requires it (for ANY message that starts a conversation)
+    // If conversation was reopened, force new ticket creation
     let currentTicketId: string | null = null;
-    if (!key.fromMe && sectorId) {
-      const { ticketId, welcomeMessage, ticketNumber } = await createTicketIfNeeded(supabase, conversationId, sectorId, shouldCreateNewTicket);
+    if (sectorId) {
+      // Only force new ticket if customer message reopened the conversation
+      const forceNew = shouldCreateNewTicket && !key.fromMe;
+      const { ticketId, welcomeMessage, ticketNumber } = await createTicketIfNeeded(supabase, conversationId, sectorId, forceNew);
       currentTicketId = ticketId;
       
       // Send welcome message if this is a new ticket (ticketNumber indicates new ticket)
