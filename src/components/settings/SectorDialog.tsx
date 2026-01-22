@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   Dialog,
@@ -22,7 +22,9 @@ import {
 } from "@/components/ui/select";
 import { useWhatsAppInstances } from "@/hooks/whatsapp";
 import { useSectors, type SectorWithInstance } from "@/hooks/useSectors";
-import { Ticket, Bot, MessageSquare } from "lucide-react";
+import { Ticket, Bot, MessageSquare, Sparkles, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface SectorDialogProps {
   open: boolean;
@@ -39,6 +41,7 @@ interface FormData {
   gera_ticket: boolean;
   mensagem_boas_vindas: string;
   mensagem_encerramento: string;
+  mensagem_reabertura: string;
 }
 
 export function SectorDialog({
@@ -48,6 +51,8 @@ export function SectorDialog({
 }: SectorDialogProps) {
   const { instances = [] } = useWhatsAppInstances();
   const { createSector, updateSector } = useSectors();
+  const { toast } = useToast();
+  const [generatingField, setGeneratingField] = useState<string | null>(null);
 
   const { register, handleSubmit, watch, setValue, reset } = useForm<FormData>({
     defaultValues: {
@@ -59,6 +64,7 @@ export function SectorDialog({
       gera_ticket: false,
       mensagem_boas_vindas: "",
       mensagem_encerramento: "",
+      mensagem_reabertura: "",
     },
   });
 
@@ -76,6 +82,7 @@ export function SectorDialog({
         gera_ticket: sector.gera_ticket || false,
         mensagem_boas_vindas: sector.mensagem_boas_vindas || "",
         mensagem_encerramento: sector.mensagem_encerramento || "",
+        mensagem_reabertura: (sector as any).mensagem_reabertura || "",
       });
     } else {
       reset({
@@ -87,9 +94,75 @@ export function SectorDialog({
         gera_ticket: false,
         mensagem_boas_vindas: "",
         mensagem_encerramento: "",
+        mensagem_reabertura: "",
       });
     }
   }, [sector, instances, reset]);
+
+  const generateWithAI = async (field: keyof FormData, context: string) => {
+    setGeneratingField(field);
+    try {
+      const prompts: Record<string, string> = {
+        mensagem_boas_vindas: `Crie uma mensagem de boas-vindas curta e profissional para um sistema de tickets de suporte. 
+A mensagem deve:
+- Informar que o ticket foi aberto
+- Ser acolhedora e profissional
+- Ter no máximo 2-3 frases
+- Pode usar emojis moderadamente
+
+Contexto do setor: ${context || 'Atendimento ao cliente'}`,
+        
+        mensagem_encerramento: `Crie uma mensagem de encerramento curta e profissional para um sistema de tickets de suporte.
+A mensagem deve:
+- Informar que o atendimento foi encerrado
+- Solicitar avaliação do atendimento de 1 a 5
+- Ser cordial
+- Ter no máximo 2-3 frases
+- Pode usar emojis moderadamente
+
+Contexto do setor: ${context || 'Atendimento ao cliente'}`,
+
+        mensagem_reabertura: `Crie uma mensagem curta e profissional para informar que um ticket foi reaberto.
+A mensagem deve:
+- Informar que o ticket foi reaberto
+- Indicar que o atendimento será retomado em breve
+- Ser acolhedora
+- Ter no máximo 2-3 frases
+- Pode usar emojis moderadamente
+
+Contexto do setor: ${context || 'Atendimento ao cliente'}`,
+      };
+
+      const prompt = prompts[field];
+      if (!prompt) return;
+
+      const { data, error } = await supabase.functions.invoke('compose-whatsapp-message', {
+        body: {
+          message: prompt,
+          action: 'expand'
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.composed) {
+        setValue(field, data.composed);
+        toast({
+          title: "Mensagem gerada",
+          description: "A mensagem foi gerada com sucesso pela IA.",
+        });
+      }
+    } catch (error) {
+      console.error('Error generating with AI:', error);
+      toast({
+        title: "Erro ao gerar mensagem",
+        description: "Não foi possível gerar a mensagem com IA. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingField(null);
+    }
+  };
 
   const onSubmit = async (data: FormData) => {
     const payload = {
@@ -102,6 +175,7 @@ export function SectorDialog({
       gera_ticket: data.gera_ticket,
       mensagem_boas_vindas: data.gera_ticket ? (data.mensagem_boas_vindas || null) : null,
       mensagem_encerramento: data.gera_ticket ? (data.mensagem_encerramento || null) : null,
+      mensagem_reabertura: data.gera_ticket ? (data.mensagem_reabertura || null) : null,
     };
 
     if (sector) {
@@ -233,7 +307,24 @@ export function SectorDialog({
               </h4>
               
               <div className="space-y-2">
-                <Label htmlFor="mensagem_boas_vindas">Mensagem de Boas-vindas</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="mensagem_boas_vindas">Mensagem de Boas-vindas</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => generateWithAI('mensagem_boas_vindas', watch('name'))}
+                    disabled={generatingField !== null}
+                    className="h-7 text-xs gap-1"
+                  >
+                    {generatingField === 'mensagem_boas_vindas' ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3 w-3" />
+                    )}
+                    Gerar com IA
+                  </Button>
+                </div>
                 <Textarea
                   id="mensagem_boas_vindas"
                   placeholder="Olá! Seu ticket de suporte foi aberto. Em breve um atendente irá ajudá-lo."
@@ -246,7 +337,54 @@ export function SectorDialog({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="mensagem_encerramento">Mensagem de Encerramento</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="mensagem_reabertura">Mensagem de Reabertura</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => generateWithAI('mensagem_reabertura', watch('name'))}
+                    disabled={generatingField !== null}
+                    className="h-7 text-xs gap-1"
+                  >
+                    {generatingField === 'mensagem_reabertura' ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3 w-3" />
+                    )}
+                    Gerar com IA
+                  </Button>
+                </div>
+                <Textarea
+                  id="mensagem_reabertura"
+                  placeholder="Seu ticket foi reaberto. Um atendente irá retomar seu atendimento em breve."
+                  {...register("mensagem_reabertura")}
+                  rows={2}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Enviada quando um ticket é reaberto manualmente por um agente
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="mensagem_encerramento">Mensagem de Encerramento</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => generateWithAI('mensagem_encerramento', watch('name'))}
+                    disabled={generatingField !== null}
+                    className="h-7 text-xs gap-1"
+                  >
+                    {generatingField === 'mensagem_encerramento' ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3 w-3" />
+                    )}
+                    Gerar com IA
+                  </Button>
+                </div>
                 <Textarea
                   id="mensagem_encerramento"
                   placeholder="Seu atendimento foi encerrado. Por favor, avalie nosso atendimento de 1 a 5."
