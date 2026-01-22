@@ -1,0 +1,1707 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "LiveChat WhatsApp API",
+    "description": "API completa para gerenciamento de conversas WhatsApp, incluindo mensagens, tickets, agentes de IA, análise de sentimento e muito mais.\n\n## Autenticação\n\nA API suporta três tipos de autenticação:\n\n1. **JWT Bearer Token**: Para endpoints autenticados de usuários\n2. **Service Role Key**: Para operações administrativas e edge functions\n3. **Widget Token**: Para o widget de chat público\n\n## Base URL\n\n- **Local**: `http://localhost:54321/functions/v1`\n- **Produção**: Configurar conforme ambiente\n\n## Rate Limiting\n\nAlguns endpoints possuem rate limiting. Verifique os headers de resposta para informações.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Suporte LiveChat",
+      "email": "suporte@livechat.com"
+    },
+    "license": {
+      "name": "Proprietário"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:54321/functions/v1",
+      "description": "Ambiente Local (Supabase)"
+    },
+    {
+      "url": "http://192.168.3.100:54321/functions/v1",
+      "description": "Ambiente de Desenvolvimento"
+    }
+  ],
+  "tags": [
+    {
+      "name": "WhatsApp",
+      "description": "Operações de mensagens WhatsApp"
+    },
+    {
+      "name": "AI",
+      "description": "Funcionalidades de Inteligência Artificial"
+    },
+    {
+      "name": "Webhook",
+      "description": "Webhooks da Evolution API"
+    },
+    {
+      "name": "Widget",
+      "description": "API do Widget de Chat"
+    },
+    {
+      "name": "Admin",
+      "description": "Operações administrativas"
+    },
+    {
+      "name": "Media",
+      "description": "Gerenciamento de mídia"
+    },
+    {
+      "name": "Instances",
+      "description": "Gerenciamento de instâncias WhatsApp"
+    }
+  ],
+  "paths": {
+    "/send-whatsapp-message": {
+      "post": {
+        "tags": ["WhatsApp"],
+        "summary": "Enviar mensagem WhatsApp",
+        "description": "Envia uma mensagem WhatsApp (texto, imagem, áudio, vídeo ou documento) através da Evolution API e armazena no banco de dados.",
+        "operationId": "sendWhatsAppMessage",
+        "security": [{"ServiceRoleKey": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageRequest"
+              },
+              "examples": {
+                "text": {
+                  "summary": "Mensagem de texto",
+                  "value": {
+                    "conversationId": "550e8400-e29b-41d4-a716-446655440000",
+                    "content": "Olá! Como posso ajudar você hoje?",
+                    "messageType": "text"
+                  }
+                },
+                "image": {
+                  "summary": "Mensagem com imagem",
+                  "value": {
+                    "conversationId": "550e8400-e29b-41d4-a716-446655440000",
+                    "content": "Confira nossa promoção!",
+                    "messageType": "image",
+                    "mediaUrl": "https://example.com/promo.jpg",
+                    "mediaMimetype": "image/jpeg"
+                  }
+                },
+                "document": {
+                  "summary": "Envio de documento",
+                  "value": {
+                    "conversationId": "550e8400-e29b-41d4-a716-446655440000",
+                    "content": "Segue o contrato em anexo",
+                    "messageType": "document",
+                    "mediaBase64": "JVBERi0xLjQKJeLjz9MKMyAwIG9...",
+                    "mediaMimetype": "application/pdf",
+                    "fileName": "contrato.pdf"
+                  }
+                },
+                "reply": {
+                  "summary": "Resposta a mensagem",
+                  "value": {
+                    "conversationId": "550e8400-e29b-41d4-a716-446655440000",
+                    "content": "Sim, está correto!",
+                    "messageType": "text",
+                    "quotedMessageId": "3A123ABC456DEF789"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mensagem enviada com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendMessageResponse"
+                },
+                "example": {
+                  "success": true,
+                  "message": {
+                    "id": "550e8400-e29b-41d4-a716-446655440001",
+                    "conversation_id": "550e8400-e29b-41d4-a716-446655440000",
+                    "message_id": "3A789XYZ123ABC456",
+                    "content": "Olá! Como posso ajudar você hoje?",
+                    "message_type": "text",
+                    "is_from_me": true,
+                    "status": "sent",
+                    "timestamp": "2026-01-22T14:30:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Parâmetros inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "conversationId e messageType são obrigatórios"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Conversa não encontrada",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro interno do servidor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/edit-whatsapp-message": {
+      "post": {
+        "tags": ["WhatsApp"],
+        "summary": "Editar mensagem WhatsApp",
+        "description": "Edita uma mensagem WhatsApp previamente enviada. A edição só é permitida dentro de 15 minutos após o envio.",
+        "operationId": "editWhatsAppMessage",
+        "security": [{"ServiceRoleKey": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditMessageRequest"
+              },
+              "example": {
+                "messageId": "3A789XYZ123ABC456",
+                "conversationId": "550e8400-e29b-41d4-a716-446655440000",
+                "newContent": "Olá! Como posso ajudar você hoje? 😊"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mensagem editada com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditMessageResponse"
+                },
+                "example": {
+                  "success": true,
+                  "message": {
+                    "id": "550e8400-e29b-41d4-a716-446655440001",
+                    "content": "Olá! Como posso ajudar você hoje? 😊",
+                    "original_content": "Olá! Como posso ajudar você hoje?",
+                    "edited_at": "2026-01-22T14:35:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Tempo de edição expirado ou parâmetros inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Mensagem não pode ser editada após 15 minutos"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mark-messages-read": {
+      "post": {
+        "tags": ["WhatsApp"],
+        "summary": "Marcar mensagens como lidas",
+        "description": "Marca mensagens como lidas tanto localmente quanto via Evolution API (confirmação de leitura bidirecional).",
+        "operationId": "markMessagesRead",
+        "security": [{"ServiceRoleKey": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkReadRequest"
+              },
+              "examples": {
+                "all": {
+                  "summary": "Marcar todas como lidas",
+                  "value": {
+                    "conversationId": "550e8400-e29b-41d4-a716-446655440000"
+                  }
+                },
+                "specific": {
+                  "summary": "Marcar mensagens específicas",
+                  "value": {
+                    "conversationId": "550e8400-e29b-41d4-a716-446655440000",
+                    "messageIds": ["3A789XYZ123ABC456", "3A789XYZ123ABC457"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mensagens marcadas como lidas",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarkReadResponse"
+                },
+                "example": {
+                  "success": true,
+                  "markedCount": 5,
+                  "messageIds": ["3A789XYZ123ABC456", "3A789XYZ123ABC457"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/evolution-webhook": {
+      "post": {
+        "tags": ["Webhook"],
+        "summary": "Webhook da Evolution API",
+        "description": "Endpoint que recebe eventos da Evolution API (WhatsApp). Processa criação de mensagens, atualizações de status, estado de conexão, reações e edições de mensagens.\n\n**Este endpoint é chamado automaticamente pela Evolution API e não deve ser chamado manualmente.**",
+        "operationId": "evolutionWebhook",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookPayload"
+              },
+              "examples": {
+                "messageUpsert": {
+                  "summary": "Nova mensagem recebida",
+                  "value": {
+                    "event": "messages.upsert",
+                    "instance": "minha-instancia",
+                    "data": {
+                      "key": {
+                        "id": "3A789XYZ123ABC456",
+                        "remoteJid": "5541999999999@s.whatsapp.net",
+                        "fromMe": false
+                      },
+                      "pushName": "João Silva",
+                      "message": {
+                        "conversation": "Olá, preciso de ajuda!"
+                      },
+                      "messageTimestamp": 1737555000
+                    }
+                  }
+                },
+                "messageUpdate": {
+                  "summary": "Status de mensagem atualizado",
+                  "value": {
+                    "event": "messages.update",
+                    "instance": "minha-instancia",
+                    "data": {
+                      "key": {
+                        "id": "3A789XYZ123ABC456",
+                        "remoteJid": "5541999999999@s.whatsapp.net"
+                      },
+                      "status": "READ"
+                    }
+                  }
+                },
+                "connectionUpdate": {
+                  "summary": "Estado de conexão",
+                  "value": {
+                    "event": "connection.update",
+                    "instance": "minha-instancia",
+                    "data": {
+                      "state": "open"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Webhook processado com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "event": {"type": "string"}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "event": "messages.upsert"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ai-agent-respond": {
+      "post": {
+        "tags": ["AI"],
+        "summary": "Resposta automática do agente de IA",
+        "description": "Gera respostas automáticas usando IA (GROQ LLM) para conversas WhatsApp. Suporta escalonamento, horário comercial e integração com base de conhecimento.",
+        "operationId": "aiAgentRespond",
+        "security": [{"ServiceRoleKey": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AIAgentRequest"
+              },
+              "example": {
+                "conversationId": "550e8400-e29b-41d4-a716-446655440000",
+                "messageId": "550e8400-e29b-41d4-a716-446655440001"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resposta gerada ou processamento pulado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIAgentResponse"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "Resposta gerada com sucesso",
+                    "value": {
+                      "success": true,
+                      "response": "Olá! Obrigado por entrar em contato...",
+                      "tokens": 150,
+                      "responseTime": 1250
+                    }
+                  },
+                  "skipped": {
+                    "summary": "Processamento pulado",
+                    "value": {
+                      "success": true,
+                      "skipped": true,
+                      "reason": "human_mode"
+                    }
+                  },
+                  "escalated": {
+                    "summary": "Escalonado para humano",
+                    "value": {
+                      "success": true,
+                      "escalated": true,
+                      "response": "Um momento, vou transferir você para um atendente."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analyze-whatsapp-sentiment": {
+      "post": {
+        "tags": ["AI"],
+        "summary": "Analisar sentimento da conversa",
+        "description": "Analisa o sentimento das mensagens do cliente em uma conversa usando IA. Retorna classificação positivo/neutro/negativo com pontuação de confiança.",
+        "operationId": "analyzeSentiment",
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SentimentRequest"
+              },
+              "example": {
+                "conversationId": "550e8400-e29b-41d4-a716-446655440000"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Análise de sentimento concluída",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SentimentResponse"
+                },
+                "examples": {
+                  "positive": {
+                    "summary": "Sentimento positivo",
+                    "value": {
+                      "success": true,
+                      "analysis": {
+                        "id": "550e8400-e29b-41d4-a716-446655440002",
+                        "conversation_id": "550e8400-e29b-41d4-a716-446655440000",
+                        "sentiment": "positive",
+                        "confidence_score": 0.87,
+                        "summary": "Cliente satisfeito com o atendimento e produto recebido",
+                        "reasoning": "O cliente usou expressões de gratidão e satisfação ao longo da conversa",
+                        "messages_analyzed": 12
+                      }
+                    }
+                  },
+                  "negative": {
+                    "summary": "Sentimento negativo",
+                    "value": {
+                      "success": true,
+                      "analysis": {
+                        "id": "550e8400-e29b-41d4-a716-446655440002",
+                        "conversation_id": "550e8400-e29b-41d4-a716-446655440000",
+                        "sentiment": "negative",
+                        "confidence_score": 0.92,
+                        "summary": "Cliente frustrado com atraso na entrega",
+                        "reasoning": "Múltiplas mensagens expressando frustração e urgência",
+                        "messages_analyzed": 8
+                      }
+                    }
+                  },
+                  "insufficient": {
+                    "summary": "Mensagens insuficientes",
+                    "value": {
+                      "success": true,
+                      "message": "Mensagens insuficientes para análise",
+                      "messagesFound": 2
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/categorize-whatsapp-conversation": {
+      "post": {
+        "tags": ["AI"],
+        "summary": "Categorizar conversa",
+        "description": "Categoriza uma conversa WhatsApp em tópicos predefinidos (vendas, suporte, etc.) usando análise de IA.",
+        "operationId": "categorizeConversation",
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CategorizeRequest"
+              },
+              "example": {
+                "conversationId": "550e8400-e29b-41d4-a716-446655440000"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Categorização concluída",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategorizeResponse"
+                },
+                "example": {
+                  "success": true,
+                  "metadata": {
+                    "topics": ["suporte_tecnico", "reclamacao"],
+                    "primary_topic": "suporte_tecnico",
+                    "ai_confidence": 0.89,
+                    "categorized_at": "2026-01-22T14:30:00.000Z",
+                    "categorization_model": "llama-3.1-8b-instant",
+                    "ai_reasoning": "Cliente relatou problema técnico com o produto"
+                  },
+                  "message": "Conversa categorizada com sucesso"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/compose-whatsapp-message": {
+      "post": {
+        "tags": ["AI"],
+        "summary": "Compor mensagem com IA",
+        "description": "Composição de mensagens assistida por IA com ações como expandir, reformular, traduzir, corrigir gramática e ajustar tom.",
+        "operationId": "composeMessage",
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComposeRequest"
+              },
+              "examples": {
+                "expand": {
+                  "summary": "Expandir mensagem",
+                  "value": {
+                    "message": "Obrigado",
+                    "action": "expand"
+                  }
+                },
+                "formal": {
+                  "summary": "Tom formal",
+                  "value": {
+                    "message": "Oi, dá pra ver meu pedido?",
+                    "action": "formal"
+                  }
+                },
+                "translate": {
+                  "summary": "Traduzir para inglês",
+                  "value": {
+                    "message": "Obrigado pelo seu contato!",
+                    "action": "translate",
+                    "targetLanguage": "en"
+                  }
+                },
+                "fix_grammar": {
+                  "summary": "Corrigir gramática",
+                  "value": {
+                    "message": "Agente vc pode me ajudar com isso aki?",
+                    "action": "fix_grammar"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mensagem composta com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComposeResponse"
+                },
+                "examples": {
+                  "expand": {
+                    "summary": "Mensagem expandida",
+                    "value": {
+                      "original": "Obrigado",
+                      "composed": "Muito obrigado pelo seu contato! Ficamos felizes em poder ajudá-lo. Caso tenha mais alguma dúvida, estamos à disposição.",
+                      "action": "expand"
+                    }
+                  },
+                  "formal": {
+                    "summary": "Tom formal aplicado",
+                    "value": {
+                      "original": "Oi, dá pra ver meu pedido?",
+                      "composed": "Prezado cliente, poderia por gentileza verificar o status do meu pedido?",
+                      "action": "formal"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/suggest-smart-replies": {
+      "post": {
+        "tags": ["AI"],
+        "summary": "Sugerir respostas inteligentes",
+        "description": "Gera sugestões de respostas inteligentes baseadas no contexto da conversa.",
+        "operationId": "suggestSmartReplies",
+        "security": [{"ServiceRoleKey": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmartRepliesRequest"
+              },
+              "example": {
+                "conversationId": "550e8400-e29b-41d4-a716-446655440000"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sugestões geradas com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmartRepliesResponse"
+                },
+                "example": {
+                  "suggestions": [
+                    {
+                      "text": "Claro! Vou verificar isso para você agora mesmo.",
+                      "tone": "friendly"
+                    },
+                    {
+                      "text": "Prezado cliente, verificarei a situação imediatamente.",
+                      "tone": "formal"
+                    },
+                    {
+                      "text": "Um momento, vou checar.",
+                      "tone": "direct"
+                    }
+                  ],
+                  "context": {
+                    "contactName": "João Silva",
+                    "lastMessage": "Vocês podem verificar meu pedido?"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/generate-conversation-summary": {
+      "post": {
+        "tags": ["AI"],
+        "summary": "Gerar resumo da conversa",
+        "description": "Gera um resumo completo da conversa usando IA, incluindo pontos-chave, itens de ação e avaliação de sentimento.",
+        "operationId": "generateSummary",
+        "security": [{"ServiceRoleKey": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SummaryRequest"
+              },
+              "example": {
+                "conversationId": "550e8400-e29b-41d4-a716-446655440000"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resumo gerado com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SummaryResponse"
+                },
+                "example": {
+                  "success": true,
+                  "summary": {
+                    "id": "550e8400-e29b-41d4-a716-446655440003",
+                    "conversation_id": "550e8400-e29b-41d4-a716-446655440000",
+                    "summary": "Cliente entrou em contato para verificar status de pedido #12345. Pedido estava em trânsito e previsão de entrega foi confirmada para amanhã. Cliente ficou satisfeito com a informação.",
+                    "key_points": [
+                      "Consulta sobre pedido #12345",
+                      "Pedido em trânsito",
+                      "Entrega prevista para amanhã",
+                      "Cliente satisfeito"
+                    ],
+                    "action_items": [
+                      "Monitorar entrega do pedido",
+                      "Enviar confirmação quando entregue"
+                    ],
+                    "sentiment_at_time": "positive",
+                    "messages_count": 15,
+                    "period_start": "2026-01-22T10:00:00.000Z",
+                    "period_end": "2026-01-22T14:30:00.000Z"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/transcribe-audio": {
+      "post": {
+        "tags": ["AI", "Media"],
+        "summary": "Transcrever áudio",
+        "description": "Transcreve mensagens de áudio usando o modelo Whisper da GROQ e armazena a transcrição no banco de dados.",
+        "operationId": "transcribeAudio",
+        "security": [{"ServiceRoleKey": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TranscribeRequest"
+              },
+              "example": {
+                "messageId": "550e8400-e29b-41d4-a716-446655440001"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Áudio transcrito com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscribeResponse"
+                },
+                "example": {
+                  "success": true,
+                  "transcription": "Olá, estou ligando para verificar o status do meu pedido que fiz na semana passada."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/get-media-signed-url": {
+      "post": {
+        "tags": ["Media"],
+        "summary": "Obter URL assinada para mídia",
+        "description": "Gera URLs assinadas para acesso a arquivos de mídia do WhatsApp armazenados no Supabase Storage com verificação de acesso.",
+        "operationId": "getMediaSignedUrl",
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignedUrlRequest"
+              },
+              "example": {
+                "filePath": "minha-instancia/1737555000-3A789XYZ123ABC456.jpg",
+                "conversationId": "550e8400-e29b-41d4-a716-446655440000"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "URL assinada gerada",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignedUrlResponse"
+                },
+                "example": {
+                  "signedUrl": "http://localhost:54321/storage/v1/object/sign/whatsapp-media/minha-instancia/1737555000-3A789XYZ123ABC456.jpg?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sem permissão para acessar o arquivo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/check-instances-status": {
+      "post": {
+        "tags": ["Instances"],
+        "summary": "Verificar status das instâncias",
+        "description": "Verifica o status de conexão de todas as instâncias WhatsApp via Evolution API.",
+        "operationId": "checkInstancesStatus",
+        "security": [{"ServiceRoleKey": []}],
+        "responses": {
+          "200": {
+            "description": "Status verificado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "checked": {"type": "integer"},
+                    "updated": {"type": "integer"}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "checked": 5,
+                  "updated": 2
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/test-instance-connection": {
+      "post": {
+        "tags": ["Instances"],
+        "summary": "Testar conexão de instância",
+        "description": "Testa a conexão de uma instância WhatsApp específica.",
+        "operationId": "testInstanceConnection",
+        "security": [{"ServiceRoleKey": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["instanceId"],
+                "properties": {
+                  "instanceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "ID da instância"
+                  }
+                }
+              },
+              "example": {
+                "instanceId": "550e8400-e29b-41d4-a716-446655440000"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resultado do teste",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "connected": {"type": "boolean"},
+                    "status": {"type": "string"},
+                    "phoneNumber": {"type": "string"}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "connected": true,
+                  "status": "open",
+                  "phoneNumber": "5541999999999"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/widget-api/config": {
+      "get": {
+        "tags": ["Widget"],
+        "summary": "Obter configuração do widget",
+        "description": "Retorna a configuração do widget de chat e status online.",
+        "operationId": "getWidgetConfig",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "ID do widget"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Configuração do widget",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WidgetConfig"
+                },
+                "example": {
+                  "id": "550e8400-e29b-41d4-a716-446655440000",
+                  "name": "Suporte Online",
+                  "enabled": true,
+                  "primary_color": "#10B981",
+                  "position": "bottom-right",
+                  "welcome_title": "Olá! 👋",
+                  "welcome_message": "Como podemos ajudar você hoje?",
+                  "require_name": true,
+                  "require_email": false,
+                  "require_phone": true,
+                  "is_online": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/widget-api/conversation": {
+      "post": {
+        "tags": ["Widget"],
+        "summary": "Criar conversa do widget",
+        "description": "Cria uma nova conversa iniciada pelo widget de chat.",
+        "operationId": "createWidgetConversation",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WidgetConversationRequest"
+              },
+              "example": {
+                "widget_id": "550e8400-e29b-41d4-a716-446655440000",
+                "visitor_name": "Maria Santos",
+                "visitor_phone": "5541988888888",
+                "user_agent": "Mozilla/5.0...",
+                "page_url": "https://exemplo.com/produtos"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Conversa criada",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WidgetConversationResponse"
+                },
+                "example": {
+                  "conversation_id": "550e8400-e29b-41d4-a716-446655440001",
+                  "token": "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/widget-api/message": {
+      "post": {
+        "tags": ["Widget"],
+        "summary": "Enviar mensagem do widget",
+        "description": "Envia uma mensagem do visitante através do widget.",
+        "operationId": "sendWidgetMessage",
+        "security": [{"WidgetToken": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WidgetMessageRequest"
+              },
+              "example": {
+                "content": "Olá, preciso de ajuda com meu pedido"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mensagem enviada",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message_id": {"type": "string", "format": "uuid"}
+                  }
+                },
+                "example": {
+                  "message_id": "550e8400-e29b-41d4-a716-446655440002"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/widget-api/messages": {
+      "get": {
+        "tags": ["Widget"],
+        "summary": "Obter mensagens do widget",
+        "description": "Obtém as mensagens de uma conversa do widget.",
+        "operationId": "getWidgetMessages",
+        "security": [{"WidgetToken": []}],
+        "responses": {
+          "200": {
+            "description": "Lista de mensagens",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WidgetMessagesResponse"
+                },
+                "example": {
+                  "messages": [
+                    {
+                      "id": "550e8400-e29b-41d4-a716-446655440002",
+                      "content": "Olá, preciso de ajuda com meu pedido",
+                      "is_from_visitor": true,
+                      "created_at": "2026-01-22T14:30:00.000Z",
+                      "source": "widget"
+                    },
+                    {
+                      "id": "550e8400-e29b-41d4-a716-446655440003",
+                      "content": "Claro! Qual é o número do seu pedido?",
+                      "is_from_visitor": false,
+                      "created_at": "2026-01-22T14:31:00.000Z",
+                      "source": "whatsapp"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin-reset-password": {
+      "post": {
+        "tags": ["Admin"],
+        "summary": "Resetar senha de usuário",
+        "description": "Permite que administradores resetem senhas de outros usuários.",
+        "operationId": "adminResetPassword",
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordRequest"
+              },
+              "example": {
+                "userId": "550e8400-e29b-41d4-a716-446655440000",
+                "newPassword": "novaSenhaSegura123!"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Senha resetada com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                },
+                "example": {
+                  "success": true,
+                  "message": "Senha alterada com sucesso"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sem permissão de administrador",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/invite-team-member": {
+      "post": {
+        "tags": ["Admin"],
+        "summary": "Convidar membro da equipe",
+        "description": "Permite que administradores convidem novos membros criando contas e atribuindo papéis.",
+        "operationId": "inviteTeamMember",
+        "security": [{"BearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteRequest"
+              },
+              "example": {
+                "email": "novo.agente@empresa.com",
+                "fullName": "Carlos Silva",
+                "role": "agent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Convite enviado com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InviteResponse"
+                },
+                "example": {
+                  "success": true,
+                  "userId": "550e8400-e29b-41d4-a716-446655440005",
+                  "message": "Convite enviado para novo.agente@empresa.com. O usuário receberá um email para confirmar a conta."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Token JWT do usuário autenticado"
+      },
+      "ServiceRoleKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "Service Role Key do Supabase (Bearer {service_role_key})"
+      },
+      "WidgetToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-widget-token",
+        "description": "Token do visitante do widget"
+      }
+    },
+    "schemas": {
+      "SendMessageRequest": {
+        "type": "object",
+        "required": ["conversationId", "messageType"],
+        "properties": {
+          "conversationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID da conversa"
+          },
+          "content": {
+            "type": "string",
+            "description": "Conteúdo da mensagem (obrigatório para texto)"
+          },
+          "messageType": {
+            "type": "string",
+            "enum": ["text", "image", "audio", "video", "document"],
+            "description": "Tipo da mensagem"
+          },
+          "mediaUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL do arquivo de mídia"
+          },
+          "mediaBase64": {
+            "type": "string",
+            "description": "Mídia codificada em Base64"
+          },
+          "mediaMimetype": {
+            "type": "string",
+            "description": "Tipo MIME da mídia"
+          },
+          "fileName": {
+            "type": "string",
+            "description": "Nome do arquivo (para documentos)"
+          },
+          "quotedMessageId": {
+            "type": "string",
+            "description": "ID da mensagem sendo respondida"
+          },
+          "isSupervisorMessage": {
+            "type": "boolean",
+            "description": "Marcar como mensagem de supervisor"
+          },
+          "supervisorId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID do supervisor"
+          }
+        }
+      },
+      "SendMessageResponse": {
+        "type": "object",
+        "properties": {
+          "success": {"type": "boolean"},
+          "message": {
+            "type": "object",
+            "properties": {
+              "id": {"type": "string", "format": "uuid"},
+              "conversation_id": {"type": "string", "format": "uuid"},
+              "message_id": {"type": "string"},
+              "content": {"type": "string"},
+              "message_type": {"type": "string"},
+              "is_from_me": {"type": "boolean"},
+              "status": {"type": "string"},
+              "timestamp": {"type": "string", "format": "date-time"}
+            }
+          },
+          "error": {"type": "string"}
+        }
+      },
+      "EditMessageRequest": {
+        "type": "object",
+        "required": ["messageId", "conversationId", "newContent"],
+        "properties": {
+          "messageId": {
+            "type": "string",
+            "description": "ID da mensagem WhatsApp"
+          },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID da conversa"
+          },
+          "newContent": {
+            "type": "string",
+            "description": "Novo conteúdo da mensagem"
+          }
+        }
+      },
+      "EditMessageResponse": {
+        "type": "object",
+        "properties": {
+          "success": {"type": "boolean"},
+          "message": {
+            "type": "object",
+            "properties": {
+              "id": {"type": "string", "format": "uuid"},
+              "content": {"type": "string"},
+              "original_content": {"type": "string"},
+              "edited_at": {"type": "string", "format": "date-time"}
+            }
+          },
+          "error": {"type": "string"}
+        }
+      },
+      "MarkReadRequest": {
+        "type": "object",
+        "required": ["conversationId"],
+        "properties": {
+          "conversationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID da conversa"
+          },
+          "messageIds": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "IDs específicos para marcar"
+          }
+        }
+      },
+      "MarkReadResponse": {
+        "type": "object",
+        "properties": {
+          "success": {"type": "boolean"},
+          "markedCount": {"type": "integer"},
+          "messageIds": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "error": {"type": "string"}
+        }
+      },
+      "WebhookPayload": {
+        "type": "object",
+        "required": ["event", "instance", "data"],
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": ["messages.upsert", "messages.update", "messages.delete", "connection.update", "send.message"],
+            "description": "Tipo de evento"
+          },
+          "instance": {
+            "type": "string",
+            "description": "Nome ou ID da instância"
+          },
+          "data": {
+            "type": "object",
+            "description": "Dados do evento"
+          }
+        }
+      },
+      "AIAgentRequest": {
+        "type": "object",
+        "required": ["conversationId", "messageId"],
+        "properties": {
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "messageId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "AIAgentResponse": {
+        "type": "object",
+        "properties": {
+          "success": {"type": "boolean"},
+          "response": {"type": "string"},
+          "tokens": {"type": "integer"},
+          "responseTime": {"type": "integer"},
+          "skipped": {"type": "boolean"},
+          "reason": {
+            "type": "string",
+            "enum": ["human_mode", "no_config", "outside_hours", "no_client_message"]
+          },
+          "escalated": {"type": "boolean"},
+          "error": {"type": "string"}
+        }
+      },
+      "SentimentRequest": {
+        "type": "object",
+        "required": ["conversationId"],
+        "properties": {
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "SentimentResponse": {
+        "type": "object",
+        "properties": {
+          "success": {"type": "boolean"},
+          "analysis": {
+            "type": "object",
+            "properties": {
+              "id": {"type": "string", "format": "uuid"},
+              "conversation_id": {"type": "string", "format": "uuid"},
+              "sentiment": {
+                "type": "string",
+                "enum": ["positive", "neutral", "negative"]
+              },
+              "confidence_score": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "summary": {"type": "string"},
+              "reasoning": {"type": "string"},
+              "messages_analyzed": {"type": "integer"}
+            }
+          },
+          "message": {"type": "string"},
+          "messagesFound": {"type": "integer"}
+        }
+      },
+      "CategorizeRequest": {
+        "type": "object",
+        "required": ["conversationId"],
+        "properties": {
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "CategorizeResponse": {
+        "type": "object",
+        "properties": {
+          "success": {"type": "boolean"},
+          "metadata": {
+            "type": "object",
+            "properties": {
+              "topics": {
+                "type": "array",
+                "items": {"type": "string"}
+              },
+              "primary_topic": {"type": "string"},
+              "ai_confidence": {"type": "number"},
+              "categorized_at": {"type": "string", "format": "date-time"},
+              "categorization_model": {"type": "string"},
+              "ai_reasoning": {"type": "string"}
+            }
+          },
+          "message": {"type": "string"},
+          "error": {"type": "string"}
+        }
+      },
+      "ComposeRequest": {
+        "type": "object",
+        "required": ["message", "action"],
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Mensagem original"
+          },
+          "action": {
+            "type": "string",
+            "enum": ["expand", "rephrase", "my_tone", "friendly", "formal", "fix_grammar", "translate"],
+            "description": "Ação a realizar"
+          },
+          "targetLanguage": {
+            "type": "string",
+            "enum": ["en", "es", "fr", "de", "it", "pt"],
+            "description": "Idioma alvo (para tradução)"
+          }
+        }
+      },
+      "ComposeResponse": {
+        "type": "object",
+        "properties": {
+          "original": {"type": "string"},
+          "composed": {"type": "string"},
+          "action": {"type": "string"},
+          "error": {"type": "string"}
+        }
+      },
+      "SmartRepliesRequest": {
+        "type": "object",
+        "required": ["conversationId"],
+        "properties": {
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "SmartRepliesResponse": {
+        "type": "object",
+        "properties": {
+          "suggestions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "text": {"type": "string"},
+                "tone": {
+                  "type": "string",
+                  "enum": ["formal", "friendly", "direct"]
+                }
+              }
+            }
+          },
+          "context": {
+            "type": "object",
+            "properties": {
+              "contactName": {"type": "string"},
+              "lastMessage": {"type": "string"}
+            }
+          },
+          "error": {"type": "string"}
+        }
+      },
+      "SummaryRequest": {
+        "type": "object",
+        "required": ["conversationId"],
+        "properties": {
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "SummaryResponse": {
+        "type": "object",
+        "properties": {
+          "success": {"type": "boolean"},
+          "summary": {
+            "type": "object",
+            "properties": {
+              "id": {"type": "string", "format": "uuid"},
+              "conversation_id": {"type": "string", "format": "uuid"},
+              "summary": {"type": "string"},
+              "key_points": {
+                "type": "array",
+                "items": {"type": "string"}
+              },
+              "action_items": {
+                "type": "array",
+                "items": {"type": "string"}
+              },
+              "sentiment_at_time": {"type": "string"},
+              "messages_count": {"type": "integer"},
+              "period_start": {"type": "string", "format": "date-time"},
+              "period_end": {"type": "string", "format": "date-time"}
+            }
+          },
+          "message": {"type": "string"},
+          "error": {"type": "string"}
+        }
+      },
+      "TranscribeRequest": {
+        "type": "object",
+        "required": ["messageId"],
+        "properties": {
+          "messageId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID da mensagem de áudio"
+          }
+        }
+      },
+      "TranscribeResponse": {
+        "type": "object",
+        "properties": {
+          "success": {"type": "boolean"},
+          "transcription": {"type": "string"},
+          "error": {"type": "string"}
+        }
+      },
+      "SignedUrlRequest": {
+        "type": "object",
+        "required": ["filePath"],
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Caminho do arquivo no bucket"
+          },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Para verificação de acesso"
+          }
+        }
+      },
+      "SignedUrlResponse": {
+        "type": "object",
+        "properties": {
+          "signedUrl": {"type": "string", "format": "uri"},
+          "error": {"type": "string"}
+        }
+      },
+      "WidgetConfig": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "string", "format": "uuid"},
+          "name": {"type": "string"},
+          "enabled": {"type": "boolean"},
+          "primary_color": {"type": "string"},
+          "position": {
+            "type": "string",
+            "enum": ["bottom-right", "bottom-left"]
+          },
+          "welcome_title": {"type": "string"},
+          "welcome_message": {"type": "string"},
+          "require_name": {"type": "boolean"},
+          "require_email": {"type": "boolean"},
+          "require_phone": {"type": "boolean"},
+          "is_online": {"type": "boolean"}
+        }
+      },
+      "WidgetConversationRequest": {
+        "type": "object",
+        "required": ["widget_id"],
+        "properties": {
+          "widget_id": {"type": "string", "format": "uuid"},
+          "visitor_name": {"type": "string"},
+          "visitor_email": {"type": "string", "format": "email"},
+          "visitor_phone": {"type": "string"},
+          "user_agent": {"type": "string"},
+          "referrer_url": {"type": "string", "format": "uri"},
+          "page_url": {"type": "string", "format": "uri"}
+        }
+      },
+      "WidgetConversationResponse": {
+        "type": "object",
+        "properties": {
+          "conversation_id": {"type": "string", "format": "uuid"},
+          "token": {"type": "string"}
+        }
+      },
+      "WidgetMessageRequest": {
+        "type": "object",
+        "required": ["content"],
+        "properties": {
+          "content": {"type": "string"}
+        }
+      },
+      "WidgetMessagesResponse": {
+        "type": "object",
+        "properties": {
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {"type": "string", "format": "uuid"},
+                "content": {"type": "string"},
+                "is_from_visitor": {"type": "boolean"},
+                "created_at": {"type": "string", "format": "date-time"},
+                "source": {
+                  "type": "string",
+                  "enum": ["widget", "whatsapp"]
+                }
+              }
+            }
+          }
+        }
+      },
+      "ResetPasswordRequest": {
+        "type": "object",
+        "required": ["userId", "newPassword"],
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "ID do usuário"
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 6,
+            "description": "Nova senha (mínimo 6 caracteres)"
+          }
+        }
+      },
+      "InviteRequest": {
+        "type": "object",
+        "required": ["email", "fullName", "role"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["admin", "supervisor", "agent"]
+          }
+        }
+      },
+      "InviteResponse": {
+        "type": "object",
+        "properties": {
+          "success": {"type": "boolean"},
+          "userId": {"type": "string", "format": "uuid"},
+          "message": {"type": "string"},
+          "error": {"type": "string"}
+        }
+      },
+      "SuccessResponse": {
+        "type": "object",
+        "properties": {
+          "success": {"type": "boolean"},
+          "message": {"type": "string"}
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {"type": "string"},
+          "message": {"type": "string"},
+          "statusCode": {"type": "integer"}
+        }
+      }
+    }
+  }
+}

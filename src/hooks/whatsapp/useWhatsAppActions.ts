@@ -58,14 +58,29 @@ export const useWhatsAppActions = () => {
         }
       }
 
-      // Fetch last ticket number before closing
+      // Fetch last ticket before closing
       const { data: lastTicket } = await supabase
         .from('tickets')
-        .select('numero')
+        .select('id, numero, status')
         .eq('conversation_id', conversationId)
+        .neq('status', 'finalizado')
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
+
+      // Close the ticket if there's an open one
+      if (lastTicket && lastTicket.status !== 'finalizado') {
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase
+          .from('tickets')
+          .update({
+            status: 'finalizado',
+            closed_at: new Date().toISOString(),
+            closed_by: user?.id,
+          })
+          .eq('id', lastTicket.id);
+        console.log('[useWhatsAppActions] Ticket closed:', lastTicket.id);
+      }
 
       const { error } = await supabase
         .from('whatsapp_conversations')
@@ -82,9 +97,9 @@ export const useWhatsAppActions = () => {
         .limit(1)
         .maybeSingle();
 
-      // Use a timestamp 1 second BEFORE the last message to ensure marker appears before it
+      // Use a timestamp 1ms AFTER the last message so marker appears after last message
       const markerTimestamp = lastMessage?.timestamp 
-        ? new Date(new Date(lastMessage.timestamp).getTime() - 1000).toISOString()
+        ? new Date(new Date(lastMessage.timestamp).getTime() + 1).toISOString()
         : new Date().toISOString();
 
       // Insert ticket_closed marker
@@ -114,10 +129,13 @@ export const useWhatsAppActions = () => {
     },
     onSuccess: (_, variables) => {
       toast.success('Conversa encerrada com sucesso');
+      // Force immediate refetch of ticket data
+      queryClient.invalidateQueries({ queryKey: ['ticket', variables.conversationId] });
+      queryClient.refetchQueries({ queryKey: ['ticket', variables.conversationId] });
+      queryClient.invalidateQueries({ queryKey: ['tickets-list'] });
       queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
       queryClient.invalidateQueries({ queryKey: ['conversation', variables.conversationId] });
       queryClient.invalidateQueries({ queryKey: ['whatsapp', 'messages', variables.conversationId] });
-      queryClient.invalidateQueries({ queryKey: ['ticket', variables.conversationId] });
     },
     onError: (error) => {
       console.error('Erro ao encerrar conversa:', error);
@@ -143,18 +161,19 @@ export const useWhatsAppActions = () => {
         .eq('id', conversationId);
       if (error) throw error;
 
-      // Get the timestamp of the last message to ensure marker appears after it
-      const { data: lastMessage } = await supabase
+      // Get the timestamp of the last ticket_closed marker to place reopened marker right after it
+      const { data: lastClosedMarker } = await supabase
         .from('whatsapp_messages')
         .select('timestamp')
         .eq('conversation_id', conversationId)
+        .eq('message_type', 'ticket_closed')
         .order('timestamp', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      // Use a timestamp 1 second BEFORE the last message to ensure marker appears before it
-      const markerTimestamp = lastMessage?.timestamp 
-        ? new Date(new Date(lastMessage.timestamp).getTime() - 1000).toISOString()
+      // Use a timestamp 1ms after the last closed marker so reopened appears right after closing
+      const markerTimestamp = lastClosedMarker?.timestamp 
+        ? new Date(new Date(lastClosedMarker.timestamp).getTime() + 1).toISOString()
         : new Date().toISOString();
 
       // Insert conversation_reopened marker

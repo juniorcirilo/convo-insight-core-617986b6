@@ -115,19 +115,27 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
     </div>
   );
 
+  const renderMediaError = (type: string) => (
+    <div className="flex items-center justify-center p-4 bg-muted/50 rounded-md">
+      <p className="text-sm text-muted-foreground">
+        Não foi possível carregar {type === 'audio' ? 'o áudio' : type === 'video' ? 'o vídeo' : 'a mídia'}
+      </p>
+    </div>
+  );
+
   const renderContent = () => {
     switch (message.message_type) {
       case 'image':
         return (
           <div className="space-y-2">
-            {isMediaLoading ? renderMediaLoading() : mediaUrl && (
+            {isMediaLoading ? renderMediaLoading() : mediaUrl ? (
               <img
                 src={mediaUrl}
                 alt="Imagem"
                 className="max-w-xs rounded-md cursor-pointer hover:opacity-90 transition-opacity"
                 onClick={() => setViewerImage(mediaUrl)}
               />
-            )}
+            ) : message.media_url ? renderMediaError('image') : null}
             {message.content && <p className="text-sm">{message.content}</p>}
           </div>
         );
@@ -135,25 +143,25 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
       case 'sticker':
         return (
           <div>
-            {isMediaLoading ? renderMediaLoading() : mediaUrl && (
+            {isMediaLoading ? renderMediaLoading() : mediaUrl ? (
               <img
                 src={mediaUrl}
                 alt="Sticker"
                 className="max-w-[150px] cursor-pointer hover:scale-105 transition-transform"
                 onClick={() => setViewerImage(mediaUrl)}
               />
-            )}
+            ) : message.media_url ? renderMediaError('sticker') : null}
           </div>
         );
       
       case 'audio':
         return (
           <div className="space-y-2">
-            {isMediaLoading ? renderMediaLoading() : mediaUrl && (
+            {isMediaLoading ? renderMediaLoading() : mediaUrl ? (
               <audio controls className="max-w-xs">
                 <source src={mediaUrl} type={message.media_mimetype || 'audio/ogg'} />
               </audio>
-            )}
+            ) : message.media_url ? renderMediaError('audio') : null}
             {message.transcription_status === 'processing' && (
               <p className={cn(
                 "text-xs italic",
@@ -177,11 +185,11 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
       case 'video':
         return (
           <div className="space-y-2">
-            {isMediaLoading ? renderMediaLoading() : mediaUrl && (
+            {isMediaLoading ? renderMediaLoading() : mediaUrl ? (
               <video controls className="max-w-xs rounded-md">
                 <source src={mediaUrl} type={message.media_mimetype || 'video/mp4'} />
               </video>
-            )}
+            ) : message.media_url ? renderMediaError('video') : null}
             {message.content && <p className="text-sm">{message.content}</p>}
           </div>
         );
@@ -189,7 +197,7 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
       case 'document':
         return (
           <div className="space-y-2">
-            {isMediaLoading ? renderMediaLoading() : mediaUrl && (
+            {isMediaLoading ? renderMediaLoading() : mediaUrl ? (
               <a
                 href={mediaUrl}
                 target="_blank"
@@ -198,7 +206,7 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
               >
                 📄 {message.content || 'Documento'}
               </a>
-            )}
+            ) : message.media_url ? renderMediaError('document') : null}
           </div>
         );
       

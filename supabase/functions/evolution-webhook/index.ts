@@ -719,22 +719,36 @@ async function createTicketIfNeeded(
       return { ticketId: null, welcomeMessage: null, ticketNumber: null };
     }
 
-    // Check if there's already an open ticket for this conversation (skip if forceNewTicket)
-    if (!forceNewTicket) {
-      const { data: existingTicket } = await supabase
-        .from('tickets')
-        .select('id, numero')
-        .eq('conversation_id', conversationId)
-        .neq('status', 'finalizado')
-        .maybeSingle();
+    // Check if there's already an open ticket for this conversation
+    const { data: existingTicket } = await supabase
+      .from('tickets')
+      .select('id, numero')
+      .eq('conversation_id', conversationId)
+      .neq('status', 'finalizado')
+      .maybeSingle();
 
-      if (existingTicket) {
-        console.log('[evolution-webhook] Open ticket already exists:', existingTicket.id);
-        return { ticketId: existingTicket.id, welcomeMessage: null, ticketNumber: existingTicket.numero };
-      }
-    } else {
-      console.log('[evolution-webhook] Force new ticket: skipping existing ticket check');
+    if (existingTicket) {
+      console.log('[evolution-webhook] Open ticket already exists:', existingTicket.id);
+      return { ticketId: existingTicket.id, welcomeMessage: null, ticketNumber: null };
     }
+    
+    // Only create new ticket if forceNewTicket is true OR no ticket exists at all
+    if (!forceNewTicket) {
+      // Check if ANY ticket exists (even closed) - if so, don't create new one unless forced
+      const { data: anyTicket } = await supabase
+        .from('tickets')
+        .select('id')
+        .eq('conversation_id', conversationId)
+        .limit(1)
+        .maybeSingle();
+      
+      if (anyTicket) {
+        console.log('[evolution-webhook] Ticket exists but closed, not forcing new ticket');
+        return { ticketId: null, welcomeMessage: null, ticketNumber: null };
+      }
+    }
+
+    console.log('[evolution-webhook] Creating new ticket, forceNew:', forceNewTicket);
 
     // Create new ticket with SLA defaults
     const { data: newTicket, error } = await supabase
@@ -757,18 +771,19 @@ async function createTicketIfNeeded(
 
     console.log('[evolution-webhook] Ticket created:', newTicket.id, 'numero:', newTicket.numero);
     
-    // Get the timestamp of the last message to ensure marker appears after it
-    const { data: lastMessage } = await supabase
+    // Get the timestamp of the last ticket_closed marker to place this marker right after it
+    const { data: lastClosedMarker } = await supabase
       .from('whatsapp_messages')
       .select('timestamp')
       .eq('conversation_id', conversationId)
+      .eq('message_type', 'ticket_closed')
       .order('timestamp', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    // Use a timestamp 1 second BEFORE the last message to ensure marker appears before it
-    const markerTimestamp = lastMessage?.timestamp 
-      ? new Date(new Date(lastMessage.timestamp).getTime() - 1000).toISOString()
+    // Use timestamp 1ms after the last closed marker (if exists), otherwise use current time
+    const markerTimestamp = lastClosedMarker?.timestamp 
+      ? new Date(new Date(lastClosedMarker.timestamp).getTime() + 1).toISOString()
       : new Date().toISOString();
 
     // Insert ticket opened event marker
@@ -840,16 +855,7 @@ async function findOrCreateConversation(
       let shouldCreateNewTicket = false;
       
       if (wasClosedOrArchived) {
-        console.log('[evolution-webhook] Conversation was closed/archived, reopening with NEW ticket...');
-        
-        // Get the last ticket number for the marker
-        const { data: lastTicket } = await supabase
-          .from('tickets')
-          .select('id, numero, status, closed_at')
-          .eq('conversation_id', existingConversation.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        console.log('[evolution-webhook] Conversation was closed/archived, creating NEW ticket...');
         
         // Reopen the conversation (set status back to active)
         await supabase
@@ -857,56 +863,13 @@ async function findOrCreateConversation(
           .update({ status: 'active', updated_at: new Date().toISOString() })
           .eq('id', existingConversation.id);
         
-        console.log('[evolution-webhook] Conversation reopened! Previous ticket:', lastTicket?.numero);
+        console.log('[evolution-webhook] Conversation status set to active');
         wasReopened = true;
-        shouldCreateNewTicket = true; // Customer message triggers NEW ticket
+        shouldCreateNewTicket = true; // Any message triggers NEW ticket
         
-        // Get the timestamp of the last message to ensure marker appears after it
-        const { data: lastMessage } = await supabase
-          .from('whatsapp_messages')
-          .select('timestamp')
-          .eq('conversation_id', existingConversation.id)
-          .order('timestamp', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        // Use a timestamp 1 second BEFORE the last message to ensure marker appears before it
-        const markerTimestamp = lastMessage?.timestamp 
-          ? new Date(new Date(lastMessage.timestamp).getTime() - 1000).toISOString()
-          : new Date().toISOString();
-
-        // Insert conversation reopened marker
-        const ticketNumber = lastTicket?.numero || 0;
-        const markerId = `reopened-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-        const { error: markerError } = await supabase
-          .from('whatsapp_messages')
-          .insert({
-            conversation_id: existingConversation.id,
-            message_id: markerId,
-            remote_jid: 'system',
-            content: `CONVERSATION_REOPENED:${ticketNumber}`,
-            message_type: 'conversation_reopened',
-            is_from_me: true,
-            status: 'sent',
-            timestamp: markerTimestamp,
-          });
-        
-        if (markerError) {
-          console.error('[evolution-webhook] Error inserting reopened marker:', markerError);
-        } else {
-          console.log('[evolution-webhook] Reopened marker inserted');
-        }
-        
-        // Dispatch webhook for conversation reopened
-        console.log('[evolution-webhook] Dispatching conversation_reopened webhook...');
-        await dispatchWebhook(supabase, 'conversation_reopened', {
-          conversation_id: existingConversation.id,
-          previous_ticket_number: ticketNumber,
-          instance_id: instanceId,
-          contact_id: contactId,
-          previous_status: existingConversation.status
-        }, instanceId);
-        console.log('[evolution-webhook] conversation_reopened webhook dispatched');
+        // Note: We don't insert "conversation_reopened" marker here
+        // That marker is only for MANUAL reopening by agents
+        // The "ticket_opened" marker will be inserted by createTicketIfNeeded
       }
       
       return { 
@@ -1247,8 +1210,8 @@ async function processMessageUpsert(payload: EvolutionWebhookPayload, supabase: 
     // If conversation was reopened, force new ticket creation
     let currentTicketId: string | null = null;
     if (sectorId) {
-      // Only force new ticket if customer message reopened the conversation
-      const forceNew = shouldCreateNewTicket && !key.fromMe;
+      // Force new ticket if conversation was reopened (any message - customer or agent)
+      const forceNew = shouldCreateNewTicket;
       const { ticketId, welcomeMessage, ticketNumber } = await createTicketIfNeeded(supabase, conversationId, sectorId, forceNew);
       currentTicketId = ticketId;
       

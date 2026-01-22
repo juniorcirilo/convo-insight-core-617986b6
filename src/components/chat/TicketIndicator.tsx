@@ -47,6 +47,7 @@ export function TicketIndicator({ conversationId, sectorGeraTicket }: TicketIndi
   }
   
   const slaConfig = slaConfigMap?.[ticket.prioridade || 'media'];
+  const isFinalized = ticket.status === 'finalizado';
 
   const handleStartAttending = async () => {
     if (ticket.status === 'aberto') {

@@ -17,6 +17,16 @@ interface SentimentResult {
   reasoning: string;
 }
 
+// Extract JSON from markdown code blocks if present
+function extractJsonFromResponse(content: string): string {
+  // Check if content is wrapped in markdown code blocks
+  const jsonBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (jsonBlockMatch) {
+    return jsonBlockMatch[1].trim();
+  }
+  return content.trim();
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -162,7 +172,9 @@ Analise o contexto geral e determine o sentimento predominante.`;
 
     let result: SentimentResult;
     try {
-      result = parsed?.choices?.[0]?.message?.content ? JSON.parse(parsed.choices[0].message.content) : (parsed?.choices?.[0]?.text ? JSON.parse(parsed.choices[0].text) : parsed?.text ? JSON.parse(parsed.text) : parsed);
+      const rawContent = parsed?.choices?.[0]?.message?.content || parsed?.choices?.[0]?.text || parsed?.text || '';
+      const cleanedContent = extractJsonFromResponse(rawContent);
+      result = JSON.parse(cleanedContent);
     } catch (e) {
       console.error('Failed to parse GROQ response:', parsed);
       return new Response(JSON.stringify({ success: false, error: 'Invalid AI response format' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });

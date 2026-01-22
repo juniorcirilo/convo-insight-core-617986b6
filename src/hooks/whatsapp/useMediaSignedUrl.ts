@@ -7,6 +7,12 @@ const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
 // Cache duration: 55 minutes (less than the 1 hour expiry from the edge function)
 const CACHE_DURATION_MS = 55 * 60 * 1000;
 
+// Check if the string is a file path (not a URL)
+function isFilePath(str: string): boolean {
+  // File paths don't start with http/https and don't contain ://
+  return !str.startsWith('http://') && !str.startsWith('https://') && !str.includes('://');
+}
+
 export function useMediaSignedUrl(
   mediaUrl: string | null | undefined,
   conversationId?: string
@@ -21,17 +27,25 @@ export function useMediaSignedUrl(
       return;
     }
 
-    // If it's already a signed URL or external URL, use it directly
-    if (mediaUrl.includes('token=') || !mediaUrl.includes('supabase')) {
+    // If it's already a signed URL (contains token), use it directly
+    if (mediaUrl.includes('token=')) {
       setSignedUrl(mediaUrl);
       return;
     }
 
-    // Extract file path from full URL if necessary
+    // Determine the file path
     let filePath = mediaUrl;
-    const storagePathMatch = mediaUrl.match(/\/storage\/v1\/object\/(?:public|sign)\/whatsapp-media\/(.+)/);
-    if (storagePathMatch) {
-      filePath = storagePathMatch[1];
+    
+    // If it's a full URL, extract the path
+    if (!isFilePath(mediaUrl)) {
+      const storagePathMatch = mediaUrl.match(/\/storage\/v1\/object\/(?:public|sign)\/whatsapp-media\/(.+)/);
+      if (storagePathMatch) {
+        filePath = storagePathMatch[1];
+      } else {
+        // External URL, use directly
+        setSignedUrl(mediaUrl);
+        return;
+      }
     }
 
     // Check cache first
@@ -68,8 +82,8 @@ export function useMediaSignedUrl(
       } catch (err: any) {
         console.error('[useMediaSignedUrl] Error fetching signed URL:', err);
         setError(err.message);
-        // Fallback to original URL (may not work if bucket is private)
-        setSignedUrl(mediaUrl);
+        // Don't fallback to mediaUrl as it's a path, not a URL
+        setSignedUrl(null);
       } finally {
         setIsLoading(false);
       }
@@ -86,16 +100,23 @@ export async function getMediaSignedUrl(
   mediaUrl: string,
   conversationId?: string
 ): Promise<string> {
-  // If it's already a signed URL or external URL, return it
-  if (mediaUrl.includes('token=') || !mediaUrl.includes('supabase')) {
+  // If it's already a signed URL, return it
+  if (mediaUrl.includes('token=')) {
     return mediaUrl;
   }
 
-  // Extract file path
+  // Determine the file path
   let filePath = mediaUrl;
-  const storagePathMatch = mediaUrl.match(/\/storage\/v1\/object\/(?:public|sign)\/whatsapp-media\/(.+)/);
-  if (storagePathMatch) {
-    filePath = storagePathMatch[1];
+  
+  // If it's a full URL, extract the path
+  if (!isFilePath(mediaUrl)) {
+    const storagePathMatch = mediaUrl.match(/\/storage\/v1\/object\/(?:public|sign)\/whatsapp-media\/(.+)/);
+    if (storagePathMatch) {
+      filePath = storagePathMatch[1];
+    } else {
+      // External URL, return directly
+      return mediaUrl;
+    }
   }
 
   // Check cache
@@ -111,7 +132,7 @@ export async function getMediaSignedUrl(
 
   if (error || !data?.signedUrl) {
     console.error('[getMediaSignedUrl] Error:', error);
-    return mediaUrl; // Fallback
+    throw new Error('Failed to get signed URL');
   }
 
   // Cache it

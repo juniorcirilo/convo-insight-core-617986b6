@@ -20,6 +20,7 @@ import SalesDashboard from "./pages/SalesDashboard";
 import AdminConversations from "./pages/AdminConversations";
 import AdminTickets from "./pages/AdminTickets";
 import PermissionsCenter from "./pages/PermissionsCenter";
+import ApiDocs from "./pages/ApiDocs";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -132,6 +133,7 @@ const App = () => {
                       </ProtectedRoute>
                     }
                   />
+                  <Route path="/api-docs" element={<ApiDocs />} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>

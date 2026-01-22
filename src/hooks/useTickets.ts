@@ -78,7 +78,10 @@ export const useTickets = (conversationId?: string) => {
     queryFn: async () => {
       if (!conversationId) return null;
 
-      const { data, error } = await supabase
+      console.log('[useTickets] Fetching ticket for conversation:', conversationId);
+
+      // First try to find an ACTIVE ticket (not finalizado)
+      const { data: activeTicket, error: activeError } = await supabase
         .from('tickets')
         .select('*')
         .eq('conversation_id', conversationId)
@@ -87,10 +90,32 @@ export const useTickets = (conversationId?: string) => {
         .limit(1)
         .maybeSingle();
 
-      if (error) throw error;
-      return data as Ticket | null;
+      if (activeError) throw activeError;
+      
+      // If there's an active ticket, return it
+      if (activeTicket) {
+        console.log('[useTickets] Found active ticket:', activeTicket.id, 'status:', activeTicket.status);
+        return activeTicket as Ticket;
+      }
+      
+      // Otherwise, return the most recent ticket (even if finalizado)
+      const { data: latestTicket, error: latestError } = await supabase
+        .from('tickets')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (latestError) throw latestError;
+      console.log('[useTickets] Found latest ticket:', latestTicket?.id, 'status:', latestTicket?.status);
+      return latestTicket as Ticket | null;
     },
     enabled: !!conversationId,
+    staleTime: 0,
+    gcTime: 0, // Don't cache at all
+    refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
   });
 
   // Realtime subscription for ticket updates

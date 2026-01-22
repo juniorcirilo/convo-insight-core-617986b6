@@ -7,6 +7,7 @@ import { MediaUploadButton } from "./MediaUploadButton";
 import { AIComposerButton } from "./AIComposerButton";
 import { AudioRecorder } from "./AudioRecorder";
 import { MacroSuggestions } from "./MacroSuggestions";
+import { MacrosButton } from "./MacrosButton";
 import { SmartReplySuggestions } from "./SmartReplySuggestions";
 import { ReplyPreview } from "./ReplyPreview";
 import { QuoteButton } from "@/components/chat/QuoteButton";
@@ -116,6 +117,13 @@ export const MessageInputContainer = ({
     }, 0);
   };
 
+  const handleMacroButtonSelect = (content: string, macroId: string) => {
+    setMessage(content);
+    setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 0);
+  };
+
   const handleSmartReplySelect = (text: string) => {
     setMessage(text);
     setTimeout(() => {
@@ -173,6 +181,11 @@ export const MessageInputContainer = ({
             
             <div className="absolute right-2 bottom-2 flex gap-1 items-center bg-background">
               <EmojiPickerButton onEmojiSelect={handleEmojiSelect} disabled={disabled} />
+              
+              <MacrosButton
+                onSelectMacro={handleMacroButtonSelect}
+                disabled={disabled}
+              />
               
               <MediaUploadButton 
                 conversationId={conversationId}
