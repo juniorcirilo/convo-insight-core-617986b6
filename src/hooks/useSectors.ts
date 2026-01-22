@@ -11,6 +11,9 @@ export interface Sector {
   is_active: boolean;
   tipo_atendimento: 'humano' | 'chatbot';
   gera_ticket: boolean;
+  gera_ticket_usuarios: boolean;
+  gera_ticket_grupos: boolean;
+  grupos_permitidos_todos: boolean;
   mensagem_boas_vindas: string | null;
   mensagem_reabertura: string | null;
   mensagem_encerramento: string | null;

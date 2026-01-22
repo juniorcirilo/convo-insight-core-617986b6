@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import {
   Dialog,
@@ -13,6 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -22,9 +24,10 @@ import {
 } from "@/components/ui/select";
 import { useWhatsAppInstances } from "@/hooks/whatsapp";
 import { useSectors, type SectorWithInstance } from "@/hooks/useSectors";
-import { Ticket, Bot, MessageSquare, Sparkles, Loader2 } from "lucide-react";
+import { Ticket, Bot, MessageSquare, Sparkles, Loader2, Users, User, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
 
 interface SectorDialogProps {
   open: boolean;
@@ -39,9 +42,18 @@ interface FormData {
   is_default: boolean;
   tipo_atendimento: 'humano' | 'chatbot';
   gera_ticket: boolean;
+  gera_ticket_usuarios: boolean;
+  gera_ticket_grupos: boolean;
+  grupos_permitidos_todos: boolean;
   mensagem_boas_vindas: string;
   mensagem_encerramento: string;
   mensagem_reabertura: string;
+}
+
+interface GroupContact {
+  id: string;
+  phone_number: string;
+  name: string;
 }
 
 export function SectorDialog({
@@ -53,6 +65,8 @@ export function SectorDialog({
   const { createSector, updateSector } = useSectors();
   const { toast } = useToast();
   const [generatingField, setGeneratingField] = useState<string | null>(null);
+  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
+  const [groupSearch, setGroupSearch] = useState("");
 
   const { register, handleSubmit, watch, setValue, reset } = useForm<FormData>({
     defaultValues: {
@@ -62,14 +76,63 @@ export function SectorDialog({
       is_default: false,
       tipo_atendimento: "humano",
       gera_ticket: false,
+      gera_ticket_usuarios: false,
+      gera_ticket_grupos: false,
+      grupos_permitidos_todos: true,
       mensagem_boas_vindas: "",
       mensagem_encerramento: "",
       mensagem_reabertura: "",
     },
   });
 
-  const geraTicket = watch("gera_ticket");
+  const geraTicketUsuarios = watch("gera_ticket_usuarios");
+  const geraTicketGrupos = watch("gera_ticket_grupos");
+  const geraTicket = geraTicketUsuarios || geraTicketGrupos;
+  const gruposPermitidosTodos = watch("grupos_permitidos_todos");
+  const instanceId = watch("instance_id");
   const tipoAtendimento = watch("tipo_atendimento");
+
+  // Fetch group contacts for the selected instance
+  const { data: groupContacts = [] } = useQuery({
+    queryKey: ['group-contacts', instanceId],
+    queryFn: async () => {
+      if (!instanceId) return [];
+      const { data, error } = await supabase
+        .from('whatsapp_contacts')
+        .select('id, phone_number, name')
+        .eq('instance_id', instanceId)
+        .eq('is_group', true)
+        .order('name');
+      if (error) throw error;
+      return data as GroupContact[];
+    },
+    enabled: !!instanceId,
+  });
+
+  // Fetch allowed groups for this sector
+  const { data: allowedGroups = [] } = useQuery({
+    queryKey: ['sector-allowed-groups', sector?.id],
+    queryFn: async () => {
+      if (!sector?.id) return [];
+      const { data, error } = await supabase
+        .from('sector_allowed_groups')
+        .select('group_phone_number')
+        .eq('sector_id', sector.id);
+      if (error) throw error;
+      return data.map(g => g.group_phone_number);
+    },
+    enabled: !!sector?.id,
+  });
+
+  // Filter groups by search
+  const filteredGroups = useMemo(() => {
+    if (!groupSearch) return groupContacts;
+    const search = groupSearch.toLowerCase();
+    return groupContacts.filter(g => 
+      g.name?.toLowerCase().includes(search) || 
+      g.phone_number.includes(search)
+    );
+  }, [groupContacts, groupSearch]);
 
   useEffect(() => {
     if (sector) {
@@ -80,10 +143,15 @@ export function SectorDialog({
         is_default: sector.is_default,
         tipo_atendimento: sector.tipo_atendimento || "humano",
         gera_ticket: sector.gera_ticket || false,
+        gera_ticket_usuarios: (sector as any).gera_ticket_usuarios || sector.gera_ticket || false,
+        gera_ticket_grupos: (sector as any).gera_ticket_grupos || false,
+        grupos_permitidos_todos: (sector as any).grupos_permitidos_todos !== false,
         mensagem_boas_vindas: sector.mensagem_boas_vindas || "",
         mensagem_encerramento: sector.mensagem_encerramento || "",
         mensagem_reabertura: (sector as any).mensagem_reabertura || "",
       });
+      // Set selected groups from allowed groups
+      setSelectedGroups(allowedGroups);
     } else {
       reset({
         name: "",
@@ -92,12 +160,16 @@ export function SectorDialog({
         is_default: false,
         tipo_atendimento: "humano",
         gera_ticket: false,
+        gera_ticket_usuarios: false,
+        gera_ticket_grupos: false,
+        grupos_permitidos_todos: true,
         mensagem_boas_vindas: "",
         mensagem_encerramento: "",
         mensagem_reabertura: "",
       });
+      setSelectedGroups([]);
     }
-  }, [sector, instances, reset]);
+  }, [sector, instances, reset, allowedGroups]);
 
   const generateWithAI = async (field: keyof FormData, context: string) => {
     setGeneratingField(field);
@@ -165,6 +237,8 @@ Contexto do setor: ${context || 'Atendimento ao cliente'}`,
   };
 
   const onSubmit = async (data: FormData) => {
+    const geraTicketAtivo = data.gera_ticket_usuarios || data.gera_ticket_grupos;
+    
     const payload = {
       name: data.name,
       description: data.description || null,
@@ -172,16 +246,54 @@ Contexto do setor: ${context || 'Atendimento ao cliente'}`,
       is_default: data.is_default,
       is_active: true,
       tipo_atendimento: data.tipo_atendimento,
-      gera_ticket: data.gera_ticket,
-      mensagem_boas_vindas: data.gera_ticket ? (data.mensagem_boas_vindas || null) : null,
-      mensagem_encerramento: data.gera_ticket ? (data.mensagem_encerramento || null) : null,
-      mensagem_reabertura: data.gera_ticket ? (data.mensagem_reabertura || null) : null,
+      gera_ticket: geraTicketAtivo,
+      gera_ticket_usuarios: data.gera_ticket_usuarios,
+      gera_ticket_grupos: data.gera_ticket_grupos,
+      grupos_permitidos_todos: data.grupos_permitidos_todos,
+      mensagem_boas_vindas: geraTicketAtivo ? (data.mensagem_boas_vindas || null) : null,
+      mensagem_encerramento: geraTicketAtivo ? (data.mensagem_encerramento || null) : null,
+      mensagem_reabertura: geraTicketAtivo ? (data.mensagem_reabertura || null) : null,
     };
 
+    let sectorId: string;
+    
     if (sector) {
       await updateSector.mutateAsync({ id: sector.id, ...payload });
+      sectorId = sector.id;
     } else {
-      await createSector.mutateAsync(payload);
+      const result = await createSector.mutateAsync(payload);
+      sectorId = result.id;
+    }
+
+    // Manage allowed groups if groups ticket is enabled and not all groups
+    if (data.gera_ticket_grupos && !data.grupos_permitidos_todos) {
+      // Delete existing allowed groups
+      await supabase
+        .from('sector_allowed_groups')
+        .delete()
+        .eq('sector_id', sectorId);
+
+      // Insert new allowed groups
+      if (selectedGroups.length > 0) {
+        const groupsToInsert = selectedGroups.map(phoneNumber => {
+          const group = groupContacts.find(g => g.phone_number === phoneNumber);
+          return {
+            sector_id: sectorId,
+            group_phone_number: phoneNumber,
+            group_name: group?.name || null,
+          };
+        });
+        
+        await supabase
+          .from('sector_allowed_groups')
+          .insert(groupsToInsert);
+      }
+    } else if (sector) {
+      // If all groups are allowed or groups ticket is disabled, clear the allowed list
+      await supabase
+        .from('sector_allowed_groups')
+        .delete()
+        .eq('sector_id', sectorId);
     }
 
     onOpenChange(false);
@@ -284,19 +396,101 @@ Contexto do setor: ${context || 'Atendimento ao cliente'}`,
 
           <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 p-4">
             <div className="flex items-start gap-3">
-              <Ticket className="h-5 w-5 text-primary mt-0.5" />
+              <User className="h-5 w-5 text-primary mt-0.5" />
               <div className="space-y-0.5">
-                <Label htmlFor="gera_ticket">Gera Tickets de Suporte</Label>
+                <Label htmlFor="gera_ticket_usuarios">Gera Tickets de Suporte para Usuários</Label>
                 <p className="text-xs text-muted-foreground">
-                  Ativar sistema de tickets com abertura, encerramento e feedback
+                  Ativar sistema de tickets para conversas individuais
                 </p>
               </div>
             </div>
             <Switch
-              id="gera_ticket"
-              checked={watch("gera_ticket")}
-              onCheckedChange={(checked) => setValue("gera_ticket", checked)}
+              id="gera_ticket_usuarios"
+              checked={watch("gera_ticket_usuarios")}
+              onCheckedChange={(checked) => setValue("gera_ticket_usuarios", checked)}
             />
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 p-4">
+              <div className="flex items-start gap-3">
+                <Users className="h-5 w-5 text-primary mt-0.5" />
+                <div className="space-y-0.5">
+                  <Label htmlFor="gera_ticket_grupos">Gera Tickets de Suporte para Grupos</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Ativar sistema de tickets para conversas de grupo
+                  </p>
+                </div>
+              </div>
+              <Switch
+                id="gera_ticket_grupos"
+                checked={watch("gera_ticket_grupos")}
+                onCheckedChange={(checked) => setValue("gera_ticket_grupos", checked)}
+              />
+            </div>
+
+            {geraTicketGrupos && (
+              <div className="ml-8 space-y-3 rounded-lg border border-border p-4 bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="grupos_permitidos_todos"
+                    checked={gruposPermitidosTodos}
+                    onCheckedChange={(checked) => setValue("grupos_permitidos_todos", !!checked)}
+                  />
+                  <Label htmlFor="grupos_permitidos_todos" className="text-sm font-normal">
+                    Permitir todos os grupos
+                  </Label>
+                </div>
+
+                {!gruposPermitidosTodos && (
+                  <div className="space-y-2">
+                    <Label className="text-sm">Selecionar grupos permitidos</Label>
+                    <div className="relative">
+                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Pesquisar grupos..."
+                        value={groupSearch}
+                        onChange={(e) => setGroupSearch(e.target.value)}
+                        className="pl-8"
+                      />
+                    </div>
+                    <ScrollArea className="h-[150px] rounded-md border p-2">
+                      {filteredGroups.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          {groupContacts.length === 0 ? 'Nenhum grupo encontrado na instância' : 'Nenhum grupo corresponde à pesquisa'}
+                        </p>
+                      ) : (
+                        <div className="space-y-1">
+                          {filteredGroups.map((group) => (
+                            <div key={group.id} className="flex items-center gap-2 p-1.5 rounded hover:bg-muted">
+                              <Checkbox
+                                id={`group-${group.id}`}
+                                checked={selectedGroups.includes(group.phone_number)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setSelectedGroups(prev => [...prev, group.phone_number]);
+                                  } else {
+                                    setSelectedGroups(prev => prev.filter(p => p !== group.phone_number));
+                                  }
+                                }}
+                              />
+                              <Label htmlFor={`group-${group.id}`} className="text-sm font-normal flex-1 cursor-pointer">
+                                {group.name || group.phone_number}
+                              </Label>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </ScrollArea>
+                    {selectedGroups.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {selectedGroups.length} grupo(s) selecionado(s)
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {geraTicket && (

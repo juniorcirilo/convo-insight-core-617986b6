@@ -270,7 +270,7 @@ async function fetchAndUpdateProfilePicture(
       // Fetch group metadata
       try {
         const metaResponse = await fetch(
-          `${apiUrl}/group/fetchAllGroups/${instanceName}`,
+          `${apiUrl}/group/fetchAllGroups/${instanceName}?getParticipants=false`,
           {
             method: 'GET',
             headers,
@@ -371,7 +371,8 @@ async function findOrCreateContact(
   apiKey?: string,
   instanceName?: string,
   providerType: string = 'self_hosted',
-  lid: string | null = null
+  lid: string | null = null,
+  groupPictureUrl: string | null = null
 ): Promise<string | null> {
   try {
     // Gerar variantes do número para números brasileiros
@@ -461,20 +462,39 @@ async function findOrCreateContact(
       // 1. Message is NOT from me (avoid setting contact name to instance owner)
       // 2. We have a real name (not just phone number)
       // 3. Current name is the phone number
-      const shouldUpdateName = !isFromMe && 
+      // OR if it's a group, always update with the group name
+      const shouldUpdateName = isGroup || 
+                               (!isFromMe && 
                                name !== phoneNumber && 
-                               existingContact.name === phoneNumber;
+                               existingContact.name === phoneNumber);
       
-      if (shouldUpdateName) {
+      if (shouldUpdateName && name && name !== existingContact.name) {
+        const updateData: any = { 
+          name: name,
+          updated_at: new Date().toISOString() 
+        };
+        
+        // Also update group picture if available
+        if (isGroup && groupPictureUrl) {
+          updateData.profile_picture_url = groupPictureUrl;
+        }
+        
+        await supabase
+          .from('whatsapp_contacts')
+          .update(updateData)
+          .eq('id', existingContact.id);
+        
+        console.log(`[evolution-webhook] Contact name updated: ${existingContact.id} -> ${name}${groupPictureUrl ? ' (with picture)' : ''}`);
+      } else if (isGroup && groupPictureUrl) {
+        // Update just the picture if we have one
         await supabase
           .from('whatsapp_contacts')
           .update({ 
-            name: name,
+            profile_picture_url: groupPictureUrl,
             updated_at: new Date().toISOString() 
           })
           .eq('id', existingContact.id);
-        
-        console.log(`[evolution-webhook] Contact name updated: ${existingContact.id} -> ${name}`);
+        console.log(`[evolution-webhook] Contact picture updated: ${existingContact.id}`);
       }
       
       return existingContact.id;
@@ -484,15 +504,22 @@ async function findOrCreateContact(
     // If message is from me, use phone number as name (to avoid using instance owner's name)
     const contactName = isFromMe ? phoneNumber : (name || phoneNumber);
     
+    const upsertData: any = {
+      instance_id: instanceId,
+      phone_number: phoneNumber,
+      name: contactName,
+      is_group: isGroup,
+      lid: lid,
+    };
+    
+    // Include group picture if available
+    if (isGroup && groupPictureUrl) {
+      upsertData.profile_picture_url = groupPictureUrl;
+    }
+    
     const { data: newContact, error } = await supabase
       .from('whatsapp_contacts')
-      .upsert({
-        instance_id: instanceId,
-        phone_number: phoneNumber,
-        name: contactName,
-        is_group: isGroup,
-        lid: lid,
-      }, {
+      .upsert(upsertData, {
         onConflict: 'instance_id,phone_number',
         ignoreDuplicates: false,
       })
@@ -1237,20 +1264,67 @@ async function processMessageUpsert(payload: EvolutionWebhookPayload, supabase: 
     
     console.log('[evolution-webhook] Normalized phone:', phone, 'isGroup:', isGroup, 'lid:', effectiveLid);
 
+    // For groups, fetch the group name before creating contact
+    let contactName = pushName || phone;
+    let groupPictureUrl: string | null = null;
+    
+    if (isGroup) {
+      try {
+        // Determine correct auth header based on provider type
+        const authHeaders: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        if (instanceData.provider_type === 'cloud') {
+          authHeaders['Authorization'] = `Bearer ${secrets.api_key}`;
+        } else {
+          authHeaders['apikey'] = secrets.api_key;
+        }
+        
+        const groupId = phone.includes('@g.us') ? phone : `${phone}@g.us`;
+        console.log(`[evolution-webhook] Fetching group info for: ${groupId}`);
+        
+        const metaResponse = await fetch(
+          `${secrets.api_url}/group/fetchAllGroups/${evolutionInstanceId}?getParticipants=false`,
+          {
+            method: 'GET',
+            headers: authHeaders,
+          }
+        );
+        
+        if (metaResponse.ok) {
+          const groups = await metaResponse.json();
+          const groupInfo = groups?.find?.((g: any) => g.id === groupId || g.jid === groupId);
+          
+          if (groupInfo) {
+            contactName = groupInfo.subject || groupInfo.name || contactName;
+            groupPictureUrl = groupInfo.pictureUrl || groupInfo.profilePictureUrl;
+            console.log(`[evolution-webhook] Group found: ${contactName}, picture: ${groupPictureUrl ? 'yes' : 'no'}`);
+          } else {
+            console.log(`[evolution-webhook] Group not found in list, using default name`);
+          }
+        } else {
+          console.log(`[evolution-webhook] Failed to fetch groups list: ${metaResponse.status}`);
+        }
+      } catch (e) {
+        console.log(`[evolution-webhook] Error fetching group info:`, e);
+      }
+    }
+
     // Find or create contact
     // If message is from me, use phone number instead of pushName (which would be the instance owner's name)
     const contactId = await findOrCreateContact(
       supabase,
       instanceData.id,
       phone,
-      pushName || phone,
+      contactName,
       isGroup,
       key.fromMe,
       secrets.api_url,
       secrets.api_key,
       evolutionInstanceId,
       instanceData.provider_type || 'self_hosted',
-      effectiveLid
+      effectiveLid,
+      groupPictureUrl
     );
 
     if (!contactId) {
