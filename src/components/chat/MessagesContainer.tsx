@@ -16,9 +16,10 @@ interface MessagesContainerProps {
   isLoading: boolean;
   conversationId: string | null;
   onReplyMessage?: (message: Message) => void;
+  isGroupChat?: boolean;
 }
 
-export const MessagesContainer = ({ messages, isLoading, conversationId, onReplyMessage }: MessagesContainerProps) => {
+export const MessagesContainer = ({ messages, isLoading, conversationId, onReplyMessage, isGroupChat = false }: MessagesContainerProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [newMessagesCount, setNewMessagesCount] = useState(0);
@@ -134,6 +135,8 @@ export const MessagesContainer = ({ messages, isLoading, conversationId, onReply
                       message={message}
                       reactions={reactionsByMessage[message.message_id]}
                       onReply={onReplyMessage}
+                      isGroupChat={isGroupChat}
+                      senderName={(message as any).sender_name}
                     />
                   );
                 })}

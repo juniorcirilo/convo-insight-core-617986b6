@@ -243,7 +243,8 @@ async function fetchAndUpdateProfilePicture(
   instanceName: string,
   phoneNumber: string,
   contactId: string,
-  providerType: string = 'self_hosted'
+  providerType: string = 'self_hosted',
+  isGroup: boolean = false
 ): Promise<void> {
   try {
     // Determine correct auth header based on provider type
@@ -256,33 +257,100 @@ async function fetchAndUpdateProfilePicture(
       headers['apikey'] = apiKey;
     }
     
-    const response = await fetch(
-      `${apiUrl}/chat/fetchProfile/${instanceName}`,
-      {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ number: phoneNumber }),
+    let profilePictureUrl: string | null = null;
+    let groupName: string | null = null;
+    
+    if (isGroup) {
+      // For groups, use fetchGroupPicture endpoint
+      console.log(`[evolution-webhook] Fetching group info for: ${phoneNumber}`);
+      
+      // Try to get group metadata (name and picture)
+      const groupId = phoneNumber.includes('@g.us') ? phoneNumber : `${phoneNumber}@g.us`;
+      
+      // Fetch group metadata
+      try {
+        const metaResponse = await fetch(
+          `${apiUrl}/group/fetchAllGroups/${instanceName}`,
+          {
+            method: 'GET',
+            headers,
+          }
+        );
+        
+        if (metaResponse.ok) {
+          const groups = await metaResponse.json();
+          const groupInfo = groups?.find?.((g: any) => g.id === groupId || g.jid === groupId);
+          
+          if (groupInfo) {
+            groupName = groupInfo.subject || groupInfo.name;
+            profilePictureUrl = groupInfo.pictureUrl || groupInfo.profilePictureUrl;
+            console.log(`[evolution-webhook] Group found: ${groupName}, picture: ${profilePictureUrl ? 'yes' : 'no'}`);
+          }
+        }
+      } catch (e) {
+        console.log(`[evolution-webhook] Failed to fetch group list:`, e);
       }
-    );
+      
+      // If no picture from group list, try fetchProfile endpoint
+      if (!profilePictureUrl) {
+        try {
+          const picResponse = await fetch(
+            `${apiUrl}/chat/fetchProfile/${instanceName}`,
+            {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ number: groupId }),
+            }
+          );
+          
+          if (picResponse.ok) {
+            const picData = await picResponse.json();
+            profilePictureUrl = picData.profilePictureUrl || picData.picture;
+          }
+        } catch (e) {
+          console.log(`[evolution-webhook] Failed to fetch group picture:`, e);
+        }
+      }
+    } else {
+      // For individual contacts
+      const response = await fetch(
+        `${apiUrl}/chat/fetchProfile/${instanceName}`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ number: phoneNumber }),
+        }
+      );
 
-    if (!response.ok) {
-      console.log(`[evolution-webhook] Failed to fetch profile for ${phoneNumber}: ${response.status}`);
-      return;
+      if (!response.ok) {
+        console.log(`[evolution-webhook] Failed to fetch profile for ${phoneNumber}: ${response.status}`);
+        return;
+      }
+
+      const data = await response.json();
+      profilePictureUrl = data.profilePictureUrl || data.picture;
     }
 
-    const data = await response.json();
-    const profilePictureUrl = data.profilePictureUrl || data.picture;
-
+    // Update contact with picture and name (if group name found)
+    const updateData: any = {
+      updated_at: new Date().toISOString()
+    };
+    
     if (profilePictureUrl) {
+      updateData.profile_picture_url = profilePictureUrl;
+    }
+    
+    if (groupName) {
+      updateData.name = groupName;
+    }
+
+    if (profilePictureUrl || groupName) {
       await supabase
         .from('whatsapp_contacts')
-        .update({ 
-          profile_picture_url: profilePictureUrl,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', contactId);
       
-      console.log(`[evolution-webhook] Profile picture updated for contact: ${contactId}`);
+      console.log(`[evolution-webhook] Contact updated - picture: ${!!profilePictureUrl}, name: ${groupName || 'unchanged'}`);
     }
   } catch (error) {
     console.log('[evolution-webhook] Failed to fetch profile picture:', error);
@@ -450,11 +518,11 @@ async function findOrCreateContact(
       return null;
     }
 
-    console.log(`[evolution-webhook] Contact created/upserted: ${newContact.id} Name: ${name} Lid: ${lid}`);
+    console.log(`[evolution-webhook] Contact created/upserted: ${newContact.id} Name: ${name} Lid: ${lid} isGroup: ${isGroup}`);
     
     // Buscar foto de perfil em background (fire-and-forget)
     if (apiUrl && apiKey && instanceName) {
-      fetchAndUpdateProfilePicture(supabase, apiUrl, apiKey, instanceName, phoneNumber, newContact.id, providerType)
+      fetchAndUpdateProfilePicture(supabase, apiUrl, apiKey, instanceName, phoneNumber, newContact.id, providerType, isGroup)
         .catch(err => console.log('[evolution-webhook] Background profile fetch error:', err));
     }
     
@@ -1262,7 +1330,10 @@ async function processMessageUpsert(payload: EvolutionWebhookPayload, supabase: 
     // Create message timestamp
     const timestamp = new Date(messageTimestamp * 1000).toISOString();
 
-    // Save message with sender_lid for tracking
+    // Get sender name for group messages
+    const senderName = isGroup && !key.fromMe ? (pushName || null) : null;
+
+    // Save message with sender_lid and sender_name for group tracking
     const { error: messageError } = await supabase
       .from('whatsapp_messages')
       .insert({
@@ -1279,6 +1350,7 @@ async function processMessageUpsert(payload: EvolutionWebhookPayload, supabase: 
         timestamp,
         ticket_id: currentTicketId,
         sender_lid: effectiveLid,
+        sender_name: senderName,
       });
 
     if (messageError) {
@@ -1348,13 +1420,48 @@ async function processMessageUpsert(payload: EvolutionWebhookPayload, supabase: 
         .eq('id', conversationId)
         .single()).data?.metadata || {};
       
+      // Extract participant phone from key.participant if available
+      const participantJid = key.participant || data.participant;
+      const participantPhone = participantJid 
+        ? participantJid.replace('@s.whatsapp.net', '').replace('@lid', '').replace(/:\d+/, '')
+        : phone;
+      
+      // Try to fetch participant profile picture (fire-and-forget)
+      let senderAvatarUrl: string | null = null;
+      try {
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        if (instanceData.provider_type === 'cloud') {
+          headers['Authorization'] = `Bearer ${secrets.api_key}`;
+        } else {
+          headers['apikey'] = secrets.api_key;
+        }
+        
+        const profileRes = await fetch(
+          `${secrets.api_url}/chat/fetchProfile/${evolutionInstanceId}`,
+          {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ number: participantPhone }),
+          }
+        );
+        
+        if (profileRes.ok) {
+          const profileData = await profileRes.json();
+          senderAvatarUrl = profileData.profilePictureUrl || profileData.picture || null;
+        }
+      } catch (e) {
+        console.log('[evolution-webhook] Failed to fetch sender profile:', e);
+      }
+      
       updateData.metadata = {
         ...existingMetadata,
         last_sender: {
-          name: pushName || phone,
-          phone: phone,
+          name: pushName || participantPhone,
+          phone: participantPhone,
           lid: effectiveLid,
-          // avatar_url will be fetched separately if needed
+          avatar_url: senderAvatarUrl,
         }
       };
     }

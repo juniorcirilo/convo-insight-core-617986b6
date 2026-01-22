@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
-    allowedHosts: ["localhost", "127.0.0.1", "192.168.3.100"],
+    allowedHosts: ["localhost", "127.0.0.1", "192.168.3.100", 'livechat.ubva.com.br', '192.168.3.39'],
     proxy: {
       '/supabase': {
         target: 'http://127.0.0.1:54321',

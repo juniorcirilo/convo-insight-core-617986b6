@@ -2649,6 +2649,7 @@ export type Database = {
           is_default: boolean | null
           mensagem_boas_vindas: string | null
           mensagem_encerramento: string | null
+          mensagem_reabertura: string | null
           name: string
           tipo_atendimento: string | null
           updated_at: string | null
@@ -2663,6 +2664,7 @@ export type Database = {
           is_default?: boolean | null
           mensagem_boas_vindas?: string | null
           mensagem_encerramento?: string | null
+          mensagem_reabertura?: string | null
           name: string
           tipo_atendimento?: string | null
           updated_at?: string | null
@@ -2677,6 +2679,7 @@ export type Database = {
           is_default?: boolean | null
           mensagem_boas_vindas?: string | null
           mensagem_encerramento?: string | null
+          mensagem_reabertura?: string | null
           name?: string
           tipo_atendimento?: string | null
           updated_at?: string | null
@@ -2764,6 +2767,7 @@ export type Database = {
           created_at: string
           first_response_at: string | null
           id: string
+          numero: number
           prioridade: string | null
           sector_id: string
           sla_violated_at: string | null
@@ -2780,6 +2784,7 @@ export type Database = {
           created_at?: string
           first_response_at?: string | null
           id?: string
+          numero?: number
           prioridade?: string | null
           sector_id: string
           sla_violated_at?: string | null
@@ -2796,6 +2801,7 @@ export type Database = {
           created_at?: string
           first_response_at?: string | null
           id?: string
+          numero?: number
           prioridade?: string | null
           sector_id?: string
           sla_violated_at?: string | null
@@ -3479,6 +3485,7 @@ export type Database = {
           conversation_id: string
           created_at: string
           edited_at: string | null
+          from_bot: boolean
           id: string
           is_from_me: boolean | null
           is_internal: boolean
@@ -3492,6 +3499,7 @@ export type Database = {
           quoted_message_id: string | null
           remote_jid: string
           sender_lid: string | null
+          sender_name: string | null
           sent_by: string | null
           status: string | null
           ticket_id: string | null
@@ -3504,6 +3512,7 @@ export type Database = {
           conversation_id: string
           created_at?: string
           edited_at?: string | null
+          from_bot?: boolean
           id?: string
           is_from_me?: boolean | null
           is_internal?: boolean
@@ -3517,6 +3526,7 @@ export type Database = {
           quoted_message_id?: string | null
           remote_jid: string
           sender_lid?: string | null
+          sender_name?: string | null
           sent_by?: string | null
           status?: string | null
           ticket_id?: string | null
@@ -3529,6 +3539,7 @@ export type Database = {
           conversation_id?: string
           created_at?: string
           edited_at?: string | null
+          from_bot?: boolean
           id?: string
           is_from_me?: boolean | null
           is_internal?: boolean
@@ -3542,6 +3553,7 @@ export type Database = {
           quoted_message_id?: string | null
           remote_jid?: string
           sender_lid?: string | null
+          sender_name?: string | null
           sent_by?: string | null
           status?: string | null
           ticket_id?: string | null
@@ -3747,6 +3759,184 @@ export type Database = {
           topics?: string[]
         }
         Relationships: []
+      }
+      widget_configs: {
+        Row: {
+          allowed_domains: string[] | null
+          business_hours: Json | null
+          business_hours_enabled: boolean
+          button_size: string
+          created_at: string
+          created_by: string | null
+          enabled: boolean
+          id: string
+          instance_id: string | null
+          name: string
+          offline_message: string
+          position: string
+          primary_color: string
+          require_email: boolean
+          require_name: boolean
+          require_phone: boolean
+          updated_at: string
+          welcome_message: string
+          welcome_title: string
+        }
+        Insert: {
+          allowed_domains?: string[] | null
+          business_hours?: Json | null
+          business_hours_enabled?: boolean
+          button_size?: string
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          id?: string
+          instance_id?: string | null
+          name?: string
+          offline_message?: string
+          position?: string
+          primary_color?: string
+          require_email?: boolean
+          require_name?: boolean
+          require_phone?: boolean
+          updated_at?: string
+          welcome_message?: string
+          welcome_title?: string
+        }
+        Update: {
+          allowed_domains?: string[] | null
+          business_hours?: Json | null
+          business_hours_enabled?: boolean
+          button_size?: string
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          id?: string
+          instance_id?: string | null
+          name?: string
+          offline_message?: string
+          position?: string
+          primary_color?: string
+          require_email?: boolean
+          require_name?: boolean
+          require_phone?: boolean
+          updated_at?: string
+          welcome_message?: string
+          welcome_title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "widget_configs_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      widget_conversations: {
+        Row: {
+          conversation_id: string | null
+          created_at: string
+          id: string
+          ip_address: string | null
+          last_message_at: string | null
+          page_url: string | null
+          referrer_url: string | null
+          status: string
+          updated_at: string
+          user_agent: string | null
+          visitor_email: string | null
+          visitor_name: string | null
+          visitor_phone: string | null
+          visitor_token: string
+          widget_config_id: string | null
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          last_message_at?: string | null
+          page_url?: string | null
+          referrer_url?: string | null
+          status?: string
+          updated_at?: string
+          user_agent?: string | null
+          visitor_email?: string | null
+          visitor_name?: string | null
+          visitor_phone?: string | null
+          visitor_token?: string
+          widget_config_id?: string | null
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          last_message_at?: string | null
+          page_url?: string | null
+          referrer_url?: string | null
+          status?: string
+          updated_at?: string
+          user_agent?: string | null
+          visitor_email?: string | null
+          visitor_name?: string | null
+          visitor_phone?: string | null
+          visitor_token?: string
+          widget_config_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "widget_conversations_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "widget_conversations_widget_config_id_fkey"
+            columns: ["widget_config_id"]
+            isOneToOne: false
+            referencedRelation: "widget_configs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      widget_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_from_visitor: boolean
+          status: string
+          widget_conversation_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_from_visitor?: boolean
+          status?: string
+          widget_conversation_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_from_visitor?: boolean
+          status?: string
+          widget_conversation_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "widget_messages_widget_conversation_id_fkey"
+            columns: ["widget_conversation_id"]
+            isOneToOne: false
+            referencedRelation: "widget_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

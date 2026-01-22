@@ -144,6 +144,7 @@ export const ChatArea = ({ conversationId }: ChatAreaProps) => {
         isLoading={messagesLoading}
         conversationId={conversationId}
         onReplyMessage={handleReply}
+        isGroupChat={conversation?.contact?.is_group || false}
       />
       
       <MessageInputContainer

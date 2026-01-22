@@ -24,9 +24,11 @@ interface MessageBubbleProps {
   message: Message;
   reactions?: Reaction[];
   onReply?: (message: Message) => void;
+  isGroupChat?: boolean;
+  senderName?: string;
 }
 
-export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbleProps) => {
+export const MessageBubble = ({ message, reactions = [], onReply, isGroupChat = false, senderName }: MessageBubbleProps) => {
   const [viewerImage, setViewerImage] = useState<string | null>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -290,6 +292,12 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
                   : 'bg-card text-card-foreground'
           )}
         >
+          {/* Group sender name */}
+          {isGroupChat && !isFromMe && senderName && (
+            <p className="text-xs font-semibold text-primary mb-1">
+              {senderName}
+            </p>
+          )}
           {message.is_internal && (
             <div className="flex items-center gap-1.5 mb-2">
               <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/50">

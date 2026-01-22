@@ -140,18 +140,18 @@ const ConversationItem = ({
               </AvatarFallback>
             </Avatar>
             
-            {/* Embedded sender avatar for groups */}
-            {isGroup && lastSenderAvatar && (
+            {/* Embedded sender avatar for groups - show when there's a sender name */}
+            {isGroup && lastSenderName && !conversation.isLastMessageFromMe && (
               <Avatar className="absolute -bottom-1 -right-1 h-5 w-5 border-2 border-background">
-                <AvatarImage src={lastSenderAvatar} alt={lastSenderName || ""} />
-                <AvatarFallback className="text-[8px] bg-muted">
-                  {lastSenderName ? getInitials(lastSenderName) : "?"}
+                <AvatarImage src={lastSenderAvatar || undefined} alt={lastSenderName} />
+                <AvatarFallback className="text-[8px] bg-primary/20 text-primary">
+                  {getInitials(lastSenderName)}
                 </AvatarFallback>
               </Avatar>
             )}
             
-            {/* Show small indicator for groups without sender avatar */}
-            {isGroup && !lastSenderAvatar && (
+            {/* Show small group indicator only when no sender info (e.g., when message is from me) */}
+            {isGroup && (!lastSenderName || conversation.isLastMessageFromMe) && (
               <div className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full bg-emerald-500 border-2 border-background flex items-center justify-center">
                 <Users className="h-2.5 w-2.5 text-white" />
               </div>
