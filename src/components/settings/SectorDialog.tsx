@@ -134,6 +134,13 @@ export function SectorDialog({
     );
   }, [groupContacts, groupSearch]);
 
+  // Update selected groups when allowedGroups loads
+  useEffect(() => {
+    if (allowedGroups.length > 0) {
+      setSelectedGroups(allowedGroups);
+    }
+  }, [allowedGroups]);
+
   useEffect(() => {
     if (sector) {
       reset({
@@ -150,8 +157,6 @@ export function SectorDialog({
         mensagem_encerramento: sector.mensagem_encerramento || "",
         mensagem_reabertura: (sector as any).mensagem_reabertura || "",
       });
-      // Set selected groups from allowed groups
-      setSelectedGroups(allowedGroups);
     } else {
       reset({
         name: "",
@@ -169,7 +174,7 @@ export function SectorDialog({
       });
       setSelectedGroups([]);
     }
-  }, [sector, instances, reset, allowedGroups]);
+  }, [sector, instances, reset]);
 
   const generateWithAI = async (field: keyof FormData, context: string) => {
     setGeneratingField(field);
