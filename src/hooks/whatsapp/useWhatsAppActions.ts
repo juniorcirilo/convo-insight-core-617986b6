@@ -149,11 +149,24 @@ export const useWhatsAppActions = () => {
       // Fetch last ticket number before reopening
       const { data: lastTicket } = await supabase
         .from('tickets')
-        .select('numero')
+        .select('id, numero, status')
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
+
+      // Reopen the ticket with status 'reaberto' if it was finalized
+      if (lastTicket && lastTicket.status === 'finalizado') {
+        await supabase
+          .from('tickets')
+          .update({ 
+            status: 'reaberto',
+            closed_at: null,
+            closed_by: null,
+          })
+          .eq('id', lastTicket.id);
+        console.log('[useWhatsAppActions] Ticket reopened:', lastTicket.id);
+      }
 
       const { error } = await supabase
         .from('whatsapp_conversations')

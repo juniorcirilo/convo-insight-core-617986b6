@@ -7,7 +7,7 @@ export interface Ticket {
   id: string;
   conversation_id: string;
   sector_id: string;
-  status: 'aberto' | 'em_atendimento' | 'finalizado';
+  status: 'aberto' | 'em_atendimento' | 'finalizado' | 'reaberto';
   created_at: string;
   closed_at: string | null;
   closed_by: string | null;
@@ -85,7 +85,7 @@ export const useTickets = (conversationId?: string) => {
         .from('tickets')
         .select('*')
         .eq('conversation_id', conversationId)
-        .neq('status', 'finalizado')
+        .in('status', ['aberto', 'em_atendimento', 'reaberto'])
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -185,7 +185,7 @@ export const useTickets = (conversationId?: string) => {
   });
 
   const updateTicketStatus = useMutation({
-    mutationFn: async ({ ticketId, status }: { ticketId: string; status: 'aberto' | 'em_atendimento' | 'finalizado' }) => {
+    mutationFn: async ({ ticketId, status }: { ticketId: string; status: 'aberto' | 'em_atendimento' | 'finalizado' | 'reaberto' }) => {
       const updateData: any = { status };
       
       if (status === 'finalizado') {
