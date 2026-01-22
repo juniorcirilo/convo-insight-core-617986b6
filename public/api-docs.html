@@ -147,9 +147,10 @@
     <h1>📱 LiveChat WhatsApp API</h1>
     <p>Documentação completa da API de integração WhatsApp</p>
     <div class="badges">
-      <span class="badge green">v1.0.0</span>
+      <span class="badge green">v2.0.0</span>
       <span class="badge">OpenAPI 3.0</span>
       <span class="badge">Supabase Edge Functions</span>
+      <span class="badge">ubva.com.br</span>
     </div>
   </div>
   <div id="swagger-ui"></div>
@@ -162,6 +163,20 @@
       // Get Supabase URL from same host but port 54321
       const host = window.location.hostname;
       const supabaseUrl = `http://${host}:54321/functions/v1`;
+      
+      // Check if domain is allowed
+      const allowedDomains = ['ubva.com.br', 'localhost', '127.0.0.1', '192.168.3.100'];
+      const isAllowed = allowedDomains.some(d => host.includes(d) || host === d);
+      
+      if (!isAllowed) {
+        document.getElementById('swagger-ui').innerHTML = `
+          <div style="padding: 40px; text-align: center;">
+            <h2 style="color: #ef4444;">⚠️ Acesso Restrito</h2>
+            <p>Esta API está disponível apenas para o domínio ubva.com.br</p>
+          </div>
+        `;
+        return;
+      }
       
       const ui = SwaggerUIBundle({
         url: baseUrl + "/swagger.json",
@@ -188,9 +203,15 @@
           activate: true,
           theme: "monokai"
         },
+        requestInterceptor: (request) => {
+          // Add origin header for CORS
+          request.headers['Origin'] = window.location.origin;
+          return request;
+        },
         onComplete: function() {
           // Override server URL based on current hostname
           console.log('[Swagger] Using Supabase URL:', supabaseUrl);
+          console.log('[Swagger] Domain check:', host, 'allowed:', isAllowed);
         }
       });
       

@@ -58,6 +58,13 @@ export const useWhatsAppActions = () => {
         }
       }
 
+      // Fetch conversation and sector info to get closing message
+      const { data: convData } = await supabase
+        .from('whatsapp_conversations')
+        .select('sector_id, sectors(mensagem_encerramento)')
+        .eq('id', conversationId)
+        .single();
+
       // Fetch last ticket before closing
       const { data: lastTicket } = await supabase
         .from('tickets')
@@ -67,6 +74,23 @@ export const useWhatsAppActions = () => {
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
+
+      // Send closing message if configured
+      const closingMsg = (convData as any)?.sectors?.mensagem_encerramento;
+      if (closingMsg) {
+        try {
+          await supabase.functions.invoke('send-whatsapp-message', {
+            body: {
+              conversationId: conversationId,
+              content: closingMsg,
+              messageType: 'text',
+            },
+          });
+          console.log('[useWhatsAppActions] Closing message sent');
+        } catch (sendError) {
+          console.error('[useWhatsAppActions] Error sending closing message:', sendError);
+        }
+      }
 
       // Close the ticket if there's an open one
       if (lastTicket && lastTicket.status !== 'finalizado') {
@@ -146,6 +170,13 @@ export const useWhatsAppActions = () => {
   // Reopen conversation
   const reopenMutation = useMutation({
     mutationFn: async (conversationId: string) => {
+      // Fetch conversation and sector info to get configured messages
+      const { data: convData } = await supabase
+        .from('whatsapp_conversations')
+        .select('sector_id, sectors(mensagem_boas_vindas, mensagem_reabertura)')
+        .eq('id', conversationId)
+        .single();
+
       // Fetch last ticket number before reopening
       const { data: lastTicket } = await supabase
         .from('tickets')
@@ -174,19 +205,37 @@ export const useWhatsAppActions = () => {
         .eq('id', conversationId);
       if (error) throw error;
 
-      // Get the timestamp of the last ticket_closed marker to place reopened marker right after it
-      const { data: lastClosedMarker } = await supabase
+      // Send reopen message or welcome message on reopen if configured
+      const sector = (convData as any)?.sectors;
+      const reopenMsg = sector?.mensagem_reabertura || sector?.mensagem_boas_vindas;
+      
+      if (reopenMsg) {
+        try {
+          await supabase.functions.invoke('send-whatsapp-message', {
+            body: {
+              conversationId,
+              content: reopenMsg,
+              messageType: 'text',
+            },
+          });
+          console.log('[useWhatsAppActions] Reopen message sent');
+        } catch (sendError) {
+          console.error('[useWhatsAppActions] Error sending reopen message:', sendError);
+        }
+      }
+
+      // Get the timestamp of the last message to place reopened marker right after it
+      const { data: lastMessage } = await supabase
         .from('whatsapp_messages')
         .select('timestamp')
         .eq('conversation_id', conversationId)
-        .eq('message_type', 'ticket_closed')
         .order('timestamp', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      // Use a timestamp 1ms after the last closed marker so reopened appears right after closing
-      const markerTimestamp = lastClosedMarker?.timestamp 
-        ? new Date(new Date(lastClosedMarker.timestamp).getTime() + 1).toISOString()
+      // Use a timestamp 1ms after the last message so reopened appears at the end
+      const markerTimestamp = lastMessage?.timestamp 
+        ? new Date(new Date(lastMessage.timestamp).getTime() + 1).toISOString()
         : new Date().toISOString();
 
       // Insert conversation_reopened marker

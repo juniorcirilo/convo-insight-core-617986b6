@@ -12,6 +12,7 @@ export interface Sector {
   tipo_atendimento: 'humano' | 'chatbot';
   gera_ticket: boolean;
   mensagem_boas_vindas: string | null;
+  mensagem_reabertura: string | null;
   mensagem_encerramento: string | null;
   created_at: string;
   updated_at: string;

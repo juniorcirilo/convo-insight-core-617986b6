@@ -1340,6 +1340,25 @@ async function processMessageUpsert(payload: EvolutionWebhookPayload, supabase: 
       last_message_preview: content.substring(0, 100),
     };
 
+    // For group messages, save sender info in metadata
+    if (isGroup && !key.fromMe) {
+      const existingMetadata = (await supabase
+        .from('whatsapp_conversations')
+        .select('metadata')
+        .eq('id', conversationId)
+        .single()).data?.metadata || {};
+      
+      updateData.metadata = {
+        ...existingMetadata,
+        last_sender: {
+          name: pushName || phone,
+          phone: phone,
+          lid: effectiveLid,
+          // avatar_url will be fetched separately if needed
+        }
+      };
+    }
+
     // Increment unread count only if message is not from me
     if (!key.fromMe) {
       const { data: currentConv } = await supabase

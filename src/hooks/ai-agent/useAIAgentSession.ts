@@ -227,7 +227,80 @@ export const useAIAgentSession = (conversationId?: string | null) => {
 
   const returnToAI = useMutation({
     mutationFn: async () => {
-      return changeMode.mutateAsync({ mode: 'ai' });
+      if (!conversationId) throw new Error('No conversation ID');
+
+      // 1. Atualizar sessão AI
+      const sessionUpdate = {
+        mode: 'ai' as const,
+        auto_reply_count: 0,
+        escalated_at: null,
+        escalation_reason: null,
+        escalated_to: null,
+      };
+
+      const { data: existingSession } = await supabase
+        .from('ai_agent_sessions')
+        .select('id')
+        .eq('conversation_id', conversationId)
+        .maybeSingle();
+
+      if (existingSession) {
+        await supabase
+          .from('ai_agent_sessions')
+          .update(sessionUpdate)
+          .eq('conversation_id', conversationId);
+      } else {
+        await supabase
+          .from('ai_agent_sessions')
+          .insert({
+            conversation_id: conversationId,
+            ...sessionUpdate,
+          });
+      }
+
+      // 2. Desatribuir conversa e atualizar modo
+      const { error } = await supabase
+        .from('whatsapp_conversations')
+        .update({ 
+          conversation_mode: 'ai',
+          assigned_to: null 
+        })
+        .eq('id', conversationId);
+
+      if (error) throw error;
+
+      // 3. Criar mensagem de sistema
+      const { data: conversation } = await supabase
+        .from('whatsapp_conversations')
+        .select('contact_id, whatsapp_contacts(phone_number)')
+        .eq('id', conversationId)
+        .single();
+
+      const remoteJid = (conversation?.whatsapp_contacts as any)?.phone_number || 'system';
+
+      await supabase.from('whatsapp_messages').insert({
+        conversation_id: conversationId,
+        content: '🤖 Conversa devolvida para a I.A.',
+        message_type: 'text',
+        is_from_me: true,
+        is_internal: true,
+        message_id: `system_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        remote_jid: remoteJid,
+        timestamp: new Date().toISOString(),
+        status: 'sent',
+      });
+
+      return 'ai';
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ai-agent-session', conversationId] });
+      queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['whatsapp', 'messages', conversationId] });
+      queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
+      toast.success('Conversa devolvida para a I.A.');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Erro ao devolver conversa');
     },
   });
 

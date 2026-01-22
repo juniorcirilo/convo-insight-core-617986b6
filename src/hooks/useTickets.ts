@@ -152,6 +152,13 @@ export const useTickets = (conversationId?: string) => {
 
   const createTicket = useMutation({
     mutationFn: async ({ conversationId, sectorId }: { conversationId: string; sectorId: string }) => {
+      // Fetch sector details first to get the welcome message
+      const { data: sectorData } = await supabase
+        .from('sectors')
+        .select('mensagem_boas_vindas')
+        .eq('id', sectorId)
+        .single();
+
       const { data, error } = await supabase
         .from('tickets')
         .insert({
@@ -163,6 +170,22 @@ export const useTickets = (conversationId?: string) => {
         .single();
 
       if (error) throw error;
+
+      // Send welcome message if configured
+      if (sectorData?.mensagem_boas_vindas) {
+        try {
+          await supabase.functions.invoke('send-whatsapp-message', {
+            body: {
+              conversationId,
+              content: sectorData.mensagem_boas_vindas,
+              messageType: 'text',
+            },
+          });
+          console.log('[useTickets] Welcome message sent for ticket:', data.id);
+        } catch (sendError) {
+          console.error('[useTickets] Error sending welcome message:', sendError);
+        }
+      }
 
       // Insert ticket opened event marker
       if (data.id && data.numero) {
@@ -186,6 +209,18 @@ export const useTickets = (conversationId?: string) => {
 
   const updateTicketStatus = useMutation({
     mutationFn: async ({ ticketId, status }: { ticketId: string; status: 'aberto' | 'em_atendimento' | 'finalizado' | 'reaberto' }) => {
+      // Fetch ticket and sector info to send messages if needed
+      const { data: ticketData } = await supabase
+        .from('tickets')
+        .select(`
+          status,
+          conversation_id,
+          sector_id,
+          sectors(mensagem_boas_vindas, mensagem_reabertura)
+        `)
+        .eq('id', ticketId)
+        .single();
+
       const updateData: any = { status };
       
       if (status === 'finalizado') {
@@ -202,6 +237,35 @@ export const useTickets = (conversationId?: string) => {
         .single();
 
       if (error) throw error;
+
+      // Send messages based on status transition
+      if (ticketData && ticketData.conversation_id) {
+        const sector = (ticketData as any)?.sectors;
+        let messageToSend: string | null = null;
+
+        if (status === 'em_atendimento' && ticketData.status === 'aberto') {
+          // Starting attendance - send welcome message if configured
+          messageToSend = sector?.mensagem_boas_vindas;
+        } else if (status === 'reaberto' && ticketData.status === 'finalizado') {
+          // Reopening - send reopen message or welcome message
+          messageToSend = sector?.mensagem_reabertura || sector?.mensagem_boas_vindas;
+        }
+
+        if (messageToSend) {
+          try {
+            await supabase.functions.invoke('send-whatsapp-message', {
+              body: {
+                conversationId: ticketData.conversation_id,
+                content: messageToSend,
+                messageType: 'text',
+              },
+            });
+          } catch (sendError) {
+            console.error('[useTickets] Error sending status transition message:', sendError);
+          }
+        }
+      }
+
       return data;
     },
     onSuccess: (_, variables) => {

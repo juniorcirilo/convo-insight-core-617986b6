@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Sparkles, RefreshCw } from "lucide-react";
+import { Sparkles, RefreshCw, ChevronUp } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { SmartReplySuggestion } from "@/hooks/whatsapp/useSmartReply";
@@ -11,6 +11,7 @@ interface SmartReplySuggestionsProps {
   isRefreshing: boolean;
   onSelectSuggestion: (text: string) => void;
   onRefresh: () => void;
+  onToggle?: () => void;
 }
 
 const toneConfig = {
@@ -37,6 +38,7 @@ export const SmartReplySuggestions = ({
   isRefreshing,
   onSelectSuggestion,
   onRefresh,
+  onToggle,
 }: SmartReplySuggestionsProps) => {
   // Não renderizar se não houver sugestões e não estiver carregando
   if (!isLoading && suggestions.length === 0) {
@@ -48,15 +50,36 @@ export const SmartReplySuggestions = ({
       <div className="flex items-center gap-2 mb-1">
         <Sparkles className="h-3 w-3 text-primary" />
         <span className="text-xs font-medium text-foreground">Sugestões IA</span>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onRefresh}
-          disabled={isLoading || isRefreshing}
-          className="ml-auto h-7 w-7 p-0"
-        >
-          <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-        </Button>
+        <div className="ml-auto flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onRefresh}
+            disabled={isLoading || isRefreshing}
+            className="h-7 w-7 p-0"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </Button>
+          {onToggle && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onToggle}
+                    className="h-7 w-7 p-0 transition-all duration-200"
+                  >
+                    <ChevronUp className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  Ocultar sugestões
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
       </div>
 
       {isLoading ? (

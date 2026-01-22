@@ -66,7 +66,15 @@ export const MessagesContainer = ({ messages, isLoading, conversationId, onReply
   const groupMessagesByDate = () => {
     const groups: { [key: string]: Message[] } = {};
     
-    messages.forEach(msg => {
+    // Garantir que as mensagens estejam ordenadas antes de agrupar
+    const sortedMessages = [...messages].sort((a, b) => {
+      const timeA = new Date(a.timestamp).getTime();
+      const timeB = new Date(b.timestamp).getTime();
+      if (timeA !== timeB) return timeA - timeB;
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    });
+
+    sortedMessages.forEach(msg => {
       const date = new Date(msg.timestamp);
       const dateKey = format(date, 'yyyy-MM-dd');
       
@@ -76,10 +84,12 @@ export const MessagesContainer = ({ messages, isLoading, conversationId, onReply
       groups[dateKey].push(msg);
     });
 
-    return Object.entries(groups).map(([dateKey, msgs]) => ({
-      date: new Date(dateKey),
-      messages: msgs,
-    }));
+    return Object.entries(groups)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([dateKey, msgs]) => ({
+        date: new Date(dateKey + 'T12:00:00'), // Meio do dia para evitar problemas de fuso
+        messages: msgs,
+      }));
   };
 
   const messageGroups = groupMessagesByDate();

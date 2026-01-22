@@ -84,7 +84,13 @@ export const useWhatsAppMessages = (conversationId: string | null) => {
             updated.sort((a, b) => {
               const timeA = new Date(a.timestamp || a.created_at).getTime();
               const timeB = new Date(b.timestamp || b.created_at).getTime();
-              return timeA - timeB;
+              
+              if (timeA !== timeB) return timeA - timeB;
+              
+              // Secondary sort by created_at to break ties (id is string so created_at is better)
+              const createdA = new Date(a.created_at).getTime();
+              const createdB = new Date(b.created_at).getTime();
+              return createdA - createdB;
             });
             return updated;
           });

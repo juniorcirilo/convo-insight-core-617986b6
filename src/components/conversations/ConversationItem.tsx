@@ -3,7 +3,7 @@ import { ptBR } from "date-fns/locale";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Search, Pencil } from "lucide-react";
+import { Search, Pencil, Users } from "lucide-react";
 import { MoreVertical } from "lucide-react";
 import { Tables } from "@/integrations/supabase/types";
 import { ResponseStatusIndicator } from "./ResponseStatusIndicator";
@@ -22,6 +22,10 @@ type Conversation = Tables<"whatsapp_conversations"> & {
   assigned_profile?: {
     id: string;
     full_name: string;
+    avatar_url: string | null;
+  } | null;
+  last_message_sender?: {
+    name: string;
     avatar_url: string | null;
   } | null;
 };
@@ -82,13 +86,19 @@ const ConversationItem = ({
 }: ConversationItemProps) => {
   const contact = conversation.contact;
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  
+  const isGroup = contact?.is_group;
+
   const nameIsMissing = contact ? isContactNameMissing(contact.name, contact.phone_number) : false;
   const contactName = nameIsMissing ? "Sem nome" : (contact?.name || "Desconhecido");
   const profilePicture = conversation.contact?.profile_picture_url;
-  const lastMessage = conversation.last_message_preview || "";
+  const lastMessage = `${conversation.last_message_preview.slice(0, 30)}...` || "";
   const lastMessageTime = conversation.last_message_at;
   const unreadCount = conversation.unread_count || 0;
+  
+  // Get last message sender info from metadata (for groups)
+  const lastSender = (conversation.metadata as any)?.last_sender || conversation.last_message_sender;
+  const lastSenderName = lastSender?.name;
+  const lastSenderAvatar = lastSender?.avatar_url;
   
   const handleEditClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -115,27 +125,46 @@ const ConversationItem = ({
           "flex items-start gap-3 p-3 cursor-pointer transition-colors",
           "hover:bg-sidebar-accent",
           isSelected && "bg-sidebar-accent",
-          contact?.is_group && "border-l-2 border-l-primary/50"
+          isGroup && "border-l-2 border-l-primary/50"
         )}
       >
-          {/* Avatar */}
-          <Avatar className={cn("h-10 w-10 shrink-0", contact?.is_group && "rounded-lg")}>
-            <AvatarImage src={profilePicture || undefined} alt={contactName} />
-            <AvatarFallback className={cn(
-              "bg-primary/10 text-primary text-xs font-medium",
-              contact?.is_group && "rounded-lg"
-            )}>
-              {contact?.is_group ? "👥" : getInitials(contactName)}
-            </AvatarFallback>
-          </Avatar>
+          {/* Avatar - Group with embedded sender avatar */}
+          <div className="relative shrink-0">
+            <Avatar className={cn("h-10 w-10", isGroup && "rounded-lg")}>
+              <AvatarImage src={profilePicture || undefined} alt={contactName} />
+              <AvatarFallback className={cn(
+                "bg-primary/10 text-primary text-xs font-medium",
+                isGroup && "rounded-lg bg-emerald-500/10"
+              )}>
+                {isGroup ? <Users className="h-5 w-5 text-emerald-600" /> : getInitials(contactName)}
+              </AvatarFallback>
+            </Avatar>
+            
+            {/* Embedded sender avatar for groups */}
+            {isGroup && lastSenderAvatar && (
+              <Avatar className="absolute -bottom-1 -right-1 h-5 w-5 border-2 border-background">
+                <AvatarImage src={lastSenderAvatar} alt={lastSenderName || ""} />
+                <AvatarFallback className="text-[8px] bg-muted">
+                  {lastSenderName ? getInitials(lastSenderName) : "?"}
+                </AvatarFallback>
+              </Avatar>
+            )}
+            
+            {/* Show small indicator for groups without sender avatar */}
+            {isGroup && !lastSenderAvatar && (
+              <div className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full bg-emerald-500 border-2 border-background flex items-center justify-center">
+                <Users className="h-2.5 w-2.5 text-white" />
+              </div>
+            )}
+          </div>
 
           {/* Content */}
           <div className="flex-1 min-w-0 space-y-1">
             {/* Row 1: Name + Timestamp */}
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5 min-w-0">
-                {contact?.is_group && (
-                  <span className="text-xs text-muted-foreground shrink-0">👥</span>
+                {isGroup && (
+                  <Users className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
                 )}
                 <span className={cn(
                   "font-medium text-sm truncate",
@@ -143,7 +172,7 @@ const ConversationItem = ({
                 )}>
                   {contactName}
                 </span>
-                {nameIsMissing && !contact?.is_group && (
+                {nameIsMissing && !isGroup && (
                   <Button 
                     variant="ghost" 
                     size="sm" 
@@ -174,6 +203,11 @@ const ConversationItem = ({
             {/* Row 2: Preview + Unread/Status */}
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1 min-w-0 flex-1">
+                {isGroup && lastSenderName && !conversation.isLastMessageFromMe && (
+                  <span className="text-xs text-primary font-medium shrink-0">
+                    {lastSenderName.split(' ')[0]}:
+                  </span>
+                )}
                 <p className="text-sm text-muted-foreground truncate">
                   {lastMessage || "Sem mensagens"}
                 </p>

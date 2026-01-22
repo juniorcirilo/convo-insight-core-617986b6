@@ -17,7 +17,9 @@ interface SendMessageRequest {
   // Supervisor message support
   isSupervisorMessage?: boolean;
   supervisorId?: string;
-}
+  // When true, do not record this message in the chat or update conversation metadata
+  skip_chat?: boolean;
+} 
 
 // Helper function to get Evolution API auth headers based on provider type
 function getEvolutionAuthHeaders(apiKey: string, providerType: string): Record<string, string> {
@@ -42,6 +44,10 @@ Deno.serve(async (req) => {
       conversationId: body.conversationId, 
       messageType: body.messageType 
     });
+
+    // Default skip_chat to false when not provided
+    const skipChat: boolean = body.skip_chat ?? false;
+    console.log('[send-whatsapp-message] skip_chat:', skipChat);
 
     // Validate request
     if (!body.conversationId || !body.messageType) {
@@ -175,6 +181,31 @@ Deno.serve(async (req) => {
 
     if (extractedMediaUrl) {
       console.log('[send-whatsapp-message] Extracted media URL:', extractedMediaUrl);
+    }
+
+    // If skip_chat is true, do not save the message or update conversation metadata
+    if (skipChat) {
+      console.log('[send-whatsapp-message] skip_chat=true, not saving message or updating conversation');
+      const responsePayload = {
+        success: true,
+        message: {
+          id: messageId,
+          message_id: messageId,
+          content: body.content || '',
+          message_type: body.messageType,
+          media_url: extractedMediaUrl || body.mediaUrl || null,
+          media_mimetype: body.mediaMimetype || null,
+          status: 'sent',
+          is_from_me: true,
+          timestamp: new Date().toISOString(),
+          skipped_chat: true,
+        }
+      };
+
+      return new Response(
+        JSON.stringify(responsePayload),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Save message to database

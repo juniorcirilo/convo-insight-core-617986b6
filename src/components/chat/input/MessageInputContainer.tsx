@@ -1,7 +1,8 @@
 import { useState, useRef, KeyboardEvent, useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Send, Mic } from "lucide-react";
+import { Send, Mic, ChevronDown, ChevronUp } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EmojiPickerButton } from "./EmojiPickerButton";
 import { MediaUploadButton } from "./MediaUploadButton";
 import { AIComposerButton } from "./AIComposerButton";
@@ -51,6 +52,7 @@ export const MessageInputContainer = ({
   const [isRecording, setIsRecording] = useState(false);
   const [showMacroSuggestions, setShowMacroSuggestions] = useState(false);
   const [filteredMacros, setFilteredMacros] = useState<any[]>([]);
+  const [showSmartReplies, setShowSmartReplies] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   const { macros, incrementUsage } = useWhatsAppMacros();
@@ -151,13 +153,16 @@ export const MessageInputContainer = ({
         <ReplyPreview message={replyingTo} onCancel={onCancelReply} />
       )}
       
-      <SmartReplySuggestions
-        suggestions={suggestions}
-        isLoading={isLoadingSmartReplies}
-        isRefreshing={isRefreshing}
-        onSelectSuggestion={handleSmartReplySelect}
-        onRefresh={refresh}
-      />
+      {showSmartReplies && (
+        <SmartReplySuggestions
+          suggestions={suggestions}
+          isLoading={isLoadingSmartReplies}
+          isRefreshing={isRefreshing}
+          onSelectSuggestion={handleSmartReplySelect}
+          onRefresh={refresh}
+          onToggle={() => setShowSmartReplies(false)}
+        />
+      )}
       
       <div className="p-4">
         {showMacroSuggestions && (
@@ -216,6 +221,30 @@ export const MessageInputContainer = ({
               >
                 <Mic className="w-4 h-4" />
               </Button>
+              
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      onClick={() => setShowSmartReplies(!showSmartReplies)}
+                      size="icon"
+                      variant="ghost"
+                      disabled={disabled}
+                      className="h-9 w-9 shrink-0 transition-all duration-200"
+                    >
+                      {showSmartReplies ? (
+                        <ChevronDown className="w-4 h-4" />
+                      ) : (
+                        <ChevronUp className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    {showSmartReplies ? 'Ocultar sugestões IA' : 'Mostrar sugestões IA'}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               
               <Button
                 type="button"

@@ -66,8 +66,8 @@ export const MacrosButton = ({ onSelectMacro, disabled }: MacrosButtonProps) => 
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[80vh] flex flex-col">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[600px] max-h-[85vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Zap className="h-5 w-5 text-primary" />
               Respostas Rápidas (Macros)
@@ -77,7 +77,7 @@ export const MacrosButton = ({ onSelectMacro, disabled }: MacrosButtonProps) => 
             </DialogDescription>
           </DialogHeader>
 
-          <div className="relative">
+          <div className="relative flex-shrink-0">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar por nome, atalho ou conteúdo..."
@@ -88,7 +88,9 @@ export const MacrosButton = ({ onSelectMacro, disabled }: MacrosButtonProps) => 
             />
           </div>
 
-          <ScrollArea className="flex-1 max-h-[400px] pr-4">
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <ScrollArea className="h-[300px]">
+              <div className="pr-4">
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <p className="text-muted-foreground">Carregando macros...</p>
@@ -108,7 +110,7 @@ export const MacrosButton = ({ onSelectMacro, disabled }: MacrosButtonProps) => 
                 )}
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-4 pb-2">
                 {Object.entries(groupedMacros).map(([category, categoryMacros]) => (
                   <div key={category}>
                     <h4 className="text-sm font-medium text-muted-foreground mb-2">
@@ -148,9 +150,11 @@ export const MacrosButton = ({ onSelectMacro, disabled }: MacrosButtonProps) => 
                 ))}
               </div>
             )}
-          </ScrollArea>
+              </div>
+            </ScrollArea>
+          </div>
 
-          <div className="text-xs text-muted-foreground pt-2 border-t">
+          <div className="text-xs text-muted-foreground pt-2 border-t flex-shrink-0">
             💡 Dica: Digite <code className="bg-muted px-1 rounded">/macro:atalho</code> na caixa de mensagem para buscar rapidamente
           </div>
         </DialogContent>
