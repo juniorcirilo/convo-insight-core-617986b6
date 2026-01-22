@@ -202,6 +202,7 @@ export const useWhatsAppConversations = (filters?: ConversationsFilters) => {
     
     let conversationInvalidateTimeout: NodeJS.Timeout;
     let messageInvalidateTimeout: NodeJS.Timeout;
+    let contactInvalidateTimeout: NodeJS.Timeout;
     
     // Subscribe to conversation changes
     const conversationsChannel = supabase
@@ -241,12 +242,52 @@ export const useWhatsAppConversations = (filters?: ConversationsFilters) => {
         console.log('[useWhatsAppConversations] Messages subscription status:', status);
       });
 
+    // Subscribe to contact changes (name, photo updates)
+    const contactsChannel = supabase
+      .channel('contacts-for-conversations')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'whatsapp_contacts'
+      }, (payload) => {
+        console.log('[useWhatsAppConversations] Contact change:', payload.eventType, payload.new);
+        clearTimeout(contactInvalidateTimeout);
+        contactInvalidateTimeout = setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
+        }, 100);
+      })
+      .subscribe((status) => {
+        console.log('[useWhatsAppConversations] Contacts subscription status:', status);
+      });
+
+    // Subscribe to ticket changes
+    const ticketsChannel = supabase
+      .channel('tickets-for-conversations')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'tickets'
+      }, (payload) => {
+        console.log('[useWhatsAppConversations] Ticket change:', payload.eventType, payload.new);
+        clearTimeout(contactInvalidateTimeout);
+        contactInvalidateTimeout = setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
+          queryClient.invalidateQueries({ queryKey: ['tickets'] });
+        }, 100);
+      })
+      .subscribe((status) => {
+        console.log('[useWhatsAppConversations] Tickets subscription status:', status);
+      });
+
     return () => {
       console.log('[useWhatsAppConversations] Removing realtime channels');
       clearTimeout(conversationInvalidateTimeout);
       clearTimeout(messageInvalidateTimeout);
+      clearTimeout(contactInvalidateTimeout);
       supabase.removeChannel(conversationsChannel);
       supabase.removeChannel(messagesChannel);
+      supabase.removeChannel(contactsChannel);
+      supabase.removeChannel(ticketsChannel);
     };
   }, [queryClient]);
 

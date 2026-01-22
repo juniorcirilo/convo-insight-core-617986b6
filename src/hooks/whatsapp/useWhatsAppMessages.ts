@@ -76,9 +76,17 @@ export const useWhatsAppMessages = (conversationId: string | null) => {
         
         if (payload.eventType === 'INSERT') {
           queryClient.setQueryData(['whatsapp', 'messages', conversationId], (old: Message[] = []) => {
-            const exists = old.some(msg => msg.id === payload.new.id);
+            const newMessage = payload.new as Message;
+            const exists = old.some(msg => msg.id === newMessage.id || msg.message_id === newMessage.message_id);
             if (exists) return old;
-            return [...old, payload.new as Message];
+            // Insert and sort by timestamp to maintain order
+            const updated = [...old, newMessage];
+            updated.sort((a, b) => {
+              const timeA = new Date(a.timestamp || a.created_at).getTime();
+              const timeB = new Date(b.timestamp || b.created_at).getTime();
+              return timeA - timeB;
+            });
+            return updated;
           });
           
           // If message is from client (not from me), mark as read immediately

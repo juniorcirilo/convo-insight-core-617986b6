@@ -412,28 +412,45 @@ async function findOrCreateContact(
       return existingContact.id;
     }
 
-    // Create new contact
+    // Create new contact using upsert to handle race conditions
     // If message is from me, use phone number as name (to avoid using instance owner's name)
     const contactName = isFromMe ? phoneNumber : (name || phoneNumber);
     
     const { data: newContact, error } = await supabase
       .from('whatsapp_contacts')
-      .insert({
+      .upsert({
         instance_id: instanceId,
         phone_number: phoneNumber,
         name: contactName,
         is_group: isGroup,
         lid: lid,
+      }, {
+        onConflict: 'instance_id,phone_number',
+        ignoreDuplicates: false,
       })
       .select('id')
       .single();
 
     if (error) {
       console.error('[evolution-webhook] Error creating contact:', error);
+      
+      // If upsert failed, try to fetch the existing contact one more time
+      const { data: retryContact } = await supabase
+        .from('whatsapp_contacts')
+        .select('id')
+        .eq('instance_id', instanceId)
+        .eq('phone_number', phoneNumber)
+        .maybeSingle();
+      
+      if (retryContact) {
+        console.log(`[evolution-webhook] Contact found on retry: ${retryContact.id}`);
+        return retryContact.id;
+      }
+      
       return null;
     }
 
-    console.log(`[evolution-webhook] Contact created: ${newContact.id} Name: ${name} Lid: ${lid}`);
+    console.log(`[evolution-webhook] Contact created/upserted: ${newContact.id} Name: ${name} Lid: ${lid}`);
     
     // Buscar foto de perfil em background (fire-and-forget)
     if (apiUrl && apiKey && instanceName) {

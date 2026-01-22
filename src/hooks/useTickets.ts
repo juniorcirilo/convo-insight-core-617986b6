@@ -324,6 +324,8 @@ export const useTickets = (conversationId?: string) => {
 
 // Hook for listing all tickets (admin view)
 export const useTicketsList = (sectorId?: string, status?: string) => {
+  const queryClient = useQueryClient();
+  
   const { data: tickets = [], isLoading } = useQuery({
     queryKey: ['tickets-list', sectorId, status],
     queryFn: async () => {
@@ -352,6 +354,34 @@ export const useTicketsList = (sectorId?: string, status?: string) => {
       return data;
     },
   });
+
+  // Realtime subscription for ticket list updates
+  useEffect(() => {
+    let ticketInvalidateTimeout: NodeJS.Timeout;
+
+    const channel = supabase
+      .channel('tickets-list-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tickets',
+        },
+        () => {
+          clearTimeout(ticketInvalidateTimeout);
+          ticketInvalidateTimeout = setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ['tickets-list'] });
+          }, 100);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      clearTimeout(ticketInvalidateTimeout);
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   return { tickets, isLoading };
 };

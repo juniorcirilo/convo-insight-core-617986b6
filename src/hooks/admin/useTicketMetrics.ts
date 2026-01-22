@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface TicketMetrics {
@@ -27,6 +28,36 @@ export interface TicketMetrics {
 }
 
 export function useTicketMetrics(sectorId?: string, periodDays?: number) {
+  const queryClient = useQueryClient();
+  
+  // Real-time subscription for ticket changes
+  useEffect(() => {
+    let invalidateTimeout: NodeJS.Timeout;
+
+    const channel = supabase
+      .channel('ticket-metrics-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tickets',
+        },
+        () => {
+          clearTimeout(invalidateTimeout);
+          invalidateTimeout = setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ['ticket-metrics'] });
+          }, 100);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      clearTimeout(invalidateTimeout);
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ['ticket-metrics', sectorId, periodDays],
     queryFn: async (): Promise<TicketMetrics> => {
@@ -191,6 +222,36 @@ export function useRecentTickets(limit = 10) {
 }
 
 export function useCriticalTickets() {
+  const queryClient = useQueryClient();
+  
+  // Real-time subscription for critical tickets
+  useEffect(() => {
+    let invalidateTimeout: NodeJS.Timeout;
+
+    const channel = supabase
+      .channel('critical-tickets-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tickets',
+        },
+        () => {
+          clearTimeout(invalidateTimeout);
+          invalidateTimeout = setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ['critical-tickets'] });
+          }, 100);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      clearTimeout(invalidateTimeout);
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ['critical-tickets'],
     queryFn: async () => {
