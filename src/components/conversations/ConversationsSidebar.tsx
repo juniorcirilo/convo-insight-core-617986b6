@@ -13,6 +13,7 @@ import QuickFilterPills from "./QuickFilterPills";
 import NewConversationModal from "./NewConversationModal";
 import { ConversationFiltersPopover } from "./ConversationFiltersPopover";
 // NotificationToggle removed from header per request
+import { NotificationToggle } from "@/components/notifications/NotificationToggle";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -44,14 +45,14 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
   const { data: messageSearchResults, isLoading: isSearchingMessages } = useWhatsAppMessageSearch(debouncedSearchQuery);
 
   // Build filters for conversations query
-  const conversationFilters = {
+  const conversationFilters = useMemo(() => ({
     instanceId: instanceFilter || instanceId,
     status: statusFilter === "all" ? undefined : statusFilter,
     page: currentPage,
     pageSize,
     assignedTo: filter === "mine" ? user?.id : undefined,
     unassigned: filter === "queue" ? true : undefined,
-  };
+  }), [instanceFilter, instanceId, statusFilter, currentPage, filter, user?.id]);
 
   const { conversations, totalCount, totalPages, unreadCount, waitingCount, isLoading } = useWhatsAppConversations(conversationFilters);
 

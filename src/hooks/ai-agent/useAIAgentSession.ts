@@ -45,6 +45,8 @@ export const useAIAgentSession = (conversationId?: string | null) => {
   useEffect(() => {
     if (!conversationId) return;
 
+    let sessionInvalidateTimeout: NodeJS.Timeout;
+
     const channel = supabase
       .channel(`ai-session-${conversationId}`)
       .on(
@@ -56,12 +58,17 @@ export const useAIAgentSession = (conversationId?: string | null) => {
           filter: `conversation_id=eq.${conversationId}`,
         },
         () => {
-          queryClient.invalidateQueries({ queryKey: ['ai-agent-session', conversationId] });
+          // Debounce invalidation to prevent excessive re-renders
+          clearTimeout(sessionInvalidateTimeout);
+          sessionInvalidateTimeout = setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ['ai-agent-session', conversationId] });
+          }, 100);
         }
       )
       .subscribe();
 
     return () => {
+      clearTimeout(sessionInvalidateTimeout);
       supabase.removeChannel(channel);
     };
   }, [conversationId, queryClient]);

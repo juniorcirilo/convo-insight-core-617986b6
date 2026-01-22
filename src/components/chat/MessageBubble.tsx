@@ -298,6 +298,14 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
               </Badge>
             </div>
           )}
+          {(message as any).from_bot && !message.is_internal && (
+            <div className="flex items-center gap-1.5 mb-2">
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-blue-500/20 text-blue-700 dark:text-blue-400 border-blue-500/50">
+                <Bot className="h-3 w-3 mr-1" />
+                🤖 Assistente Virtual
+              </Badge>
+            </div>
+          )}
           {message.quoted_message_id && (
             <QuotedMessagePreview messageId={message.quoted_message_id} />
           )}
@@ -335,14 +343,8 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
               </Popover>
             )}
             {getStatusIcon()}
-            {(message as any).is_ai_generated && (
-              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 ml-1 bg-white/20 text-white border-white/30">
-                <Bot className="h-2.5 w-2.5 mr-0.5" />
-                IA
-              </Badge>
-            )}
           </div>
-          {(message as any).is_ai_generated && isFromMe && (
+          {((message as any).is_ai_generated || (message as any).from_bot) && isFromMe && (
             <AIFeedbackButton
               conversationId={message.conversation_id}
               messageId={message.message_id}

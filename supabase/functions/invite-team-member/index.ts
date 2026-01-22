@@ -27,16 +27,26 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Verify caller with anon key first
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
+    // 2. Verify caller with anon key using REST to avoid JWT verification in runtime
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) {
-      console.error('[invite-team-member] Invalid authentication:', userError);
+    const userResp = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: { Authorization: authHeader, apikey: supabaseAnonKey }
+    });
+
+    if (!userResp.ok) {
+      console.error('[invite-team-member] Invalid authentication via REST');
+      return new Response(
+        JSON.stringify({ error: 'Autenticação inválida' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const userJson = await userResp.json();
+    const user = userJson?.user;
+    if (!user) {
+      console.error('[invite-team-member] Invalid authentication: no user');
       return new Response(
         JSON.stringify({ error: 'Autenticação inválida' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -45,7 +55,11 @@ Deno.serve(async (req) => {
 
     console.log('[invite-team-member] Authenticated user:', user.id);
 
-    // 3. Check if caller is admin
+    // 3. Check if caller is admin (use a Supabase client with user auth header)
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
     const { data: roleData, error: roleError } = await supabaseClient
       .from('user_roles')
       .select('role')

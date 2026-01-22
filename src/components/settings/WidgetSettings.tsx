@@ -29,7 +29,7 @@ const DAYS_OF_WEEK = [
 export function WidgetSettings() {
   const { toast } = useToast();
   const { data: widgets, isLoading } = useWidgetConfigs();
-  const { data: instances } = useWhatsAppInstances();
+  const { instances } = useWhatsAppInstances();
   const createWidget = useCreateWidgetConfig();
   const updateWidget = useUpdateWidgetConfig();
   const deleteWidget = useDeleteWidgetConfig();
@@ -47,7 +47,7 @@ export function WidgetSettings() {
     try {
       await createWidget.mutateAsync({
         name: newWidgetName,
-        instance_id: newWidgetInstance || null,
+        instance_id: newWidgetInstance === '__none__' ? null : (newWidgetInstance || null),
       });
       setIsCreateDialogOpen(false);
       setNewWidgetName('');
@@ -137,7 +137,7 @@ export function WidgetSettings() {
                     <SelectValue placeholder="Selecione uma instância" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhuma (apenas chat)</SelectItem>
+                    <SelectItem value="__none__">Nenhuma (apenas chat)</SelectItem>
                     {instances?.map((inst) => (
                       <SelectItem key={inst.id} value={inst.id}>
                         {inst.instance_name}
@@ -265,14 +265,14 @@ export function WidgetSettings() {
                     <div className="space-y-2">
                       <Label>Instância WhatsApp</Label>
                       <Select
-                        value={currentWidget.instance_id || ''}
-                        onValueChange={(value) => handleUpdate(currentWidget.id, { instance_id: value || null })}
+                        value={currentWidget.instance_id || '__none__'}
+                        onValueChange={(value) => handleUpdate(currentWidget.id, { instance_id: value === '__none__' ? null : value })}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione uma instância" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Nenhuma (apenas chat)</SelectItem>
+                          <SelectItem value="__none__">Nenhuma (apenas chat)</SelectItem>
                           {instances?.map((inst) => (
                             <SelectItem key={inst.id} value={inst.id}>
                               {inst.instance_name}

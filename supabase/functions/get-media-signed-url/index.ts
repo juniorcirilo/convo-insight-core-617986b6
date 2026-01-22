@@ -26,19 +26,35 @@ Deno.serve(async (req) => {
     }
 
     // 2. Verify caller
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
+      const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+      const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) {
+      // Verify user via REST /auth/v1/user to avoid in-runtime JWT verification issues
+      const userResp = await fetch(`${supabaseUrl}/auth/v1/user`, {
+        headers: { Authorization: authHeader, apikey: supabaseAnonKey }
+      });
+
+      if (!userResp.ok) {
       return new Response(
         JSON.stringify({ error: 'Autenticação inválida' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+      const userJson = await userResp.json();
+      const user = userJson?.user;
+
+      if (!user) {
+        return new Response(
+          JSON.stringify({ error: 'Autenticação inválida' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Recreate a supabase client with the user's auth header for RPC checks
+      const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: authHeader } }
+      });
 
     const { filePath, conversationId }: SignedUrlRequest = await req.json();
 

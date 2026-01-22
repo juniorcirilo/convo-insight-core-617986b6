@@ -109,6 +109,9 @@ export const useAdminConversations = (filters?: AdminConversationsFilters) => {
 
   // Real-time subscription for conversation updates
   useEffect(() => {
+    let conversationInvalidateTimeout: NodeJS.Timeout;
+    let messageInvalidateTimeout: NodeJS.Timeout;
+
     const channel = supabase
       .channel('admin-conversations-changes')
       .on(
@@ -119,7 +122,11 @@ export const useAdminConversations = (filters?: AdminConversationsFilters) => {
           table: 'whatsapp_conversations',
         },
         () => {
-          queryClient.invalidateQueries({ queryKey: ['admin', 'conversations'] });
+          // Debounce invalidation to prevent excessive re-renders
+          clearTimeout(conversationInvalidateTimeout);
+          conversationInvalidateTimeout = setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ['admin', 'conversations'] });
+          }, 100);
         }
       )
       .on(
@@ -130,12 +137,18 @@ export const useAdminConversations = (filters?: AdminConversationsFilters) => {
           table: 'whatsapp_messages',
         },
         () => {
-          queryClient.invalidateQueries({ queryKey: ['admin', 'conversations'] });
+          // Debounce invalidation to prevent excessive re-renders
+          clearTimeout(messageInvalidateTimeout);
+          messageInvalidateTimeout = setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ['admin', 'conversations'] });
+          }, 100);
         }
       )
       .subscribe();
 
     return () => {
+      clearTimeout(conversationInvalidateTimeout);
+      clearTimeout(messageInvalidateTimeout);
       supabase.removeChannel(channel);
     };
   }, [queryClient]);

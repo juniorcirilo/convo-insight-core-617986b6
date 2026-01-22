@@ -243,6 +243,7 @@ async function sendWhatsAppMessage(supabase: any, meeting: any, message: string)
           message_type: 'text',
           is_from_me: true,
           is_ai_generated: true,
+          from_bot: true,
           status: 'sent',
           timestamp: new Date().toISOString(),
         });

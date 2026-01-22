@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageBubble } from "./MessageBubble";
+import { TicketEventMarker, isTicketEvent, parseTicketNumber } from "./TicketEventMarker";
 import { Tables } from "@/integrations/supabase/types";
 import { format, isToday, isYesterday, isSameWeek } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -104,14 +105,28 @@ export const MessagesContainer = ({ messages, isLoading, conversationId, onReply
               </div>
               
               <div className="space-y-2">
-                {group.messages.map((message) => (
-                  <MessageBubble 
-                    key={message.id} 
-                    message={message}
-                    reactions={reactionsByMessage[message.message_id]}
-                    onReply={onReplyMessage}
-                  />
-                ))}
+                {group.messages.map((message) => {
+                  // Check if this is a ticket event marker
+                  if (isTicketEvent(message.message_type)) {
+                    return (
+                      <TicketEventMarker
+                        key={message.id}
+                        eventType={message.message_type as 'ticket_opened' | 'ticket_closed'}
+                        ticketNumber={parseTicketNumber(message.content)}
+                        timestamp={message.timestamp}
+                      />
+                    );
+                  }
+                  
+                  return (
+                    <MessageBubble 
+                      key={message.id} 
+                      message={message}
+                      reactions={reactionsByMessage[message.message_id]}
+                      onReply={onReplyMessage}
+                    />
+                  );
+                })}
               </div>
             </div>
           ))}

@@ -29,6 +29,32 @@ export interface Feedback {
   created_at: string;
 }
 
+// Helper function to insert ticket event marker in conversation
+const insertTicketEventMarker = async (
+  conversationId: string,
+  ticketNumber: number,
+  eventType: 'ticket_opened' | 'ticket_closed'
+) => {
+  const { error } = await supabase
+    .from('whatsapp_messages')
+    .insert({
+      conversation_id: conversationId,
+      message_id: crypto.randomUUID(),
+      remote_jid: 'system',
+      content: `TICKET_EVENT:${ticketNumber}`,
+      message_type: eventType,
+      is_from_me: true,
+      status: 'sent',
+      timestamp: new Date().toISOString(),
+    });
+  
+  if (error) {
+    console.error(`Error inserting ${eventType} marker:`, error);
+  }
+  
+  return error;
+};
+
 export const useTickets = (conversationId?: string) => {
   const queryClient = useQueryClient();
 
@@ -56,6 +82,8 @@ export const useTickets = (conversationId?: string) => {
   useEffect(() => {
     if (!conversationId) return;
 
+    let ticketInvalidateTimeout: NodeJS.Timeout;
+
     const channel = supabase
       .channel(`ticket-${conversationId}`)
       .on(
@@ -67,12 +95,17 @@ export const useTickets = (conversationId?: string) => {
           filter: `conversation_id=eq.${conversationId}`,
         },
         () => {
-          queryClient.invalidateQueries({ queryKey: ['ticket', conversationId] });
+          // Debounce invalidation to prevent excessive re-renders
+          clearTimeout(ticketInvalidateTimeout);
+          ticketInvalidateTimeout = setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ['ticket', conversationId] });
+          }, 100);
         }
       )
       .subscribe();
 
     return () => {
+      clearTimeout(ticketInvalidateTimeout);
       supabase.removeChannel(channel);
     };
   }, [conversationId, queryClient]);
@@ -136,13 +169,14 @@ export const useTickets = (conversationId?: string) => {
     mutationFn: async (ticketId: string) => {
       const { data: { user } } = await supabase.auth.getUser();
       
-      // 1. Fetch ticket with sector data to get closing message
+      // 1. Fetch ticket with sector data to get closing message and ticket number
       const { data: ticketData, error: ticketError } = await supabase
         .from('tickets')
         .select(`
           id, 
           conversation_id, 
           sector_id,
+          numero,
           sectors!inner(mensagem_encerramento)
         `)
         .eq('id', ticketId)
@@ -190,6 +224,33 @@ export const useTickets = (conversationId?: string) => {
         .single();
 
       if (error) throw error;
+      
+      // 4. Insert ticket closed event marker
+      if (ticketData.conversation_id && ticketData.numero) {
+        await insertTicketEventMarker(
+          ticketData.conversation_id,
+          ticketData.numero,
+          'ticket_closed'
+        );
+        
+        // 5. Dispatch webhook for ticket closed
+        try {
+          await supabase.functions.invoke('dispatch-webhook', {
+            body: {
+              event: 'ticket_closed',
+              data: {
+                ticket_id: ticketId,
+                ticket_number: ticketData.numero,
+                conversation_id: ticketData.conversation_id,
+                closed_by: user?.id
+              }
+            }
+          });
+        } catch (webhookError) {
+          console.error('Error dispatching ticket_closed webhook:', webhookError);
+        }
+      }
+      
       return data;
     },
     onSuccess: () => {

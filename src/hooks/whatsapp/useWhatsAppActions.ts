@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { webhookEvents } from '@/utils/webhookDispatcher';
 import { toast } from 'sonner';
 
 export const useWhatsAppActions = () => {
@@ -61,6 +62,14 @@ export const useWhatsAppActions = () => {
         .update({ status: 'closed' })
         .eq('id', conversationId);
       if (error) throw error;
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        const userId = authData?.user?.id || '';
+        // Fire-and-forget webhook dispatch
+        webhookEvents.conversationClosed(conversationId, userId);
+      } catch (err) {
+        console.error('Error dispatching conversation_closed webhook:', err);
+      }
     },
     onSuccess: () => {
       toast.success('Conversa encerrada com sucesso');
@@ -80,6 +89,45 @@ export const useWhatsAppActions = () => {
         .update({ status: 'active' })
         .eq('id', conversationId);
       if (error) throw error;
+
+      try {
+        // Fetch conversation details to include in webhook payload
+        const { data: conv } = await supabase
+          .from('whatsapp_conversations')
+          .select('id, contact_id, instance_id')
+          .eq('id', conversationId)
+          .maybeSingle();
+
+        if (conv) {
+          // Get contact name
+          const { data: contact } = await supabase
+            .from('whatsapp_contacts')
+            .select('id, name')
+            .eq('id', conv.contact_id)
+            .maybeSingle();
+
+          // Get last ticket number if any
+          const { data: lastTicket } = await supabase
+            .from('tickets')
+            .select('numero')
+            .eq('conversation_id', conversationId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          const previousTicketNumber = lastTicket?.numero || null;
+
+          // Dispatch webhook (fire-and-forget)
+          webhookEvents.conversationReopened(
+            conversationId,
+            contact?.name || '',
+            conv.instance_id,
+            previousTicketNumber || undefined
+          );
+        }
+      } catch (err) {
+        console.error('Error dispatching conversation_reopened webhook:', err);
+      }
     },
     onSuccess: () => {
       toast.success('Conversa reaberta com sucesso');

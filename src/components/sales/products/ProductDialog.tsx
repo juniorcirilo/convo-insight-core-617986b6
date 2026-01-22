@@ -77,7 +77,7 @@ export const ProductDialog = ({
       is_active: true,
       min_quantity: 1,
       max_discount_percent: 0,
-      sector_id: '',
+      sector_id: '__none__',
       features: '',
     },
   });
@@ -95,7 +95,7 @@ export const ProductDialog = ({
           is_active: product.is_active,
           min_quantity: product.min_quantity,
           max_discount_percent: product.max_discount_percent,
-          sector_id: product.sector_id || '',
+          sector_id: product.sector_id || '__none__',
           features: product.features?.join(', ') || '',
         });
       } else {
@@ -109,7 +109,7 @@ export const ProductDialog = ({
           is_active: true,
           min_quantity: 1,
           max_discount_percent: 0,
-          sector_id: '',
+          sector_id: '__none__',
           features: '',
         });
       }
@@ -131,7 +131,7 @@ export const ProductDialog = ({
       is_active: values.is_active,
       min_quantity: values.min_quantity,
       max_discount_percent: values.max_discount_percent,
-      sector_id: values.sector_id || null,
+      sector_id: values.sector_id === '__none__' ? null : values.sector_id,
       features: featuresArray,
       images: product?.images || [],
       stripe_price_id: product?.stripe_price_id || null,
@@ -292,7 +292,7 @@ export const ProductDialog = ({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">Todos os setores</SelectItem>
+                        <SelectItem value="__none__">Todos os setores</SelectItem>
                         {sectors.map((sector) => (
                           <SelectItem key={sector.id} value={sector.id}>
                             {sector.name}

@@ -628,6 +628,7 @@ async function sendMessage(supabase: any, conversation: any, content: string, ag
         message_type: 'text',
         is_from_me: true,
         is_ai_generated: true,
+        from_bot: true,
         status: 'sent',
         timestamp: new Date().toISOString(),
       });

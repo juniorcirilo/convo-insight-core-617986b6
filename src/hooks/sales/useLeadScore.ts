@@ -97,13 +97,13 @@ export const useLeadScore = (leadId?: string) => {
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'lead_qualification_logs',
           filter: `lead_id=eq.${leadId}`,
         },
         () => {
-          // Invalidate score query when new log is added
+          // Invalidate score query when logs change
           queryClient.invalidateQueries({ queryKey: ['lead-score', leadId] });
           queryClient.invalidateQueries({ queryKey: ['qualification-logs', leadId] });
         }

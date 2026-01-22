@@ -200,6 +200,9 @@ export const useWhatsAppConversations = (filters?: ConversationsFilters) => {
   useEffect(() => {
     console.log('[useWhatsAppConversations] Setting up realtime subscriptions');
     
+    let conversationInvalidateTimeout: NodeJS.Timeout;
+    let messageInvalidateTimeout: NodeJS.Timeout;
+    
     // Subscribe to conversation changes
     const conversationsChannel = supabase
       .channel('conversations-changes')
@@ -209,7 +212,11 @@ export const useWhatsAppConversations = (filters?: ConversationsFilters) => {
         table: 'whatsapp_conversations'
       }, (payload) => {
         console.log('[useWhatsAppConversations] Conversation change:', payload.eventType, payload.new);
-        queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
+        // Debounce invalidation to prevent excessive re-renders
+        clearTimeout(conversationInvalidateTimeout);
+        conversationInvalidateTimeout = setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
+        }, 100);
       })
       .subscribe((status) => {
         console.log('[useWhatsAppConversations] Conversations subscription status:', status);
@@ -219,22 +226,16 @@ export const useWhatsAppConversations = (filters?: ConversationsFilters) => {
     const messagesChannel = supabase
       .channel('messages-for-conversations')
       .on('postgres_changes', {
-        event: 'INSERT',
+        event: '*',
         schema: 'public',
         table: 'whatsapp_messages'
       }, (payload) => {
-        console.log('[useWhatsAppConversations] New message received:', payload.new);
-        // Invalidate conversations when a new message arrives
-        queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
-      })
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'whatsapp_messages'
-      }, (payload) => {
-        console.log('[useWhatsAppConversations] Message updated:', payload.new);
-        // Also invalidate when message status changes (sent -> delivered -> read)
-        queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
+        console.log('[useWhatsAppConversations] Message event:', payload.eventType, payload.new);
+        // Debounce invalidation to prevent excessive re-renders
+        clearTimeout(messageInvalidateTimeout);
+        messageInvalidateTimeout = setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
+        }, 100);
       })
       .subscribe((status) => {
         console.log('[useWhatsAppConversations] Messages subscription status:', status);
@@ -242,6 +243,8 @@ export const useWhatsAppConversations = (filters?: ConversationsFilters) => {
 
     return () => {
       console.log('[useWhatsAppConversations] Removing realtime channels');
+      clearTimeout(conversationInvalidateTimeout);
+      clearTimeout(messageInvalidateTimeout);
       supabase.removeChannel(conversationsChannel);
       supabase.removeChannel(messagesChannel);
     };

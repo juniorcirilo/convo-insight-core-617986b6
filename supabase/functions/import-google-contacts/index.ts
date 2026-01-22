@@ -39,15 +39,25 @@ serve(async (req) => {
       );
     }
 
-    // Create Supabase client with user auth
+    // Create Supabase admin client
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-    const supabaseUser = createClient(supabaseUrl, supabaseServiceKey, {
-      global: { headers: { Authorization: authHeader } }
+
+    // Validate user via REST /auth/v1/user to avoid in-runtime JWT verification
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+    const userResp = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: { Authorization: authHeader, apikey: supabaseAnonKey }
     });
 
-    // Get current user
-    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
-    if (userError || !user) {
+    if (!userResp.ok) {
+      return new Response(
+        JSON.stringify({ error: 'Usuário não autenticado' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const userJson = await userResp.json();
+    const user = userJson?.user;
+    if (!user) {
       return new Response(
         JSON.stringify({ error: 'Usuário não autenticado' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

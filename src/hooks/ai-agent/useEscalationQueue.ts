@@ -101,6 +101,8 @@ export const useEscalationQueue = (options?: { sectorId?: string; status?: strin
 
   // Realtime subscription
   useEffect(() => {
+    let escalationInvalidateTimeout: NodeJS.Timeout;
+
     const channel = supabase
       .channel('escalation-queue-changes')
       .on(
@@ -111,12 +113,17 @@ export const useEscalationQueue = (options?: { sectorId?: string; status?: strin
           table: 'escalation_queue',
         },
         () => {
-          queryClient.invalidateQueries({ queryKey: ['escalation-queue'] });
+          // Debounce invalidation to prevent excessive re-renders
+          clearTimeout(escalationInvalidateTimeout);
+          escalationInvalidateTimeout = setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ['escalation-queue'] });
+          }, 100);
         }
       )
       .subscribe();
 
     return () => {
+      clearTimeout(escalationInvalidateTimeout);
       supabase.removeChannel(channel);
     };
   }, [queryClient]);

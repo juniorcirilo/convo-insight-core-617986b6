@@ -20,7 +20,7 @@ export const useWhatsAppMessages = (conversationId: string | null) => {
     markReadTimeoutRef.current = setTimeout(() => {
       markMessagesRead.mutate({ conversationId: convId });
     }, 500); // 500ms debounce
-  }, [markMessagesRead]);
+  }, [markMessagesRead.mutate]);
 
   const { data: messages = [], isLoading, error, refetch } = useQuery({
     queryKey: ['whatsapp', 'messages', conversationId],
@@ -66,61 +66,48 @@ export const useWhatsAppMessages = (conversationId: string | null) => {
     const channel = supabase
       .channel(`messages-${conversationId}`)
       .on('postgres_changes', {
-        event: 'INSERT',
+        event: '*',
         schema: 'public',
         table: 'whatsapp_messages',
         filter: `conversation_id=eq.${conversationId}`
       }, (payload) => {
-        console.log('[useWhatsAppMessages] INSERT received:', payload.new);
-        queryClient.setQueryData(['whatsapp', 'messages', conversationId], (old: Message[] = []) => {
-          const exists = old.some(msg => msg.id === payload.new.id);
-          if (exists) return old;
-          return [...old, payload.new as Message];
-        });
+        console.log('[useWhatsAppMessages]', payload.eventType, 'event received:', payload.new || payload.old);
         
-        // If message is from client (not from me), mark as read immediately
-        const newMessage = payload.new as Message;
-        if (!newMessage.is_from_me) {
-          debouncedMarkAsRead(conversationId);
-        }
-      })
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'whatsapp_messages',
-        filter: `conversation_id=eq.${conversationId}`
-      }, (payload) => {
-        console.log('[useWhatsAppMessages] UPDATE received:', payload.new);
-        queryClient.setQueryData(['whatsapp', 'messages', conversationId], (old: Message[] = []) => {
-          // Prefer matching by primary `id` if present
-          const newRow = payload.new as Message;
-          const updated = old.map(msg => {
-            // Match by id
-            if (msg.id === newRow.id) {
-              console.log('[useWhatsAppMessages] Updating message by id:', msg.id, 'old status:', msg.status, 'new status:', newRow.status);
-              return { ...msg, ...newRow };
-            }
-            // Fallback: match by message_id (external provider id)
-            if (msg.message_id && msg.message_id === newRow.message_id) {
-              console.log('[useWhatsAppMessages] Updating message by message_id:', msg.message_id, 'old status:', msg.status, 'new status:', newRow.status);
-              return { ...msg, ...newRow };
-            }
-            return msg;
+        if (payload.eventType === 'INSERT') {
+          queryClient.setQueryData(['whatsapp', 'messages', conversationId], (old: Message[] = []) => {
+            const exists = old.some(msg => msg.id === payload.new.id);
+            if (exists) return old;
+            return [...old, payload.new as Message];
           });
-
-          return updated;
-        });
-      })
-      .on('postgres_changes', {
-        event: 'DELETE',
-        schema: 'public',
-        table: 'whatsapp_messages',
-        filter: `conversation_id=eq.${conversationId}`
-      }, (payload) => {
-        console.log('[useWhatsAppMessages] DELETE received:', payload.old);
-        queryClient.setQueryData(['whatsapp', 'messages', conversationId], (old: Message[] = []) => {
-          return old.filter(msg => msg.id !== (payload.old as any).id);
-        });
+          
+          // If message is from client (not from me), mark as read immediately
+          const newMessage = payload.new as Message;
+          if (!newMessage.is_from_me) {
+            debouncedMarkAsRead(conversationId);
+          }
+        } else if (payload.eventType === 'UPDATE') {
+          queryClient.setQueryData(['whatsapp', 'messages', conversationId], (old: Message[] = []) => {
+            const newRow = payload.new as Message;
+            const updated = old.map(msg => {
+              // Match by id
+              if (msg.id === newRow.id) {
+                console.log('[useWhatsAppMessages] Updating message by id:', msg.id, 'old status:', msg.status, 'new status:', newRow.status);
+                return { ...msg, ...newRow };
+              }
+              // Fallback: match by message_id (external provider id)
+              if (msg.message_id && msg.message_id === newRow.message_id) {
+                console.log('[useWhatsAppMessages] Updating message by message_id:', msg.message_id, 'old status:', msg.status, 'new status:', newRow.status);
+                return { ...msg, ...newRow };
+              }
+              return msg;
+            });
+            return updated;
+          });
+        } else if (payload.eventType === 'DELETE') {
+          queryClient.setQueryData(['whatsapp', 'messages', conversationId], (old: Message[] = []) => {
+            return old.filter(msg => msg.id !== (payload.old as any).id);
+          });
+        }
       })
       .subscribe((status) => {
         console.log('[useWhatsAppMessages] Subscription status:', status);
