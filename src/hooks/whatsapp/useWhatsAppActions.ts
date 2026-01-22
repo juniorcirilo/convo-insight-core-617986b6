@@ -28,9 +28,10 @@ export const useWhatsAppActions = () => {
       
       return { previousConversations };
     },
-    onSuccess: () => {
+    onSuccess: (_, conversationId) => {
       toast.success('Conversa arquivada com sucesso');
       queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
     },
     onError: (error, _, context: any) => {
       if (context?.previousConversations) {
@@ -57,11 +58,37 @@ export const useWhatsAppActions = () => {
         }
       }
 
+      // Fetch last ticket number before closing
+      const { data: lastTicket } = await supabase
+        .from('tickets')
+        .select('numero')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
       const { error } = await supabase
         .from('whatsapp_conversations')
         .update({ status: 'closed' })
         .eq('id', conversationId);
       if (error) throw error;
+
+      // Insert ticket_closed marker
+      const ticketNumber = lastTicket?.numero || 0;
+      const markerId = `closed-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      await supabase
+        .from('whatsapp_messages')
+        .insert({
+          conversation_id: conversationId,
+          message_id: markerId,
+          remote_jid: 'system',
+          content: `TICKET_EVENT:${ticketNumber}`,
+          message_type: 'ticket_closed',
+          is_from_me: true,
+          status: 'sent',
+          timestamp: new Date().toISOString(),
+        });
+
       try {
         const { data: authData } = await supabase.auth.getUser();
         const userId = authData?.user?.id || '';
@@ -71,9 +98,12 @@ export const useWhatsAppActions = () => {
         console.error('Error dispatching conversation_closed webhook:', err);
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       toast.success('Conversa encerrada com sucesso');
       queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['conversation', variables.conversationId] });
+      queryClient.invalidateQueries({ queryKey: ['whatsapp', 'messages', variables.conversationId] });
+      queryClient.invalidateQueries({ queryKey: ['ticket', variables.conversationId] });
     },
     onError: (error) => {
       console.error('Erro ao encerrar conversa:', error);
@@ -84,11 +114,36 @@ export const useWhatsAppActions = () => {
   // Reopen conversation
   const reopenMutation = useMutation({
     mutationFn: async (conversationId: string) => {
+      // Fetch last ticket number before reopening
+      const { data: lastTicket } = await supabase
+        .from('tickets')
+        .select('numero')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
       const { error } = await supabase
         .from('whatsapp_conversations')
         .update({ status: 'active' })
         .eq('id', conversationId);
       if (error) throw error;
+
+      // Insert conversation_reopened marker
+      const ticketNumber = lastTicket?.numero || 0;
+      const markerId = `reopened-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      await supabase
+        .from('whatsapp_messages')
+        .insert({
+          conversation_id: conversationId,
+          message_id: markerId,
+          remote_jid: 'system',
+          content: `CONVERSATION_REOPENED:${ticketNumber}`,
+          message_type: 'conversation_reopened',
+          is_from_me: true,
+          status: 'sent',
+          timestamp: new Date().toISOString(),
+        });
 
       try {
         // Fetch conversation details to include in webhook payload
@@ -106,15 +161,6 @@ export const useWhatsAppActions = () => {
             .eq('id', conv.contact_id)
             .maybeSingle();
 
-          // Get last ticket number if any
-          const { data: lastTicket } = await supabase
-            .from('tickets')
-            .select('numero')
-            .eq('conversation_id', conversationId)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
           const previousTicketNumber = lastTicket?.numero || null;
 
           // Dispatch webhook (fire-and-forget)
@@ -129,9 +175,12 @@ export const useWhatsAppActions = () => {
         console.error('Error dispatching conversation_reopened webhook:', err);
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, conversationId) => {
       toast.success('Conversa reaberta com sucesso');
       queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
+      queryClient.invalidateQueries({ queryKey: ['whatsapp', 'messages', conversationId] });
+      queryClient.invalidateQueries({ queryKey: ['ticket', conversationId] });
     },
     onError: (error) => {
       console.error('Erro ao reabrir conversa:', error);

@@ -35,11 +35,12 @@ const insertTicketEventMarker = async (
   ticketNumber: number,
   eventType: 'ticket_opened' | 'ticket_closed'
 ) => {
+  const markerId = `${eventType}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
   const { error } = await supabase
     .from('whatsapp_messages')
     .insert({
       conversation_id: conversationId,
-      message_id: crypto.randomUUID(),
+      message_id: markerId,
       remote_jid: 'system',
       content: `TICKET_EVENT:${ticketNumber}`,
       message_type: eventType,
@@ -123,6 +124,16 @@ export const useTickets = (conversationId?: string) => {
         .single();
 
       if (error) throw error;
+
+      // Insert ticket opened event marker
+      if (data.id && data.numero) {
+        await insertTicketEventMarker(
+          conversationId,
+          data.numero,
+          'ticket_opened'
+        );
+      }
+
       return data;
     },
     onSuccess: () => {

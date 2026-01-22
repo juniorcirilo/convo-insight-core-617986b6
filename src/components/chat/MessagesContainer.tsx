@@ -111,7 +111,7 @@ export const MessagesContainer = ({ messages, isLoading, conversationId, onReply
                     return (
                       <TicketEventMarker
                         key={message.id}
-                        eventType={message.message_type as 'ticket_opened' | 'ticket_closed'}
+                        eventType={message.message_type as any}
                         ticketNumber={parseTicketNumber(message.content)}
                         timestamp={message.timestamp}
                       />

@@ -123,7 +123,8 @@ export const useAIAgentSession = (conversationId?: string | null) => {
     },
     onSuccess: (mode) => {
       queryClient.invalidateQueries({ queryKey: ['ai-agent-session', conversationId] });
-      queryClient.invalidateQueries({ queryKey: ['whatsapp-conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
       
       const modeLabels: Record<ConversationMode, string> = {
         ai: 'Modo AI ativado',
