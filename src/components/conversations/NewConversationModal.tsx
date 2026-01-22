@@ -60,10 +60,14 @@ const formSchema = z.object({
   instanceId: z.string().min(1, "Selecione uma instância"),
   phoneNumber: z
     .string()
-    .min(14, "Número muito curto")
-    .max(18, "Número muito longo"),
-  contactName: z.string().min(2, "Nome muito curto").max(100, "Nome muito longo"),
-  generateTicket: z.boolean().default(true),
+    .refine((val) => {
+      const digits = val.replace(/\D/g, '');
+      return digits.length === 11;
+    }, {
+      message: "Preencha o número completo: (00) 0 0000-0000",
+    }),
+  contactName: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(100, "Nome muito longo"),
+  generateTicket: z.boolean().default(false),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -83,7 +87,7 @@ const NewConversationModal = ({
       instanceId: instanceId || "",
       phoneNumber: "",
       contactName: "",
-      generateTicket: true,
+      generateTicket: false,
     },
   });
 
@@ -215,7 +219,7 @@ const NewConversationModal = ({
               )}
             />
 
-            {/* Generate ticket checkbox */}
+            {/* Generate ticket checkbox (optional) */}
             <FormField
               control={form.control}
               name="generateTicket"
@@ -232,7 +236,7 @@ const NewConversationModal = ({
                       Gerar ticket de atendimento
                     </FormLabel>
                     <p className="text-xs text-muted-foreground">
-                      Cria automaticamente um ticket para esta conversa
+                      Opcional: cria um ticket para esta conversa
                     </p>
                   </div>
                 </FormItem>
