@@ -73,11 +73,46 @@ Deno.serve(async (req) => {
       .update({ transcription_status: 'processing' })
       .eq('id', messageId);
 
-    console.log('[transcribe-audio] Downloading audio from:', message.media_url);
+    console.log('[transcribe-audio] Processing audio from storage path:', message.media_url);
+
+    // Get audio URL - either it's already a URL or it's a storage path
+    let audioUrl = message.media_url;
+    
+    // Check if it's a storage path (not a URL)
+    if (!audioUrl.startsWith('http://') && !audioUrl.startsWith('https://')) {
+      // It's a storage path, generate signed URL
+      console.log('[transcribe-audio] Generating signed URL for storage path:', audioUrl);
+      
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+        .from('whatsapp-media')
+        .createSignedUrl(audioUrl, 3600); // 1 hour expiry
+      
+      if (signedUrlError || !signedUrlData?.signedUrl) {
+        console.error('[transcribe-audio] Failed to generate signed URL:', signedUrlError);
+        await supabase
+          .from('whatsapp_messages')
+          .update({ transcription_status: 'failed' })
+          .eq('id', messageId);
+        return new Response(
+          JSON.stringify({ error: 'Failed to access audio file' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      audioUrl = signedUrlData.signedUrl;
+      console.log('[transcribe-audio] Signed URL generated successfully');
+    }
+
+    console.log('[transcribe-audio] Downloading audio...');
 
     // Download audio file
-    const audioResponse = await fetch(message.media_url);
+    const audioResponse = await fetch(audioUrl);
     if (!audioResponse.ok) {
+      console.error('[transcribe-audio] Failed to download audio:', audioResponse.status, await audioResponse.text().catch(() => ''));
+      await supabase
+        .from('whatsapp_messages')
+        .update({ transcription_status: 'failed' })
+        .eq('id', messageId);
       throw new Error(`Failed to download audio: ${audioResponse.status}`);
     }
 
