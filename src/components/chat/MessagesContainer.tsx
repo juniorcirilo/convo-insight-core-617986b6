@@ -93,7 +93,7 @@ export const MessagesContainer = ({ messages, isLoading, conversationId, onReply
   }
 
   return (
-    <div className="flex-1 relative min-h-0">
+    <div className="flex-1 relative min-h-0 h-full">
       <ScrollArea className="h-full p-4" viewportRef={scrollRef} onScroll={handleScroll}>
         <div className="space-y-4">
           {messageGroups.map((group, idx) => (

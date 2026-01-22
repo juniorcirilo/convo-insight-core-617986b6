@@ -12,6 +12,44 @@ interface AssignmentHistory {
   created_at: string;
 }
 
+// Helper para buscar nome do perfil
+const getProfileName = async (userId: string | null): Promise<string> => {
+  if (!userId) return 'Fila';
+  const { data } = await supabase
+    .from('profiles')
+    .select('full_name')
+    .eq('id', userId)
+    .single();
+  return data?.full_name || 'Desconhecido';
+};
+
+// Helper para criar mensagem de sistema
+const createSystemMessage = async (
+  conversationId: string,
+  content: string
+) => {
+  // Get conversation to get remote_jid
+  const { data: conversation } = await supabase
+    .from('whatsapp_conversations')
+    .select('contact_id, whatsapp_contacts(phone_number)')
+    .eq('id', conversationId)
+    .single();
+
+  const remoteJid = (conversation?.whatsapp_contacts as any)?.phone_number || 'system';
+
+  await supabase.from('whatsapp_messages').insert({
+    conversation_id: conversationId,
+    content,
+    message_type: 'text',
+    is_from_me: true,
+    is_internal: true,
+    message_id: `system_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    remote_jid: remoteJid,
+    timestamp: new Date().toISOString(),
+    status: 'sent',
+  });
+};
+
 export const useConversationAssignment = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -36,6 +74,8 @@ export const useConversationAssignment = () => {
         .eq('id', conversationId)
         .single();
 
+      const previousAssignee = conversation?.assigned_to;
+
       // Update conversation
       const { error: updateError } = await supabase
         .from('whatsapp_conversations')
@@ -49,7 +89,7 @@ export const useConversationAssignment = () => {
         .from('conversation_assignments')
         .insert({
           conversation_id: conversationId,
-          assigned_from: conversation?.assigned_to || null,
+          assigned_from: previousAssignee || null,
           assigned_to: assignedTo,
           assigned_by: user.id,
           reason: reason || null,
@@ -57,10 +97,19 @@ export const useConversationAssignment = () => {
 
       if (historyError) throw historyError;
 
+      // Create system message
+      const fromName = await getProfileName(previousAssignee);
+      const toName = await getProfileName(assignedTo);
+      await createSystemMessage(
+        conversationId,
+        `📋 Conversa atribuída de ${fromName} para ${toName}`
+      );
+
       return { conversationId, assignedTo };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['whatsapp', 'messages'] });
       toast({
         title: "Conversa atribuída",
         description: "A conversa foi atribuída com sucesso.",
@@ -96,6 +145,8 @@ export const useConversationAssignment = () => {
         .eq('id', conversationId)
         .single();
 
+      const previousAssignee = conversation?.assigned_to;
+
       // Update conversation
       const { error: updateError } = await supabase
         .from('whatsapp_conversations')
@@ -109,7 +160,7 @@ export const useConversationAssignment = () => {
         .from('conversation_assignments')
         .insert({
           conversation_id: conversationId,
-          assigned_from: conversation?.assigned_to || null,
+          assigned_from: previousAssignee || null,
           assigned_to: newAssignee,
           assigned_by: user.id,
           reason: reason || null,
@@ -117,10 +168,20 @@ export const useConversationAssignment = () => {
 
       if (historyError) throw historyError;
 
+      // Create system message
+      const fromName = await getProfileName(previousAssignee);
+      const toName = await getProfileName(newAssignee);
+      const reasonText = reason ? ` — Motivo: ${reason}` : '';
+      await createSystemMessage(
+        conversationId,
+        `🔄 Conversa transferida de ${fromName} para ${toName}${reasonText}`
+      );
+
       return { conversationId, newAssignee };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['whatsapp', 'messages'] });
       toast({
         title: "Conversa transferida",
         description: "A conversa foi transferida com sucesso.",
