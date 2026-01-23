@@ -1,9 +1,8 @@
 import { useState, useMemo, useEffect } from "react";
-import { Search, Plus, Settings, Loader2, BarChart3, ChevronRight, ChevronLeft, MessageSquare, Users, TrendingUp, Monitor, LogOut, MessageCircle } from "lucide-react";
+import { Search, Plus, Loader2, ChevronRight, ChevronLeft, LogOut, MessageCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-// dropdown imports removed; UserMenu handles dropdown
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useWhatsAppConversations } from "@/hooks/whatsapp";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -12,12 +11,9 @@ import ConversationItem from "./ConversationItem";
 import QuickFilterPills from "./QuickFilterPills";
 import NewConversationModal from "./NewConversationModal";
 import { ConversationFiltersPopover } from "./ConversationFiltersPopover";
-// NotificationToggle removed from header per request
 import { NotificationToggle } from "@/components/notifications/NotificationToggle";
 import { UserMenu } from "@/components/auth/UserMenu";
-import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ConversationsSidebarProps {
   selectedId: string | null;
@@ -138,9 +134,6 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
           <ChevronRight className="h-4 w-4" />
         </Button>
         
-        {/* Conversations icon */}
-        <MessageSquare className="h-5 w-5 text-muted-foreground" />
-        
         {/* New conversation */}
         <Button 
           size="icon" 
@@ -151,41 +144,8 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
           <Plus className="h-4 w-4" />
         </Button>
         
-        {/* Quick links */}
+        {/* Quick links - Removed per request */}
         <NotificationToggle />
-        
-        <Link to="/whatsapp/contatos">
-          <Button variant="ghost" size="icon" title="Contatos">
-            <Users className="h-4 w-4" />
-          </Button>
-        </Link>
-        
-        <Link to="/whatsapp/relatorio">
-          <Button variant="ghost" size="icon" title="Relatórios">
-            <BarChart3 className="h-4 w-4" />
-          </Button>
-        </Link>
-        
-        <Link to="/vendas">
-          <Button variant="ghost" size="icon" title="Dashboard de Vendas">
-            <TrendingUp className="h-4 w-4" />
-          </Button>
-        </Link>
-        
-        {/* Monitoring - Admin/Supervisor only */}
-        {(isAdmin || isSupervisor) && (
-          <Link to="/admin/conversas">
-            <Button variant="ghost" size="icon" title="Monitoramento">
-              <Monitor className="h-4 w-4" />
-            </Button>
-          </Link>
-        )}
-        
-        <Link to="/whatsapp/settings">
-          <Button variant="ghost" size="icon" title="Configurações">
-            <Settings className="h-4 w-4" />
-          </Button>
-        </Link>
         
         {/* Unread badge */}
         {unreadCount > 0 && (
@@ -217,7 +177,7 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
   };
 
   return (
-    <div className="flex flex-col h-full w-full bg-sidebar">
+    <div className="flex flex-col h-full w-full bg-sidebar overflow-hidden">
       {/* Title Header */}
       <div className="p-3 border-b border-sidebar-border">
         <div className="flex items-center justify-between">
@@ -294,7 +254,7 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
       </div>
 
       {/* Conversations list */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 w-full overflow-hidden">
         {isLoading ? (
           <div className="p-4 text-center text-muted-foreground">
             Carregando...
@@ -304,7 +264,7 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
             {search ? "Nenhuma conversa encontrada" : "Nenhuma conversa ainda"}
           </div>
         ) : (
-          <div className="divide-y divide-sidebar-border">
+          <div className="divide-y divide-sidebar-border w-full overflow-hidden">
             {filteredConversations.map((conversation) => {
               // Calcular se foi encontrado no histórico
               const searchLower = search.toLowerCase();
@@ -366,38 +326,6 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
           </div>
 
           <div className="flex items-center gap-1 ml-2">
-            <Link to="/whatsapp/contatos">
-              <Button variant="ghost" size="icon" title="Contatos">
-                <Users className="h-4 w-4" />
-              </Button>
-            </Link>
-
-            <Link to="/whatsapp/relatorio">
-              <Button variant="ghost" size="icon" title="Relatórios">
-                <BarChart3 className="h-4 w-4" />
-              </Button>
-            </Link>
-
-            <Link to="/vendas">
-              <Button variant="ghost" size="icon" title="Dashboard de Vendas">
-                <TrendingUp className="h-4 w-4" />
-              </Button>
-            </Link>
-
-            {(isAdmin || isSupervisor) && (
-              <Link to="/admin/conversas">
-                <Button variant="ghost" size="icon" title="Monitoramento">
-                  <Monitor className="h-4 w-4" />
-                </Button>
-              </Link>
-            )}
-
-            <Link to="/whatsapp/settings">
-              <Button variant="ghost" size="icon" title="Configurações">
-                <Settings className="h-4 w-4" />
-              </Button>
-            </Link>
-
             <Button variant="ghost" size="icon" title="Sair" onClick={handleSignOut}>
               <LogOut className="h-4 w-4" />
             </Button>

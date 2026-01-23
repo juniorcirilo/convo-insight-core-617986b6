@@ -91,7 +91,9 @@ const ConversationItem = ({
   const nameIsMissing = contact ? isContactNameMissing(contact.name, contact.phone_number) : false;
   const contactName = nameIsMissing ? "Sem nome" : (contact?.name || "Desconhecido");
   const profilePicture = conversation.contact?.profile_picture_url;
-  const lastMessage = `${conversation.last_message_preview.slice(0, 30)}...` || "";
+  const lastMessage = conversation.last_message_preview ? 
+    (conversation.last_message_preview.length > 25 ? `${conversation.last_message_preview.slice(0, 25)}...` : conversation.last_message_preview) 
+    : "";
   const lastMessageTime = conversation.last_message_at;
   const unreadCount = conversation.unread_count || 0;
   
@@ -122,7 +124,7 @@ const ConversationItem = ({
       <div
         onClick={onClick}
         className={cn(
-          "flex items-start gap-3 p-3 cursor-pointer transition-colors",
+          "flex items-start gap-3 p-3 cursor-pointer transition-colors w-full",
           "hover:bg-sidebar-accent",
           isSelected && "bg-sidebar-accent",
           isGroup && "border-l-2 border-l-primary/50"
@@ -159,15 +161,15 @@ const ConversationItem = ({
           </div>
 
           {/* Content */}
-          <div className="flex-1 min-w-0 space-y-1">
+          <div className="flex-1 min-w-0 space-y-1 overflow-hidden">
             {/* Row 1: Name + Timestamp */}
             <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 min-w-0">
+              <div className="flex items-center gap-1.5 min-w-0 flex-1">
                 {isGroup && (
                   <Users className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
                 )}
                 <span className={cn(
-                  "font-medium text-sm truncate",
+                  "font-medium text-sm truncate max-w-full",
                   nameIsMissing && "text-muted-foreground italic"
                 )}>
                   {contactName}
@@ -186,8 +188,8 @@ const ConversationItem = ({
                   <span className="text-sm shrink-0">{sentimentEmoji}</span>
                 )}
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs text-muted-foreground shrink-0">{formatTimestamp(lastMessageTime)}</span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">{formatTimestamp(lastMessageTime)}</span>
                 <ConversationActions conversation={conversation}>
                   <button
                     onClick={(e) => e.stopPropagation()}
@@ -208,7 +210,7 @@ const ConversationItem = ({
                     {lastSenderName.split(' ')[0]}:
                   </span>
                 )}
-                <p className="text-sm text-muted-foreground truncate">
+                <p className="text-sm text-muted-foreground truncate max-w-full">
                   {lastMessage || "Sem mensagens"}
                 </p>
                 {foundByContent && (
@@ -234,12 +236,12 @@ const ConversationItem = ({
             {/* Row 3: Topics + Queue/Status/Instance (only if has content) */}
             {(topics.length > 0 || showStatusBadge || conversation.assigned_to || conversation.instance?.name) && (
               <div className="flex items-center justify-between gap-2 pt-0.5">
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 flex items-center gap-1.5 flex-wrap">
                   {topics.length > 0 && (
                     <TopicBadges topics={topics} size="sm" maxTopics={2} />
                   )}
                   {conversation.instance?.name && (
-                    <Badge variant="outline" className="text-xs px-1.5 py-0 h-5 bg-blue-500/10 text-blue-700 border-blue-200">
+                    <Badge variant="outline" className="text-xs px-1.5 py-0 h-5 bg-blue-500/10 text-blue-700 border-blue-200 truncate max-w-[120px]">
                       📱 {conversation.instance.name}
                     </Badge>
                   )}
@@ -251,7 +253,7 @@ const ConversationItem = ({
                         size="sm"
                       />
                       {showStatusBadge && (
-                        <Badge variant="secondary" className="text-xs px-1.5 py-0 h-5">
+                        <Badge variant="secondary" className="text-xs px-1.5 py-0 h-5 whitespace-nowrap">
                           {status === "closed" ? "Encerrada" : "Arquivada"}
                         </Badge>
                       )}
