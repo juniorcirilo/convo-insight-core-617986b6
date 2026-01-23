@@ -36,7 +36,8 @@ export const usePermissionTypes = () => {
       const { data, error } = await supabase
         .from('permission_types')
         .select('*')
-        .order('category', { ascending: true });
+        .order('category', { ascending: true })
+        .order('key', { ascending: true });
 
       if (error) throw error;
       return data as PermissionType[];
@@ -96,9 +97,6 @@ export const useUpdatePermissionDefault = () => {
     },
     onSuccess: () => {
       toast.success('Padrão de permissão atualizado');
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['permission-types'] });
     },
   });
 };
