@@ -31,6 +31,13 @@ const RolesCapabilitiesCard = () => {
     { key: 'agent', label: 'Atendente', description: 'Atende conversas atribuídas', variant: 'secondary' as const },
   ];
 
+  const roleColorClass: Record<string, string> = {
+    admin: 'bg-red-500 text-white',
+    supervisor: 'bg-emerald-500 text-white',
+    manager: 'bg-teal-500 text-white',
+    agent: 'bg-slate-100 text-slate-800',
+  };
+
   const categories = [
     { key: 'conversations', label: 'Conversas' },
     { key: 'sales', label: 'Vendas' },
@@ -40,6 +47,15 @@ const RolesCapabilitiesCard = () => {
   const contactPermissions = permissionTypes?.filter(pt => pt.key.includes('_contacts')) || [];
   const instancePermissions = permissionTypes?.filter(pt => pt.key.includes('_instances')) || [];
   const remainingPermissionTypes = permissionTypes?.filter(pt => !pt.key.includes('_contacts') && !pt.key.includes('_instances')) || [];
+
+  const getColorForKey = (ptKey: string, category?: string) => {
+    if (ptKey.includes('_contacts')) return 'bg-violet-500';
+    if (ptKey.includes('_instances')) return 'bg-amber-500';
+    if (category === 'conversations' || ptKey.includes('conversation')) return 'bg-blue-500';
+    if (category === 'sales' || ptKey.includes('sales')) return 'bg-green-500';
+    if (category === 'admin' || ptKey.includes('admin')) return 'bg-red-500';
+    return 'bg-gray-400';
+  };
 
   const updateDefault = useUpdatePermissionDefault();
 
@@ -69,13 +85,24 @@ const RolesCapabilitiesCard = () => {
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-semibold">Legenda:</span>
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <div className="flex items-center gap-1"><span className="h-3 w-3 rounded-full bg-violet-500" aria-hidden /><span>Contatos</span></div>
+                <div className="flex items-center gap-1"><span className="h-3 w-3 rounded-full bg-amber-500" aria-hidden /><span>Instâncias</span></div>
+                <div className="flex items-center gap-1"><span className="h-3 w-3 rounded-full bg-blue-500" aria-hidden /><span>Conversas</span></div>
+                <div className="flex items-center gap-1"><span className="h-3 w-3 rounded-full bg-green-500" aria-hidden /><span>Vendas</span></div>
+                <div className="flex items-center gap-1"><span className="h-3 w-3 rounded-full bg-red-500" aria-hidden /><span>Administração</span></div>
+                <div className="flex items-center gap-1"><span className="h-3 w-3 rounded-full bg-gray-400" aria-hidden /><span>Outros</span></div>
+              </div>
+            </div>
+          </div>
           {/* Role descriptions */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
             {roles.map(role => (
               <div key={role.key} className="p-3 border rounded-lg">
-                <Badge variant={role.variant} className="mb-1">
-                  {role.label}
-                </Badge>
+                <Badge className={`mb-1 ${roleColorClass[role.key]}`}>{role.label}</Badge>
                 <p className="text-sm text-muted-foreground">{role.description}</p>
               </div>
             ))}
@@ -89,7 +116,7 @@ const RolesCapabilitiesCard = () => {
                   <th className="text-left py-3 px-2 font-medium">Permissão</th>
                   {roles.map(role => (
                     <th key={role.key} className="text-center py-3 px-4 font-medium">
-                      <Badge variant={role.variant}>{role.label}</Badge>
+                      <Badge className={`${roleColorClass[role.key]} py-1 px-3 rounded-full`}>{role.label}</Badge>
                     </th>
                   ))}
                 </tr>
@@ -99,7 +126,7 @@ const RolesCapabilitiesCard = () => {
                 {contactPermissions.length > 0 && (
                   <>
                     <tr className="bg-muted/50">
-                      <td colSpan={4} className="py-2 px-2 font-semibold text-muted-foreground">Contatos</td>
+                      <td colSpan={5} className="py-2 px-2 font-semibold text-muted-foreground">Contatos</td>
                     </tr>
                     {contactPermissions.map(pt => {
                       const Icon = permissionIcons[pt.key] || Users;
@@ -107,6 +134,7 @@ const RolesCapabilitiesCard = () => {
                         <tr key={pt.key} className="border-b">
                           <td className="py-3 px-2">
                             <div className="flex items-center gap-2">
+                              <span className={`${getColorForKey(pt.key, pt.category)} h-3 w-3 rounded-full`} />
                               <Icon className="h-4 w-4 text-muted-foreground" />
                               <div>
                                 <span className="font-medium">{pt.name}</span>
@@ -117,16 +145,16 @@ const RolesCapabilitiesCard = () => {
                             </div>
                           </td>
                             <td className="text-center py-3 px-4">
-                              <Switch checked={pt.default_for_admin} onCheckedChange={(v) => updateDefault.mutate({ permissionKey: pt.key, roleKey: 'admin', value: v as boolean })} />
+                              <Switch checked={Boolean(pt.default_for_admin)} onCheckedChange={(v) => updateDefault.mutate({ permissionKey: pt.key, roleKey: 'admin', value: v as boolean })} />
                             </td>
                             <td className="text-center py-3 px-4">
-                              <Switch checked={pt.default_for_supervisor} onCheckedChange={(v) => updateDefault.mutate({ permissionKey: pt.key, roleKey: 'supervisor', value: v as boolean })} />
+                              <Switch checked={Boolean(pt.default_for_supervisor)} onCheckedChange={(v) => updateDefault.mutate({ permissionKey: pt.key, roleKey: 'supervisor', value: v as boolean })} />
                             </td>
                             <td className="text-center py-3 px-4">
-                              <Switch checked={pt.default_for_manager ?? false} onCheckedChange={(v) => updateDefault.mutate({ permissionKey: pt.key, roleKey: 'manager', value: v as boolean })} />
+                              <Switch checked={Boolean(pt.default_for_manager)} onCheckedChange={(v) => updateDefault.mutate({ permissionKey: pt.key, roleKey: 'manager', value: v as boolean })} />
                             </td>
                             <td className="text-center py-3 px-4">
-                              <Switch checked={pt.default_for_agent} onCheckedChange={(v) => updateDefault.mutate({ permissionKey: pt.key, roleKey: 'agent', value: v as boolean })} />
+                              <Switch checked={Boolean(pt.default_for_agent)} onCheckedChange={(v) => updateDefault.mutate({ permissionKey: pt.key, roleKey: 'agent', value: v as boolean })} />
                             </td>
                         </tr>
                       );
@@ -138,7 +166,7 @@ const RolesCapabilitiesCard = () => {
                 {instancePermissions.length > 0 && (
                   <>
                     <tr className="bg-muted/50">
-                      <td colSpan={4} className="py-2 px-2 font-semibold text-muted-foreground">Instâncias</td>
+                      <td colSpan={5} className="py-2 px-2 font-semibold text-muted-foreground">Instâncias</td>
                     </tr>
                     {instancePermissions.map(pt => {
                       const Icon = permissionIcons[pt.key] || Users;
@@ -146,6 +174,7 @@ const RolesCapabilitiesCard = () => {
                         <tr key={pt.key} className="border-b">
                           <td className="py-3 px-2">
                             <div className="flex items-center gap-2">
+                              <span className={`${getColorForKey(pt.key, pt.category)} h-3 w-3 rounded-full`} />
                               <Icon className="h-4 w-4 text-muted-foreground" />
                               <div>
                                 <span className="font-medium">{pt.name}</span>
@@ -177,7 +206,7 @@ const RolesCapabilitiesCard = () => {
                 {categories.map(category => (
                   <React.Fragment key={category.key}>
                     <tr className="bg-muted/50">
-                      <td colSpan={4} className="py-2 px-2 font-semibold text-muted-foreground">
+                      <td colSpan={5} className="py-2 px-2 font-semibold text-muted-foreground">
                         {category.label}
                       </td>
                     </tr>
@@ -189,7 +218,8 @@ const RolesCapabilitiesCard = () => {
                           <tr key={pt.key} className="border-b">
                             <td className="py-3 px-2">
                               <div className="flex items-center gap-2">
-                                <Icon className="h-4 w-4 text-muted-foreground" />
+                              <span className={`${getColorForKey(pt.key, pt.category)} h-3 w-3 rounded-full`} />
+                              <Icon className="h-4 w-4 text-muted-foreground" />
                                 <div>
                                   <span className="font-medium">{pt.name}</span>
                                   {pt.description && (
