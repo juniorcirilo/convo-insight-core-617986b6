@@ -43,7 +43,7 @@ const formSchema = z.object({
   instance_id_external: z.string().optional(),
   api_url: z.string().min(1, "URL da API obrigatória").url("URL inválida"),
   api_key: z.string().min(1, "Token/API Key obrigatório"),
-  provider_type: z.enum(["self_hosted", "cloud"]),
+  provider_type: z.enum(["self_hosted", "cloud", "evolution_bot"]),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -368,8 +368,9 @@ export const AddInstanceDialog = ({ open, onOpenChange }: AddInstanceDialogProps
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="self_hosted">Evolution API Self-Hosted</SelectItem>
-                                <SelectItem value="cloud">Evolution API Cloud</SelectItem>
+                                <SelectItem value="self_hosted">Baileys</SelectItem>
+                                <SelectItem value="cloud">WhatsApp Cloud API</SelectItem>
+                                <SelectItem value="evolution_bot">Evolution</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -569,8 +570,9 @@ export const AddInstanceDialog = ({ open, onOpenChange }: AddInstanceDialogProps
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="self_hosted">Evolution API Self-Hosted</SelectItem>
-                          <SelectItem value="cloud">Evolution API Cloud</SelectItem>
+                          <SelectItem value="self_hosted">Baileys</SelectItem>
+                          <SelectItem value="cloud">WhatsApp Cloud API</SelectItem>
+                          <SelectItem value="evolution_bot">Evolution</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

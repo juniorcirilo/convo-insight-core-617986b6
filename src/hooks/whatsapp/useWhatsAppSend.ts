@@ -59,12 +59,25 @@ export const useWhatsAppSend = () => {
         let activeTicketNumber = lastTicket?.numero || 0;
         let markerType: 'ticket_opened' | 'conversation_reopened' = 'conversation_reopened';
 
+        // Fetch current user (agent) name for template context
+        let atendenteNome = 'Atendente';
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', user.id)
+            .maybeSingle();
+          atendenteNome = profile?.full_name || 'Atendente';
+        }
+
         // Build template context for automatic messages
         const contact = (conv as any)?.whatsapp_contacts;
         const sector = (conv as any)?.sectors;
-        const templateContext = {
+        const templateContext: any = {
           clienteNome: contact?.name || contact?.phone_number || 'Cliente',
           clienteTelefone: contact?.phone_number || '',
+          atendenteNome,
           setorNome: sector?.name || '',
           ticketNumero: activeTicketNumber,
         };

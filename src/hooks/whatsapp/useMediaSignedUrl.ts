@@ -1,16 +1,29 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 
-// Cache for signed URLs to avoid redundant requests
-const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
+// Check if the URL is a local storage path
+function isLocalStoragePath(url: string): boolean {
+  return url.startsWith('/storage/') || url.startsWith('storage/');
+}
 
-// Cache duration: 55 minutes (less than the 1 hour expiry from the edge function)
-const CACHE_DURATION_MS = 55 * 60 * 1000;
+// Check if it's an external URL (http/https)
+function isExternalUrl(url: string): boolean {
+  return url.startsWith('http://') || url.startsWith('https://');
+}
 
-// Check if the string is a file path (not a URL)
-function isFilePath(str: string): boolean {
-  // File paths don't start with http/https and don't contain ://
-  return !str.startsWith('http://') && !str.startsWith('https://') && !str.includes('://');
+// Check if it's a legacy Supabase storage path (instance/filename format)
+function isLegacySupabasePath(url: string): boolean {
+  // Legacy paths look like: "ti-suporte/1769022145177-3EB0577E7D6E4192823811.jpeg"
+  // They have instance name followed by filename, no /storage/ prefix
+  if (isLocalStoragePath(url) || isExternalUrl(url)) return false;
+  const parts = url.split('/');
+  return parts.length === 2 && !parts[0].includes(':');
+}
+
+// Convert legacy Supabase path to local storage path
+function convertLegacyToLocalPath(url: string): string {
+  // Convert "ti-suporte/1769022145177-3EB0577E7D6E4192823811.jpeg" 
+  // to "/storage/whatsapp-media/ti-suporte/1769022145177-3EB0577E7D6E4192823811.jpeg"
+  return `/storage/whatsapp-media/${url}`;
 }
 
 export function useMediaSignedUrl(
@@ -27,42 +40,39 @@ export function useMediaSignedUrl(
       return;
     }
 
-    // If it's already a signed URL (contains token), use it directly
-    if (mediaUrl.includes('token=')) {
+    // If it's a local storage path, use it directly
+    if (isLocalStoragePath(mediaUrl)) {
+      // Ensure it starts with /
+      const normalizedUrl = mediaUrl.startsWith('/') ? mediaUrl : `/${mediaUrl}`;
+      setSignedUrl(normalizedUrl);
+      return;
+    }
+
+    // If it's already an external URL, use it directly
+    if (isExternalUrl(mediaUrl)) {
       setSignedUrl(mediaUrl);
       return;
     }
 
-    // Determine the file path
-    let filePath = mediaUrl;
-    
-    // If it's a full URL, extract the path
-    if (!isFilePath(mediaUrl)) {
-      const storagePathMatch = mediaUrl.match(/\/storage\/v1\/object\/(?:public|sign)\/whatsapp-media\/(.+)/);
-      if (storagePathMatch) {
-        filePath = storagePathMatch[1];
-      } else {
-        // External URL, use directly
-        setSignedUrl(mediaUrl);
-        return;
-      }
-    }
-
-    // Check cache first
-    const cached = signedUrlCache.get(filePath);
-    if (cached && cached.expiresAt > Date.now()) {
-      setSignedUrl(cached.url);
+    // If it's a legacy Supabase storage path, convert to local storage path
+    // This handles migrated files
+    if (isLegacySupabasePath(mediaUrl)) {
+      const localPath = convertLegacyToLocalPath(mediaUrl);
+      setSignedUrl(localPath);
       return;
     }
 
-    // Fetch signed URL
+    // Fallback: For other paths, try to fetch signed URL from Supabase
+    // This maintains backwards compatibility with any edge cases
     const fetchSignedUrl = async () => {
       setIsLoading(true);
       setError(null);
 
       try {
+        const { supabase } = await import('@/integrations/supabase/client');
+        
         const { data, error: fnError } = await supabase.functions.invoke('get-media-signed-url', {
-          body: { filePath, conversationId }
+          body: { filePath: mediaUrl, conversationId }
         });
 
         if (fnError) {
@@ -70,11 +80,6 @@ export function useMediaSignedUrl(
         }
 
         if (data?.signedUrl) {
-          // Cache the signed URL
-          signedUrlCache.set(filePath, {
-            url: data.signedUrl,
-            expiresAt: Date.now() + CACHE_DURATION_MS
-          });
           setSignedUrl(data.signedUrl);
         } else {
           throw new Error('No signed URL returned');
@@ -82,8 +87,8 @@ export function useMediaSignedUrl(
       } catch (err: any) {
         console.error('[useMediaSignedUrl] Error fetching signed URL:', err);
         setError(err.message);
-        // Don't fallback to mediaUrl as it's a path, not a URL
-        setSignedUrl(null);
+        // Fallback: try local storage path
+        setSignedUrl(convertLegacyToLocalPath(mediaUrl));
       } finally {
         setIsLoading(false);
       }
@@ -95,51 +100,42 @@ export function useMediaSignedUrl(
   return { signedUrl, isLoading, error };
 }
 
-// Utility to get signed URL imperatively (for components that can't use hooks)
+// Utility to get media URL (for components that can't use hooks)
 export async function getMediaSignedUrl(
   mediaUrl: string,
   conversationId?: string
 ): Promise<string> {
-  // If it's already a signed URL, return it
-  if (mediaUrl.includes('token=')) {
+  // If it's a local storage path, return directly
+  if (isLocalStoragePath(mediaUrl)) {
+    return mediaUrl.startsWith('/') ? mediaUrl : `/${mediaUrl}`;
+  }
+
+  // If it's an external URL, return directly
+  if (isExternalUrl(mediaUrl)) {
     return mediaUrl;
   }
 
-  // Determine the file path
-  let filePath = mediaUrl;
-  
-  // If it's a full URL, extract the path
-  if (!isFilePath(mediaUrl)) {
-    const storagePathMatch = mediaUrl.match(/\/storage\/v1\/object\/(?:public|sign)\/whatsapp-media\/(.+)/);
-    if (storagePathMatch) {
-      filePath = storagePathMatch[1];
-    } else {
-      // External URL, return directly
-      return mediaUrl;
+  // If it's a legacy Supabase storage path, convert to local path
+  if (isLegacySupabasePath(mediaUrl)) {
+    return convertLegacyToLocalPath(mediaUrl);
+  }
+
+  // Fallback: try to fetch signed URL for unknown formats
+  try {
+    const { supabase } = await import('@/integrations/supabase/client');
+    
+    const { data, error } = await supabase.functions.invoke('get-media-signed-url', {
+      body: { filePath: mediaUrl, conversationId }
+    });
+
+    if (error || !data?.signedUrl) {
+      // Return local path as fallback
+      return convertLegacyToLocalPath(mediaUrl);
     }
+
+    return data.signedUrl;
+  } catch {
+    // Return local path as fallback
+    return convertLegacyToLocalPath(mediaUrl);
   }
-
-  // Check cache
-  const cached = signedUrlCache.get(filePath);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.url;
-  }
-
-  // Fetch signed URL
-  const { data, error } = await supabase.functions.invoke('get-media-signed-url', {
-    body: { filePath, conversationId }
-  });
-
-  if (error || !data?.signedUrl) {
-    console.error('[getMediaSignedUrl] Error:', error);
-    throw new Error('Failed to get signed URL');
-  }
-
-  // Cache it
-  signedUrlCache.set(filePath, {
-    url: data.signedUrl,
-    expiresAt: Date.now() + CACHE_DURATION_MS
-  });
-
-  return data.signedUrl;
 }

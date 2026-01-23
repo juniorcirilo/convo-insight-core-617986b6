@@ -213,7 +213,9 @@ A mensagem deve:
 - Ter no máximo 2-3 frases
 - Pode usar emojis moderadamente
 
-Contexto do setor: ${context || 'Atendimento ao cliente'}`,
+Contexto do setor: ${context || 'Atendimento ao cliente'}
+
+Importante: quando fizer referência ao cliente ou ao ticket, use as variáveis de template exatamente assim: {{clienteNome}}, {{ticketNumero}}, {{dataAtual}}, {{horaAtual}}, {{atendenteNome}}.`,
         
         mensagem_encerramento: `Crie uma mensagem de encerramento curta e profissional para um sistema de tickets de suporte.
 A mensagem deve:
@@ -223,7 +225,9 @@ A mensagem deve:
 - Ter no máximo 2-3 frases
 - Pode usar emojis moderadamente
 
-Contexto do setor: ${context || 'Atendimento ao cliente'}`,
+Contexto do setor: ${context || 'Atendimento ao cliente'}
+
+Importante: quando fizer referência ao cliente ou ao ticket, use as variáveis de template exatamente assim: {{clienteNome}}, {{ticketNumero}}, {{dataAtual}}, {{horaAtual}}, {{atendenteNome}}.`,
 
         mensagem_reabertura: `Crie uma mensagem curta e profissional para informar que um ticket foi reaberto.
 A mensagem deve:
@@ -233,7 +237,9 @@ A mensagem deve:
 - Ter no máximo 2-3 frases
 - Pode usar emojis moderadamente
 
-Contexto do setor: ${context || 'Atendimento ao cliente'}`,
+Contexto do setor: ${context || 'Atendimento ao cliente'}
+
+Importante: quando fizer referência ao cliente ou ao ticket, use as variáveis de template exatamente assim: {{clienteNome}}, {{ticketNumero}}, {{dataAtual}}, {{horaAtual}}, {{atendenteNome}}.`,
       };
 
       const prompt = prompts[field];

@@ -2,6 +2,226 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
+import fs from "fs";
+import crypto from "crypto";
+
+// Simple token validation for protected storage access
+const STORAGE_SECRET = process.env.STORAGE_SECRET || 'livechat-storage-secret-key-2026';
+
+function generateAccessToken(filePath: string, expiresIn: number = 3600): string {
+  const expires = Date.now() + (expiresIn * 1000);
+  const data = `${filePath}:${expires}`;
+  const signature = crypto.createHmac('sha256', STORAGE_SECRET).update(data).digest('hex');
+  return Buffer.from(JSON.stringify({ path: filePath, expires, sig: signature })).toString('base64url');
+}
+
+function validateAccessToken(token: string, requestedPath: string): boolean {
+  try {
+    const decoded = JSON.parse(Buffer.from(token, 'base64url').toString());
+    const { path: tokenPath, expires, sig } = decoded;
+    
+    // Check expiration
+    if (Date.now() > expires) return false;
+    
+    // Check path matches
+    if (tokenPath !== requestedPath) return false;
+    
+    // Verify signature
+    const data = `${tokenPath}:${expires}`;
+    const expectedSig = crypto.createHmac('sha256', STORAGE_SECRET).update(data).digest('hex');
+    return sig === expectedSig;
+  } catch {
+    return false;
+  }
+}
+
+// Custom plugin to serve and upload to storage directory
+function storagePlugin() {
+  return {
+    name: 'storage-plugin',
+    configureServer(server: any) {
+      // Handle file uploads to /api/upload
+      server.middlewares.use('/api/upload', async (req: any, res: any, next: any) => {
+        if (req.method === 'OPTIONS') {
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+          res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+          res.statusCode = 200;
+          res.end();
+          return;
+        }
+
+        if (req.method !== 'POST') {
+          return next();
+        }
+
+        try {
+          let body = '';
+          for await (const chunk of req) {
+            body += chunk;
+          }
+          
+          const data = JSON.parse(body);
+          const { base64Data, bucket, instanceName, contactId, filename, mimetype } = data;
+
+          if (!base64Data || !filename) {
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Content-Type', 'application/json');
+            res.statusCode = 400;
+            res.end(JSON.stringify({ error: 'base64Data and filename are required' }));
+            return;
+          }
+
+          // Determine storage path based on bucket structure
+          let relativePath: string;
+          let dirPath: string;
+
+          if (bucket === 'whatsapp-media' && instanceName) {
+            // WhatsApp media: /storage/whatsapp-media/{instance}/{filename}
+            relativePath = `whatsapp-media/${instanceName}/${filename}`;
+            dirPath = path.join(__dirname, 'storage', 'whatsapp-media', instanceName);
+          } else if (contactId) {
+            // Contact-based storage: /storage/contacts/{contactId}/{filename}
+            relativePath = `contacts/${contactId}/${filename}`;
+            dirPath = path.join(__dirname, 'storage', 'contacts', contactId);
+          } else {
+            // Default bucket storage
+            const bucketName = bucket || 'uploads';
+            relativePath = `${bucketName}/${filename}`;
+            dirPath = path.join(__dirname, 'storage', bucketName);
+          }
+
+          // Create directory
+          fs.mkdirSync(dirPath, { recursive: true });
+
+          // Convert base64 to buffer
+          const base64String = base64Data.split(',')[1] || base64Data;
+          const buffer = Buffer.from(base64String, 'base64');
+
+          // Write file
+          const filePath = path.join(dirPath, filename);
+          fs.writeFileSync(filePath, buffer);
+
+          const publicUrl = `/storage/${relativePath}`;
+          
+          console.log('[storage-plugin] File saved:', publicUrl);
+
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Content-Type', 'application/json');
+          res.statusCode = 200;
+          res.end(JSON.stringify({ success: true, publicUrl }));
+        } catch (error: any) {
+          console.error('[storage-plugin] Upload error:', error);
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Content-Type', 'application/json');
+          res.statusCode = 500;
+          res.end(JSON.stringify({ error: error.message }));
+        }
+      });
+
+      // Generate signed URL for protected access
+      server.middlewares.use('/api/storage/sign', async (req: any, res: any, next: any) => {
+        if (req.method === 'OPTIONS') {
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+          res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+          res.statusCode = 200;
+          res.end();
+          return;
+        }
+
+        if (req.method !== 'POST') {
+          return next();
+        }
+
+        try {
+          let body = '';
+          for await (const chunk of req) {
+            body += chunk;
+          }
+          
+          const { filePath, expiresIn = 3600 } = JSON.parse(body);
+
+          if (!filePath) {
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Content-Type', 'application/json');
+            res.statusCode = 400;
+            res.end(JSON.stringify({ error: 'filePath is required' }));
+            return;
+          }
+
+          const token = generateAccessToken(filePath, expiresIn);
+          const signedUrl = `/storage${filePath}?token=${token}`;
+
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Content-Type', 'application/json');
+          res.statusCode = 200;
+          res.end(JSON.stringify({ signedUrl }));
+        } catch (error: any) {
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Content-Type', 'application/json');
+          res.statusCode = 500;
+          res.end(JSON.stringify({ error: error.message }));
+        }
+      });
+
+      // Serve files from /storage (with optional token protection)
+      server.middlewares.use('/storage', (req: any, res: any, next: any) => {
+        // Parse URL and query params
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const filePath = path.join(__dirname, 'storage', url.pathname);
+        const token = url.searchParams.get('token');
+        
+        if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+          return next();
+        }
+
+        // For whatsapp-media bucket, allow access with or without token
+        // (backwards compatibility - can be tightened later)
+        const isWhatsAppMedia = url.pathname.startsWith('/whatsapp-media/');
+        const isContacts = url.pathname.startsWith('/contacts/');
+        
+        // If token is provided, validate it
+        if (token && !validateAccessToken(token, url.pathname)) {
+          res.setHeader('Content-Type', 'application/json');
+          res.statusCode = 403;
+          res.end(JSON.stringify({ error: 'Invalid or expired token' }));
+          return;
+        }
+
+        // For protected buckets (future use), require token
+        // Currently allowing all access for backwards compatibility
+        
+        const ext = path.extname(filePath).toLowerCase();
+        const mimeTypes: Record<string, string> = {
+          '.jpg': 'image/jpeg',
+          '.jpeg': 'image/jpeg',
+          '.png': 'image/png',
+          '.gif': 'image/gif',
+          '.webp': 'image/webp',
+          '.mp4': 'video/mp4',
+          '.webm': 'video/webm',
+          '.ogg': 'audio/ogg',
+          '.opus': 'audio/opus',
+          '.mp3': 'audio/mpeg',
+          '.wav': 'audio/wav',
+          '.pdf': 'application/pdf',
+          '.doc': 'application/msword',
+          '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          '.xls': 'application/vnd.ms-excel',
+          '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          '.zip': 'application/zip',
+          '.rar': 'application/x-rar-compressed',
+        };
+        
+        res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+        fs.createReadStream(filePath).pipe(res);
+      });
+    },
+  };
+}
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -28,12 +248,30 @@ export default defineConfig(({ mode }) => ({
           });
         },
       }
-    }
+    },
+    // Serve static files from ./storage directory
+    fs: {
+      allow: ['..', './storage'],
+    },
   },
-  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  // Serve /storage as static files in dev mode
+  publicDir: 'public',
+  plugins: [
+    react(), 
+    mode === "development" && componentTagger(),
+    storagePlugin(),
+  ].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+    },
+  },
+  // Make storage available as static assets
+  build: {
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+      },
     },
   },
 }));

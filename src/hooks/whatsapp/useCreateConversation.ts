@@ -122,6 +122,50 @@ export const useCreateConversation = () => {
                 status: 'sent',
                 timestamp: markerTimestamp,
               });
+            // Send automatic welcome message if sector has one
+            try {
+              // Fetch sector to get mensagem_boas_vindas
+              const { data: sector } = await supabase
+                .from('sectors')
+                .select('id, name, mensagem_boas_vindas')
+                .eq('id', sectorId)
+                .maybeSingle();
+
+              const welcomeMsg = sector?.mensagem_boas_vindas;
+              if (welcomeMsg) {
+                // Fetch assigned agent name if any
+                let atendenteNome = 'Atendente';
+                if (conversation.assigned_to) {
+                  const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('full_name')
+                    .eq('id', conversation.assigned_to)
+                    .maybeSingle();
+                  atendenteNome = profile?.full_name || 'Atendente';
+                }
+
+                // Build template context
+                const templateContext = {
+                  clienteNome: contact.name || contact.phone_number || 'Cliente',
+                  clienteTelefone: contact.phone_number || '',
+                  atendenteNome,
+                  setorNome: sector?.name || '',
+                  ticketNumero: newTicket.numero,
+                } as any;
+
+                await supabase.functions.invoke('send-whatsapp-message', {
+                  body: {
+                    conversationId: conversation.id,
+                    content: welcomeMsg,
+                    messageType: 'text',
+                    skipAgentPrefix: true,
+                    templateContext,
+                  },
+                });
+              }
+            } catch (err) {
+              console.error('Error sending welcome message:', err);
+            }
           }
         } else {
           ticket = existingTicket;

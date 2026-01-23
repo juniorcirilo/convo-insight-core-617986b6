@@ -1,1 +1,1 @@
-DELETE FROM public.whatsapp_conversations where id = '4f55897b-ad81-4974-bbb0-77bb0514d509';
+DELETE FROM public.whatsapp_conversations where phone = '5541984146402';

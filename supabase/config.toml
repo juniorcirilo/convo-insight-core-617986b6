@@ -30,6 +30,9 @@ verify_jwt = false
 [functions.evolution-webhook]
 verify_jwt = false
 
+[functions.evolution-webhook.env]
+UPLOAD_API_URL = "http://192.168.3.100:8080/api/upload"
+
 [functions.dispatch-webhook]
 verify_jwt = false
 

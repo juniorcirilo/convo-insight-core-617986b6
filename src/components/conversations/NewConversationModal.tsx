@@ -32,20 +32,25 @@ import { useWhatsAppInstances, useCreateConversation } from "@/hooks/whatsapp";
 import { toast } from "sonner";
 import { normalizeBrazilianPhone } from "@/utils/phoneUtils";
 
-// Phone mask function: (00) 0 0000-0000
+// Phone mask function: supports (00) 0000-0000 (landline) and (00) 00000-0000 (mobile)
 const formatPhoneMask = (value: string): string => {
   // Remove all non-digits
   const digits = value.replace(/\D/g, '');
   
   // Apply mask progressively
-  if (digits.length <= 2) {
-    return digits.length > 0 ? `(${digits}` : '';
-  } else if (digits.length <= 3) {
+  if (digits.length === 0) {
+    return '';
+  } else if (digits.length <= 2) {
+    return `(${digits}`;
+  } else if (digits.length <= 6) {
+    // (00) 0000
     return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-  } else if (digits.length <= 7) {
-    return `(${digits.slice(0, 2)}) ${digits.slice(2, 3)} ${digits.slice(3)}`;
+  } else if (digits.length <= 10) {
+    // Landline: (00) 0000-0000
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
   } else {
-    return `(${digits.slice(0, 2)}) ${digits.slice(2, 3)} ${digits.slice(3, 7)}-${digits.slice(7, 11)}`;
+    // Mobile: (00) 00000-0000
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
   }
 };
 
@@ -62,9 +67,10 @@ const formSchema = z.object({
     .string()
     .refine((val) => {
       const digits = val.replace(/\D/g, '');
-      return digits.length === 11;
+      // Accept 10 digits (landline) or 11 digits (mobile)
+      return digits.length === 10 || digits.length === 11;
     }, {
-      message: "Preencha o número completo: (00) 0 0000-0000",
+      message: "Preencha o número completo: (00) 0000-0000 ou (00) 00000-0000",
     }),
   contactName: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(100, "Nome muito longo"),
   generateTicket: z.boolean().default(false),
@@ -184,13 +190,13 @@ const NewConversationModal = ({
                   <FormLabel>Número de Telefone</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="(00) 0 0000-0000"
+                      placeholder="(00) 0000-0000 ou (00) 00000-0000"
                       value={field.value}
                       onChange={(e) => handlePhoneChange(e, field.onChange)}
                       onBlur={field.onBlur}
                       name={field.name}
                       ref={field.ref}
-                      maxLength={18}
+                      maxLength={16}
                     />
                   </FormControl>
                   <p className="text-xs text-muted-foreground">

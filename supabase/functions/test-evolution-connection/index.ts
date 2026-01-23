@@ -38,6 +38,7 @@ serve(async (req) => {
     const headers = getEvolutionAuthHeaders(api_key, provider_type);
     
     // For cloud provider, use instance_id_external (UUID), otherwise use instance_name
+    // evolution_bot and self_hosted both use instance_name
     const instanceIdentifier = provider_type === 'cloud' && instance_id_external 
       ? instance_id_external 
       : instance_name;
@@ -46,6 +47,7 @@ serve(async (req) => {
     
     console.log('📡 Calling Evolution API:', {
       url: fullUrl,
+      provider_type,
       headers: {
         ...headers,
         ...(headers.Authorization ? { Authorization: `Bearer ${api_key.substring(0, 10)}...` } : {}),

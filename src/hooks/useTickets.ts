@@ -152,10 +152,10 @@ export const useTickets = (conversationId?: string) => {
 
   const createTicket = useMutation({
     mutationFn: async ({ conversationId, sectorId }: { conversationId: string; sectorId: string }) => {
-      // Fetch sector details first to get the welcome message
+      // Fetch sector details first to get the welcome message and sector name
       const { data: sectorData } = await supabase
         .from('sectors')
-        .select('mensagem_boas_vindas')
+        .select('mensagem_boas_vindas, name')
         .eq('id', sectorId)
         .single();
 
@@ -174,11 +174,41 @@ export const useTickets = (conversationId?: string) => {
       // Send welcome message if configured
       if (sectorData?.mensagem_boas_vindas) {
         try {
+          // Fetch conversation contact for template context
+          const { data: conv } = await supabase
+            .from('whatsapp_conversations')
+            .select('whatsapp_contacts(name, phone_number), assigned_to')
+            .eq('id', conversationId)
+            .maybeSingle();
+
+          const contact = (conv as any)?.whatsapp_contacts;
+
+          // Fetch agent name if assigned
+          let atendenteNome = 'Atendente';
+          if ((conv as any)?.assigned_to) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('full_name')
+              .eq('id', (conv as any).assigned_to)
+              .maybeSingle();
+            atendenteNome = profile?.full_name || 'Atendente';
+          }
+
+          const templateContext = {
+            clienteNome: contact?.name || contact?.phone_number || 'Cliente',
+            clienteTelefone: contact?.phone_number || '',
+            atendenteNome,
+            setorNome: sectorData?.name || '',
+            ticketNumero: data.numero,
+          } as any;
+
           await supabase.functions.invoke('send-whatsapp-message', {
             body: {
               conversationId,
               content: sectorData.mensagem_boas_vindas,
               messageType: 'text',
+              skipAgentPrefix: true,
+              templateContext,
             },
           });
           console.log('[useTickets] Welcome message sent for ticket:', data.id);
@@ -253,11 +283,42 @@ export const useTickets = (conversationId?: string) => {
 
         if (messageToSend) {
           try {
+            // Fetch contact for template context
+            const { data: conv } = await supabase
+              .from('whatsapp_conversations')
+              .select('whatsapp_contacts(name, phone_number), assigned_to')
+              .eq('id', ticketData.conversation_id)
+              .maybeSingle();
+
+            const contact = (conv as any)?.whatsapp_contacts;
+
+            // Fetch agent name
+            let atendenteNome = 'Atendente';
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user?.id) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('full_name')
+                .eq('id', user.id)
+                .maybeSingle();
+              atendenteNome = profile?.full_name || 'Atendente';
+            }
+
+            const templateContext = {
+              clienteNome: contact?.name || contact?.phone_number || 'Cliente',
+              clienteTelefone: contact?.phone_number || '',
+              atendenteNome,
+              setorNome: sector?.name || '',
+              ticketNumero: ticketData.numero,
+            } as any;
+
             await supabase.functions.invoke('send-whatsapp-message', {
               body: {
                 conversationId: ticketData.conversation_id,
                 content: messageToSend,
                 messageType: 'text',
+                skipAgentPrefix: true,
+                templateContext,
               },
             });
           } catch (sendError) {
@@ -305,14 +366,44 @@ export const useTickets = (conversationId?: string) => {
       const closingMessage = (ticketData as any)?.sectors?.mensagem_encerramento;
       if (closingMessage && ticketData.conversation_id) {
         try {
+          // Fetch contact for template context
+          const { data: conv } = await supabase
+            .from('whatsapp_conversations')
+            .select('whatsapp_contacts(name, phone_number)')
+            .eq('id', ticketData.conversation_id)
+            .maybeSingle();
+
+          const contact = (conv as any)?.whatsapp_contacts;
+
+          // Fetch agent name who is closing the ticket
+          let atendenteNome = 'Atendente';
+          if (user?.id) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('full_name')
+              .eq('id', user.id)
+              .maybeSingle();
+            atendenteNome = profile?.full_name || 'Atendente';
+          }
+
+          const templateContext = {
+            clienteNome: contact?.name || contact?.phone_number || 'Cliente',
+            clienteTelefone: contact?.phone_number || '',
+            atendenteNome,
+            setorNome: (ticketData as any)?.sectors?.name || '',
+            ticketNumero: ticketData.numero,
+          } as any;
+
           const { error: sendError } = await supabase.functions.invoke('send-whatsapp-message', {
             body: {
               conversationId: ticketData.conversation_id,
               content: closingMessage,
               messageType: 'text',
+              skipAgentPrefix: true,
+              templateContext,
             },
           });
-          
+
           if (sendError) {
             console.error('Error sending closing message:', sendError);
             // Continue with closing the ticket even if message fails

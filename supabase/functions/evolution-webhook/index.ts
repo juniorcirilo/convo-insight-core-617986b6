@@ -158,7 +158,8 @@ async function downloadAndUploadMedia(
   messageKey: any,
   supabase: any,
   mimetype: string,
-  providerType: string = 'self_hosted'
+  providerType: string = 'self_hosted',
+  contactId: string = ''
 ): Promise<string | null> {
   try {
     console.log('[evolution-webhook] Downloading media from Evolution API...');
@@ -195,6 +196,41 @@ async function downloadAndUploadMedia(
       return null;
     }
 
+    // Generate unique filename
+    // Extract extension correctly, removing codec info
+    const extension = (mimetype.split('/')[1] || 'bin').split(';')[0].trim();
+    const filename = `${Date.now()}-${messageKey.id}.${extension}`;
+    
+    // Call the Vite upload API to save the file locally
+    const uploadApiUrl = Deno.env.get('UPLOAD_API_URL') || 'http://192.168.3.100:8080/api/upload';
+    
+    try {
+      const uploadResponse = await fetch(uploadApiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          base64Data,
+          bucket: 'whatsapp-media',
+          instanceName: instanceName,
+          filename,
+          mimetype,
+        }),
+      });
+
+      if (uploadResponse.ok) {
+        const uploadResult = await uploadResponse.json();
+        console.log('[evolution-webhook] Media saved locally:', uploadResult.publicUrl);
+        return uploadResult.publicUrl;
+      } else {
+        console.error('[evolution-webhook] Upload API error:', await uploadResponse.text());
+      }
+    } catch (uploadError) {
+      console.error('[evolution-webhook] Error calling upload API:', uploadError);
+    }
+
+    // Fallback: store in Supabase Storage
+    console.log('[evolution-webhook] Falling back to Supabase Storage...');
+    
     // Convert base64 to blob
     const base64String = base64Data.split(',')[1] || base64Data;
     const binaryString = atob(base64String);
@@ -204,15 +240,8 @@ async function downloadAndUploadMedia(
     }
     const blob = new Blob([bytes], { type: mimetype });
 
-    // Generate unique filename
-    // Extract extension correctly, removing codec info
-    const extension = (mimetype.split('/')[1] || 'bin').split(';')[0].trim();
-    const filename = `${Date.now()}-${messageKey.id}.${extension}`;
     const filePath = `${instanceName}/${filename}`;
 
-    console.log('[evolution-webhook] Uploading to Supabase Storage:', filePath);
-
-    // Upload to Supabase Storage
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('whatsapp-media')
       .upload(filePath, blob, {
@@ -225,9 +254,7 @@ async function downloadAndUploadMedia(
       return null;
     }
 
-    // Return the file path instead of public URL
-    // The client will request signed URLs when displaying media
-    console.log('[evolution-webhook] Media uploaded successfully:', filePath);
+    console.log('[evolution-webhook] Media uploaded to Supabase Storage:', filePath);
     return filePath;
   } catch (error) {
     console.error('[evolution-webhook] Error in downloadAndUploadMedia:', error);
@@ -988,37 +1015,68 @@ async function findOrCreateConversation(
     const sectorId = defaultSector?.id || null;
     console.log('[evolution-webhook] Default sector for new conversation:', sectorId);
 
-    // Create new conversation with sector
+    // Create new conversation with sector using upsert to handle race conditions
+    // If another request already created a conversation for this contact, we'll get that one back
     const { data: newConversation, error: createError } = await supabase
       .from('whatsapp_conversations')
-      .insert({
+      .upsert({
         instance_id: instanceId,
         contact_id: contactId,
         status: 'active',
         sector_id: sectorId,
+      }, {
+        onConflict: 'instance_id,contact_id',
+        ignoreDuplicates: false, // Return the existing row if conflict
       })
-      .select('id')
+      .select('id, created_at')
       .single();
 
     if (createError) {
       console.error('[evolution-webhook] Error creating conversation:', createError);
+      
+      // If upsert failed, try to fetch the existing conversation one more time
+      const { data: retryConversation } = await supabase
+        .from('whatsapp_conversations')
+        .select('id, sector_id')
+        .eq('instance_id', instanceId)
+        .eq('contact_id', contactId)
+        .maybeSingle();
+      
+      if (retryConversation) {
+        console.log('[evolution-webhook] Conversation found on retry:', retryConversation.id);
+        return { 
+          conversationId: retryConversation.id, 
+          isNew: false, 
+          sectorId: retryConversation.sector_id, 
+          wasReopened: false, 
+          shouldCreateNewTicket: false 
+        };
+      }
+      
       return { conversationId: null, isNew: false, sectorId: null, wasReopened: false, shouldCreateNewTicket: false };
     }
 
-    console.log('[evolution-webhook] Conversation created:', newConversation.id);
+    // Check if this was actually a new conversation or an existing one returned by upsert
+    const wasJustCreated = newConversation.created_at && 
+      (new Date().getTime() - new Date(newConversation.created_at).getTime()) < 5000; // Created within last 5 seconds
+
+    console.log('[evolution-webhook] Conversation upserted:', newConversation.id, 'isNew:', wasJustCreated);
     
-    // Apply auto-assignment for new conversations (with sector context)
-    await applyAutoAssignment(supabase, instanceId, newConversation.id, sectorId);
+    // Only apply auto-assignment and dispatch webhook if this is truly a new conversation
+    if (wasJustCreated) {
+      // Apply auto-assignment for new conversations (with sector context)
+      await applyAutoAssignment(supabase, instanceId, newConversation.id, sectorId);
+      
+      // Dispatch webhook for new conversation
+      await dispatchWebhook(supabase, 'new_conversation', {
+        conversation_id: newConversation.id,
+        instance_id: instanceId,
+        contact_id: contactId,
+        sector_id: sectorId
+      }, instanceId);
+    }
     
-    // Dispatch webhook for new conversation
-    await dispatchWebhook(supabase, 'new_conversation', {
-      conversation_id: newConversation.id,
-      instance_id: instanceId,
-      contact_id: contactId,
-      sector_id: sectorId
-    }, instanceId);
-    
-    return { conversationId: newConversation.id, isNew: true, sectorId, wasReopened: false, shouldCreateNewTicket: false };
+    return { conversationId: newConversation.id, isNew: wasJustCreated, sectorId, wasReopened: false, shouldCreateNewTicket: false };
   } catch (error) {
     console.error('[evolution-webhook] Error in findOrCreateConversation:', error);
     return { conversationId: null, isNew: false, sectorId: null, wasReopened: false, shouldCreateNewTicket: false };
@@ -1392,7 +1450,8 @@ async function processMessageUpsert(payload: EvolutionWebhookPayload, supabase: 
             key,
             supabase,
             mediaMimetype,
-            instanceData.provider_type || 'self_hosted'
+            instanceData.provider_type || 'self_hosted',
+            contactId
           );
         }
       }

@@ -82,9 +82,23 @@ export const useWhatsAppActions = () => {
       // Build template context for closing message
       const contact = (convData as any)?.whatsapp_contacts;
       const sector = (convData as any)?.sectors;
+
+      // Fetch current user (agent) name
+      let atendenteNome = 'Atendente';
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .maybeSingle();
+        atendenteNome = profile?.full_name || 'Atendente';
+      }
+
       const templateContext = {
         clienteNome: contact?.name || contact?.phone_number || 'Cliente',
         clienteTelefone: contact?.phone_number || '',
+        atendenteNome,
         setorNome: sector?.name || '',
         ticketNumero: lastTicket?.numero || 0,
       };
@@ -110,7 +124,6 @@ export const useWhatsAppActions = () => {
 
       // Close the ticket if there's an open one
       if (lastTicket && lastTicket.status !== 'finalizado') {
-        const { data: { user } } = await supabase.auth.getUser();
         await supabase
           .from('tickets')
           .update({
@@ -189,7 +202,7 @@ export const useWhatsAppActions = () => {
       // Fetch conversation and sector info to get configured messages
       const { data: convData } = await supabase
         .from('whatsapp_conversations')
-        .select('sector_id, sectors(mensagem_boas_vindas, mensagem_reabertura)')
+        .select('sector_id, sectors(mensagem_boas_vindas, mensagem_reabertura), whatsapp_contacts(name, phone_number)')
         .eq('id', conversationId)
         .single();
 
@@ -223,15 +236,38 @@ export const useWhatsAppActions = () => {
 
       // Send reopen message or welcome message on reopen if configured
       const sector = (convData as any)?.sectors;
+      const contact = (convData as any)?.whatsapp_contacts;
       const reopenMsg = sector?.mensagem_reabertura || sector?.mensagem_boas_vindas;
       
       if (reopenMsg) {
         try {
+          // Fetch current user (agent) name for reopen
+          let atendenteNome = 'Atendente';
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user?.id) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('full_name')
+              .eq('id', user.id)
+              .maybeSingle();
+            atendenteNome = profile?.full_name || 'Atendente';
+          }
+
+          const templateContext = {
+            clienteNome: contact?.name || contact?.phone_number || 'Cliente',
+            clienteTelefone: contact?.phone_number || '',
+            atendenteNome,
+            setorNome: sector?.name || '',
+            ticketNumero: lastTicket?.numero || 0,
+          } as any;
+
           await supabase.functions.invoke('send-whatsapp-message', {
             body: {
               conversationId,
               content: reopenMsg,
               messageType: 'text',
+              skipAgentPrefix: true,
+              templateContext,
             },
           });
           console.log('[useWhatsAppActions] Reopen message sent');

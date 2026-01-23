@@ -42,7 +42,7 @@ const formSchema = z.object({
   instance_id_external: z.string().optional(),
   api_url: z.string().optional(),
   api_key: z.string().optional(),
-  provider_type: z.enum(["self_hosted", "cloud"]),
+  provider_type: z.enum(["self_hosted", "cloud", "evolution_bot"]),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -69,7 +69,7 @@ export const EditInstanceDialog = ({
       instance_id_external: instance.instance_id_external || '',
       api_url: '',
       api_key: '',
-      provider_type: (instance.provider_type as "self_hosted" | "cloud") || 'self_hosted',
+      provider_type: (instance.provider_type as "self_hosted" | "cloud" | "evolution_bot") || 'self_hosted',
     },
   });
 
@@ -159,7 +159,7 @@ export const EditInstanceDialog = ({
       instance_id_external: instance.instance_id_external || '',
       api_url: '',
       api_key: '',
-      provider_type: (instance.provider_type as "self_hosted" | "cloud") || 'self_hosted',
+      provider_type: (instance.provider_type as "self_hosted" | "cloud" | "evolution_bot") || 'self_hosted',
     });
   }, [instance, form]);
 
@@ -285,8 +285,9 @@ export const EditInstanceDialog = ({
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="self_hosted">Evolution API Self-Hosted</SelectItem>
-                            <SelectItem value="cloud">Evolution API Cloud</SelectItem>
+                            <SelectItem value="self_hosted">Baileys</SelectItem>
+                            <SelectItem value="cloud">WhatsApp Cloud API</SelectItem>
+                            <SelectItem value="evolution_bot">Evolution</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
