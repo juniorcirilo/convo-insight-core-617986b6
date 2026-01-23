@@ -22,12 +22,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useWhatsAppInstances } from "@/hooks/whatsapp";
 import { useSectors, type SectorWithInstance } from "@/hooks/useSectors";
-import { Ticket, Bot, MessageSquare, Sparkles, Loader2, Users, User, Search } from "lucide-react";
+import { Ticket, Bot, MessageSquare, Sparkles, Loader2, Users, User, Search, Copy, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
+
+// Available template variables for ticket messages
+const TEMPLATE_VARIABLES = [
+  { key: '{{clienteNome}}', label: 'Nome do Cliente', description: 'Nome do contato/cliente' },
+  { key: '{{clienteTelefone}}', label: 'Telefone', description: 'Número de telefone do cliente' },
+  { key: '{{atendenteNome}}', label: 'Nome do Atendente', description: 'Nome do atendente atribuído' },
+  { key: '{{ticketNumero}}', label: 'Nº do Ticket', description: 'Número do protocolo' },
+  { key: '{{setorNome}}', label: 'Nome do Setor', description: 'Nome do setor atual' },
+  { key: '{{dataAtual}}', label: 'Data Atual', description: 'Data no formato DD/MM/AAAA' },
+  { key: '{{horaAtual}}', label: 'Hora Atual', description: 'Hora no formato HH:MM' },
+];
 
 interface SectorDialogProps {
   open: boolean;
@@ -67,6 +85,8 @@ export function SectorDialog({
   const [generatingField, setGeneratingField] = useState<string | null>(null);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [groupSearch, setGroupSearch] = useState("");
+  const [copiedVar, setCopiedVar] = useState<string | null>(null);
+  const [activeTextareaField, setActiveTextareaField] = useState<'mensagem_boas_vindas' | 'mensagem_encerramento' | 'mensagem_reabertura' | null>(null);
 
   const { register, handleSubmit, watch, setValue, reset } = useForm<FormData>({
     defaultValues: {
@@ -245,6 +265,20 @@ Contexto do setor: ${context || 'Atendimento ao cliente'}`,
     } finally {
       setGeneratingField(null);
     }
+  };
+
+  // Insert variable at the end of the active textarea field
+  const insertVariable = (variable: string) => {
+    const activeField = activeTextareaField || 'mensagem_boas_vindas';
+    const currentValue = watch(activeField) as string || '';
+    setValue(activeField, currentValue + variable);
+  };
+
+  // Copy variable to clipboard
+  const copyVariable = (variable: string) => {
+    navigator.clipboard.writeText(variable);
+    setCopiedVar(variable);
+    setTimeout(() => setCopiedVar(null), 2000);
   };
 
   const onSubmit = async (data: FormData) => {
@@ -510,6 +544,53 @@ Contexto do setor: ${context || 'Atendimento ao cliente'}`,
                 <Ticket className="h-4 w-4" />
                 Configurações do Ticket
               </h4>
+
+              {/* Variables Panel */}
+              <div className="rounded-lg border border-dashed border-border p-3 bg-background/50">
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-xs font-medium text-muted-foreground">
+                    Variáveis Disponíveis
+                  </Label>
+                  <span className="text-[10px] text-muted-foreground">
+                    Clique para inserir no campo ativo
+                  </span>
+                </div>
+                <TooltipProvider>
+                  <div className="flex flex-wrap gap-1.5">
+                    {TEMPLATE_VARIABLES.map((variable) => (
+                      <Tooltip key={variable.key}>
+                        <TooltipTrigger asChild>
+                          <Badge
+                            variant="secondary"
+                            className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors text-xs font-mono px-2 py-0.5 gap-1"
+                            onClick={() => insertVariable(variable.key)}
+                          >
+                            {variable.key}
+                            <button
+                              type="button"
+                              className="ml-1 hover:text-primary-foreground/80"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                copyVariable(variable.key);
+                              }}
+                            >
+                              {copiedVar === variable.key ? (
+                                <Check className="h-3 w-3" />
+                              ) : (
+                                <Copy className="h-3 w-3" />
+                              )}
+                            </button>
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">
+                          <p className="font-medium">{variable.label}</p>
+                          <p className="text-xs text-muted-foreground">{variable.description}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </TooltipProvider>
+              </div>
               
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -532,9 +613,10 @@ Contexto do setor: ${context || 'Atendimento ao cliente'}`,
                 </div>
                 <Textarea
                   id="mensagem_boas_vindas"
-                  placeholder="Olá! Seu ticket de suporte foi aberto. Em breve um atendente irá ajudá-lo."
+                  placeholder="Olá {{clienteNome}}! Seu ticket #{{ticketNumero}} foi aberto. Em breve um atendente irá ajudá-lo."
                   {...register("mensagem_boas_vindas")}
                   rows={2}
+                  onFocus={() => setActiveTextareaField('mensagem_boas_vindas')}
                 />
                 <p className="text-xs text-muted-foreground">
                   Enviada automaticamente quando um novo ticket é criado
@@ -562,9 +644,10 @@ Contexto do setor: ${context || 'Atendimento ao cliente'}`,
                 </div>
                 <Textarea
                   id="mensagem_reabertura"
-                  placeholder="Seu ticket foi reaberto. Um atendente irá retomar seu atendimento em breve."
+                  placeholder="Olá {{clienteNome}}! Seu ticket #{{ticketNumero}} foi reaberto. {{atendenteNome}} irá retomar seu atendimento."
                   {...register("mensagem_reabertura")}
                   rows={2}
+                  onFocus={() => setActiveTextareaField('mensagem_reabertura')}
                 />
                 <p className="text-xs text-muted-foreground">
                   Enviada quando um ticket é reaberto manualmente por um agente
@@ -592,9 +675,10 @@ Contexto do setor: ${context || 'Atendimento ao cliente'}`,
                 </div>
                 <Textarea
                   id="mensagem_encerramento"
-                  placeholder="Seu atendimento foi encerrado. Por favor, avalie nosso atendimento de 1 a 5."
+                  placeholder="Olá {{clienteNome}}! Seu atendimento #{{ticketNumero}} foi encerrado. Avalie nosso atendimento de 1 a 5."
                   {...register("mensagem_encerramento")}
                   rows={2}
+                  onFocus={() => setActiveTextareaField('mensagem_encerramento')}
                 />
                 <p className="text-xs text-muted-foreground">
                   Enviada quando o ticket é finalizado, seguida de solicitação de feedback

@@ -1434,6 +1434,23 @@ async function processMessageUpsert(payload: EvolutionWebhookPayload, supabase: 
 
     console.log('[evolution-webhook] Message saved successfully');
 
+    // Dispatch webhook for new message event
+    await dispatchWebhook(supabase, 'new_message', {
+      conversation_id: conversationId,
+      message_id: key.id,
+      content: content,
+      message_type: messageType,
+      is_from_me: key.fromMe || false,
+      contact_id: contactId,
+      instance_id: instanceData.id,
+      sector_id: sectorId,
+      ticket_id: currentTicketId,
+      timestamp: timestamp,
+      media_url: mediaUrl,
+      sender_name: senderName,
+      is_group: isGroup,
+    }, instanceData.id);
+
     // SLA tracking: If agent responds to a ticket, track first response
     if (key.fromMe && currentTicketId) {
       await updateFirstResponseIfNeeded(supabase, currentTicketId);

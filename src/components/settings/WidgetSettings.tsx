@@ -522,7 +522,50 @@ export function WidgetSettings() {
                   {/* Instalar */}
                   <TabsContent value="embed" className="space-y-4">
                     <div className="space-y-2">
-                      <Label>Código de instalação</Label>
+                      <Label>Modo do Widget</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Escolha como o widget será exibido
+                      </p>
+                      <div className="grid grid-cols-2 gap-4 pt-2">
+                        <div 
+                          className="border rounded-lg p-4 cursor-pointer hover:border-primary transition-colors"
+                          onClick={() => window.open(`/widget.html?id=${currentWidget.id}&mode=widget`, '_blank')}
+                        >
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                              <MessageSquare className="h-5 w-5 text-primary" />
+                            </div>
+                            <div>
+                              <h4 className="font-medium">Widget</h4>
+                              <p className="text-xs text-muted-foreground">Botão flutuante</p>
+                            </div>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Aparece como um botão no canto da página que abre um popup de chat.
+                          </p>
+                        </div>
+                        <div 
+                          className="border rounded-lg p-4 cursor-pointer hover:border-primary transition-colors"
+                          onClick={() => window.open(`/widget.html?id=${currentWidget.id}&mode=page`, '_blank')}
+                        >
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                              <Globe className="h-5 w-5 text-primary" />
+                            </div>
+                            <div>
+                              <h4 className="font-medium">Página</h4>
+                              <p className="text-xs text-muted-foreground">Tela cheia</p>
+                            </div>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            O chat ocupa toda a tela, ideal para páginas dedicadas de suporte.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 pt-4">
+                      <Label>Código de instalação (Modo Widget)</Label>
                       <p className="text-sm text-muted-foreground">
                         Cole este código antes do fechamento da tag &lt;/body&gt; do seu site
                       </p>
@@ -543,17 +586,42 @@ export function WidgetSettings() {
                     </div>
 
                     <div className="space-y-2 pt-4">
-                      <Label>Testar widget</Label>
+                      <Label>Link direto (Modo Página)</Label>
                       <p className="text-sm text-muted-foreground">
-                        Abra uma página de teste para ver o widget em ação
+                        Use este link para uma página de chat dedicada
                       </p>
-                      <Button
-                        variant="outline"
-                        onClick={() => window.open(`/widget.html?id=${currentWidget.id}`, '_blank')}
-                      >
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        Abrir página de teste
-                      </Button>
+                      <div className="flex gap-2">
+                        <Input value={`${window.location.origin}/widget.html?id=${currentWidget.id}&mode=page`} readOnly />
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            navigator.clipboard.writeText(`${window.location.origin}/widget.html?id=${currentWidget.id}&mode=page`);
+                            toast({ title: 'Link copiado!' });
+                          }}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 pt-4">
+                      <Label>Testar widget</Label>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => window.open(`/widget.html?id=${currentWidget.id}&mode=widget`, '_blank')}
+                        >
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          Modo Widget
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => window.open(`/widget.html?id=${currentWidget.id}&mode=page`, '_blank')}
+                        >
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          Modo Página
+                        </Button>
+                      </div>
                     </div>
 
                     <div className="space-y-2 pt-4">

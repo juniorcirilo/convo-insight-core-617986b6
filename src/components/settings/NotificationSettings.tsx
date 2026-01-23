@@ -18,6 +18,8 @@ export interface NotificationSettingsData {
   showForReplies: boolean;
   showForTransfers: boolean;
   customAudioUrl: string | null;
+  customAudioNewConversation: string | null;
+  customAudioTransfer: string | null;
   toastDuration: number; // in seconds
 }
 
@@ -29,6 +31,8 @@ const defaultSettings: NotificationSettingsData = {
   showForReplies: true,
   showForTransfers: true,
   customAudioUrl: null,
+  customAudioNewConversation: null,
+  customAudioTransfer: null,
   toastDuration: 5,
 };
 
@@ -55,6 +59,8 @@ export function NotificationSettings() {
   const [settings, setSettings] = useState<NotificationSettingsData>(getNotificationSettings);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputNewConvRef = useRef<HTMLInputElement>(null);
+  const fileInputTransferRef = useRef<HTMLInputElement>(null);
 
   const updateSetting = <K extends keyof NotificationSettingsData>(
     key: K,
@@ -65,7 +71,10 @@ export function NotificationSettings() {
     saveNotificationSettings(newSettings);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUploadFor = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    settingKey: "customAudioUrl" | "customAudioNewConversation" | "customAudioTransfer"
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -93,7 +102,7 @@ export function NotificationSettings() {
     const reader = new FileReader();
     reader.onload = () => {
       const base64 = reader.result as string;
-      updateSetting("customAudioUrl", base64);
+      updateSetting(settingKey, base64);
       toast({
         title: "Áudio atualizado",
         description: "O som de notificação personalizado foi salvo.",
@@ -102,13 +111,30 @@ export function NotificationSettings() {
     reader.readAsDataURL(file);
   };
 
-  const playTestSound = () => {
-    const audioSrc = settings.customAudioUrl || "/notification.mp3";
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    handleFileUploadFor(e, "customAudioUrl");
+  };
+
+  const playTestSoundFor = (
+    settingKey: "customAudioUrl" | "customAudioNewConversation" | "customAudioTransfer",
+    description: string
+  ) => {
+    const audioSrc = settings[settingKey] || settings.customAudioUrl || "/notification.mp3";
     if (audioRef.current) {
       audioRef.current.src = audioSrc;
       audioRef.current.currentTime = 0;
       audioRef.current.play().catch(console.error);
     }
+    
+    // Show test toast
+    toast({
+      title: "Notificação",
+      description,
+    });
+  };
+
+  const playTestSound = () => {
+    playTestSoundFor("customAudioUrl", "Este é um exemplo de notificação de mensagem recebida.");
   };
 
   const removeCustomAudio = () => {
@@ -224,11 +250,11 @@ export function NotificationSettings() {
               </div>
             </div>
 
-            {/* Custom audio */}
+            {/* Custom audio - Default */}
             <div className="space-y-3">
               <Label className="flex items-center gap-2">
                 <Volume2 className="h-4 w-4" />
-                Som personalizado
+                Som padrão (respostas)
               </Label>
               
               <div className="flex items-center gap-2">
@@ -246,7 +272,7 @@ export function NotificationSettings() {
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <Upload className="h-4 w-4 mr-2" />
-                  Enviar áudio
+                  Enviar
                 </Button>
 
                 <Button
@@ -265,13 +291,120 @@ export function NotificationSettings() {
                     onClick={removeCustomAudio}
                     className="text-destructive"
                   >
-                    <X className="h-4 w-4 mr-2" />
-                    Remover
+                    <X className="h-4 w-4" />
                   </Button>
                 )}
               </div>
 
               {settings.customAudioUrl && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  Som personalizado configurado
+                </p>
+              )}
+            </div>
+
+            {/* Custom audio - New Conversation */}
+            <div className="space-y-3">
+              <Label className="flex items-center gap-2">
+                <Volume2 className="h-4 w-4" />
+                Som para nova conversa
+              </Label>
+              
+              <div className="flex items-center gap-2">
+                <input
+                  ref={fileInputNewConvRef}
+                  type="file"
+                  accept="audio/*"
+                  onChange={(e) => handleFileUploadFor(e, "customAudioNewConversation")}
+                  className="hidden"
+                />
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputNewConvRef.current?.click()}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Enviar
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => playTestSoundFor("customAudioNewConversation", "Nova conversa iniciada")}
+                >
+                  <Play className="h-4 w-4 mr-2" />
+                  Testar
+                </Button>
+
+                {settings.customAudioNewConversation && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => updateSetting("customAudioNewConversation", null)}
+                    className="text-destructive"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+
+              {settings.customAudioNewConversation && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  Som personalizado configurado
+                </p>
+              )}
+            </div>
+
+            {/* Custom audio - Transfer */}
+            <div className="space-y-3">
+              <Label className="flex items-center gap-2">
+                <Volume2 className="h-4 w-4" />
+                Som para transferência
+              </Label>
+              
+              <div className="flex items-center gap-2">
+                <input
+                  ref={fileInputTransferRef}
+                  type="file"
+                  accept="audio/*"
+                  onChange={(e) => handleFileUploadFor(e, "customAudioTransfer")}
+                  className="hidden"
+                />
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputTransferRef.current?.click()}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Enviar
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => playTestSoundFor("customAudioTransfer", "Conversa transferida")}
+                >
+                  <Play className="h-4 w-4 mr-2" />
+                  Testar
+                </Button>
+
+                {settings.customAudioTransfer && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => updateSetting("customAudioTransfer", null)}
+                    className="text-destructive"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+
+              {settings.customAudioTransfer && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <AlertCircle className="h-3 w-3" />
                   Som personalizado configurado

@@ -6,6 +6,7 @@ export interface AIAgentConfig {
   id: string;
   sector_id: string;
   agent_name: string;
+  agent_image: string | null;
   persona_description: string | null;
   welcome_message: string | null;
   tone_of_voice: 'professional' | 'friendly' | 'casual';
