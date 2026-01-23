@@ -91,11 +91,14 @@ export const useUpdatePermissionDefault = () => {
       if (context?.previous) {
         queryClient.setQueryData(['permission-types'], context.previous);
       }
+      console.error('Permission update error:', err);
       toast.error('Erro ao atualizar padrão: ' + (err?.message || err));
+    },
+    onSuccess: () => {
+      toast.success('Padrão de permissão atualizado');
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['permission-types'] });
-      toast.success('Padrão de permissão atualizado');
     },
   });
 };

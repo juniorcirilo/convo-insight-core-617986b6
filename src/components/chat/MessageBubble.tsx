@@ -5,6 +5,7 @@ import { Tables } from "@/integrations/supabase/types";
 import { format } from "date-fns";
 import { Check, CheckCheck, Clock, Reply, Pencil, User, Eye, UserCog, Loader2, Bot } from "lucide-react";
 import { AIFeedbackButton } from "@/components/ai-agent";
+import MediaPlayer from '@/components/ui/MediaPlayer';
 import { cn } from "@/lib/utils";
 import { QuotedMessagePreview } from "./QuotedMessagePreview";
 import { ImageViewerModal } from "./ImageViewerModal";
@@ -160,9 +161,9 @@ export const MessageBubble = ({ message, reactions = [], onReply, isGroupChat = 
         return (
           <div className="space-y-2">
             {isMediaLoading ? renderMediaLoading() : mediaUrl ? (
-              <audio controls className="max-w-xs">
-                <source src={mediaUrl} type={message.media_mimetype || 'audio/ogg'} />
-              </audio>
+              <div className="max-w-xs">
+                <MediaPlayer src={mediaUrl} type="audio" mimeType={message.media_mimetype || 'audio/ogg'} />
+              </div>
             ) : message.media_url ? renderMediaError('audio') : null}
             {message.transcription_status === 'processing' && (
               <p className={cn(
@@ -188,9 +189,9 @@ export const MessageBubble = ({ message, reactions = [], onReply, isGroupChat = 
         return (
           <div className="space-y-2">
             {isMediaLoading ? renderMediaLoading() : mediaUrl ? (
-              <video controls className="max-w-xs rounded-md">
-                <source src={mediaUrl} type={message.media_mimetype || 'video/mp4'} />
-              </video>
+              <div className="max-w-xs">
+                <MediaPlayer src={mediaUrl} type="video" mimeType={message.media_mimetype || 'video/mp4'} />
+              </div>
             ) : message.media_url ? renderMediaError('video') : null}
             {message.content && <p className="text-sm">{message.content}</p>}
           </div>
