@@ -1,73 +1,167 @@
-# Welcome to your Lovable project
+# ConvoInsight Core
 
-## Project info
+> **🚧 Migration in Progress**: This project is currently being migrated from Supabase to a custom Express + TypeScript + Drizzle ORM stack. See [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) for details.
 
-**URL**: https://lovable.dev/projects/b2c8b96c-ef0f-4157-9f8e-8be77a1a53b0
+An AI-powered WhatsApp conversation management and lead qualification system.
 
-## How can I edit this code?
+## Architecture
 
-There are several ways of editing your application.
+### Frontend
+- **Framework**: React + TypeScript + Vite
+- **UI**: Shadcn/ui + Tailwind CSS
+- **State**: React Query + Context API
+- **Real-time**: Socket.IO Client (migrating from Supabase Realtime)
 
-**Use Lovable**
+### Backend (New)
+- **Framework**: Express + TypeScript
+- **ORM**: Drizzle ORM
+- **Database**: PostgreSQL
+- **Storage**: MinIO
+- **Auth**: JWT (access + refresh tokens)
+- **Real-time**: Socket.IO
+- **API**: RESTful with Zod validation
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/b2c8b96c-ef0f-4157-9f8e-8be77a1a53b0) and start prompting.
+## Quick Start
 
-Changes made via Lovable will be committed automatically to this repo.
+### Prerequisites
+- Node.js 20+
+- Docker & Docker Compose (recommended)
+- Or: PostgreSQL 15+ and MinIO
 
-**Use your preferred IDE**
+### Development Setup
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+#### Option 1: Docker Compose (Recommended)
+```bash
+# Start all services (Postgres, MinIO, Backend)
+docker-compose up
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Frontend (separate terminal)
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+#### Option 2: Manual Setup
+```bash
+# 1. Start PostgreSQL and MinIO (your way)
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+# 2. Backend setup
+cd backend
+npm install
+cp .env.example .env
+# Edit .env with your database and MinIO credentials
+npm run db:push  # Initialize database
+npm run dev
 
-**Use GitHub Codespaces**
+# 3. Frontend setup (new terminal)
+cd ..
+npm install
+npm run dev
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Environment Variables
 
-## What technologies are used for this project?
+#### Backend (.env)
+See `backend/.env.example` for all variables. Key ones:
+- `DATABASE_URL` - PostgreSQL connection string
+- `JWT_SECRET` - Secret for access tokens (32+ chars)
+- `JWT_REFRESH_SECRET` - Secret for refresh tokens (32+ chars)
+- `MINIO_ENDPOINT` - MinIO server endpoint
+- `CORS_ORIGIN` - Frontend URL for CORS
 
-This project is built with:
+#### Frontend (.env)
+```env
+VITE_API_URL=http://localhost:3000/api
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Project Structure
 
-## How can I deploy this project?
+```
+├── backend/                    # Express backend (NEW)
+│   ├── src/
+│   │   ├── config/            # Database, MinIO, env config
+│   │   ├── db/schema/         # Drizzle ORM schemas
+│   │   ├── middleware/        # Auth, CORS, error handling
+│   │   ├── routes/            # API routes
+│   │   ├── controllers/       # Route handlers
+│   │   ├── services/          # Business logic
+│   │   └── server.ts          # Entry point
+│   └── package.json
+├── src/                        # Frontend
+│   ├── components/            # React components
+│   ├── hooks/                 # Custom hooks
+│   ├── lib/                   # Utilities
+│   │   └── api-client.ts     # NEW: API client with axios
+│   ├── pages/                 # Page components
+│   └── contexts/              # React contexts
+├── docker-compose.yml         # NEW: Local dev environment
+└── MIGRATION_GUIDE.md         # NEW: Migration progress & guide
+```
 
-Simply open [Lovable](https://lovable.dev/projects/b2c8b96c-ef0f-4157-9f8e-8be77a1a53b0) and click on Share -> Publish.
+## API Documentation
 
-## Can I connect a custom domain to my Lovable project?
+### Authentication
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/login` - Login (returns access + refresh token)
+- `POST /api/auth/refresh` - Refresh access token
+- `POST /api/auth/logout` - Logout
 
-Yes, you can!
+### Storage
+- `POST /api/storage/:bucket/upload` - Upload file
+- `GET /api/storage/:bucket/:filename` - Download file
+- `DELETE /api/storage/:bucket/:filename` - Delete file
+- `GET /api/storage/:bucket/:filename/url` - Get presigned URL
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### Real-time (Socket.IO)
+- `subscribe:conversation` - Subscribe to conversation updates
+- `subscribe:ticket` - Subscribe to ticket updates
+- `conversation:update` - Receive conversation updates
+- `ticket:update` - Receive ticket updates
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## Features
+
+- ✅ JWT Authentication with refresh tokens
+- ✅ File upload/download with MinIO
+- ✅ Real-time updates with Socket.IO
+- ✅ Role-based access control (Admin, Supervisor, Agent)
+- ✅ Docker development environment
+- 🚧 WhatsApp integration (migrating)
+- 🚧 AI-powered responses (migrating)
+- 🚧 Lead qualification (migrating)
+- 🚧 Ticket management (migrating)
+
+## Migration Status
+
+✅ **Phase 1 Complete**: Backend infrastructure with Express, Drizzle ORM, JWT auth, MinIO, Socket.IO, Docker
+
+🚧 **In Progress**:
+- Database schema completion (~30% done)
+- Edge function migration to Express routes
+- Frontend hooks migration to API client
+- Real-time subscriptions to Socket.IO
+
+📋 **See [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) for detailed progress and next steps**
+
+## Development
+
+```bash
+# Frontend
+npm run dev          # Start dev server
+npm run build        # Build for production
+npm run lint         # Run ESLint
+
+# Backend
+cd backend
+npm run dev          # Start with hot reload
+npm run build        # Compile TypeScript
+npm run start        # Run compiled version
+npm run db:generate  # Generate migrations
+npm run db:push      # Push schema to database
+```
+
+## Contributing
+
+This project is under active migration. Please see MIGRATION_GUIDE.md before contributing.
+
+## License
+
+Private project.

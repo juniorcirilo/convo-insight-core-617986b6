@@ -32,6 +32,9 @@ export function createApp(): Application {
 
   // API routes
   app.use('/api/auth', authRoutes);
+  
+  // Storage routes will be added
+  // app.use('/api/storage', storageRoutes);
 
   // Error handling
   app.use(errorHandler);
