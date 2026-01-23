@@ -113,7 +113,9 @@ export function SectorsManager() {
                   )}
                 </div>
                 <CardDescription>
-                  {sector.instance_name || 'Instância não definida'}
+                  {(sector.instance_names?.length || 0) > 1 
+                    ? `${sector.instance_names?.length} instâncias`
+                    : sector.instance_name || 'Instância não definida'}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">

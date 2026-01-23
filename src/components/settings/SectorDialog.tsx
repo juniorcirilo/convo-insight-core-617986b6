@@ -56,7 +56,7 @@ interface SectorDialogProps {
 interface FormData {
   name: string;
   description: string;
-  instance_id: string;
+  instance_ids: string[];
   is_default: boolean;
   tipo_atendimento: 'humano' | 'chatbot';
   gera_ticket: boolean;
@@ -92,7 +92,7 @@ export function SectorDialog({
     defaultValues: {
       name: "",
       description: "",
-      instance_id: "",
+      instance_ids: [],
       is_default: false,
       tipo_atendimento: "humano",
       gera_ticket: false,
@@ -109,19 +109,19 @@ export function SectorDialog({
   const geraTicketGrupos = watch("gera_ticket_grupos");
   const geraTicket = geraTicketUsuarios || geraTicketGrupos;
   const gruposPermitidosTodos = watch("grupos_permitidos_todos");
-  const instanceId = watch("instance_id");
+  const instanceIds = watch("instance_ids");
   const tipoAtendimento = watch("tipo_atendimento");
 
-  // Fetch group contacts for the selected instance
+  // Fetch group contacts for the selected instances
   const { data: groupContacts = [] } = useQuery({
-    queryKey: ['group-contacts', instanceId],
+    queryKey: ['group-contacts', instanceIds],
     queryFn: async () => {
-      if (!instanceId) return [];
+      if (!instanceIds || instanceIds.length === 0) return [];
       const { data, error } = await supabase
         .from('whatsapp_contacts')
         .select('id, phone_number, name')
         .is('deleted_at', null)
-        .eq('instance_id', instanceId)
+        .in('instance_id', instanceIds)
         .eq('is_group', true)
         .order('name');
       // Exclude soft-deleted groups
@@ -132,7 +132,7 @@ export function SectorDialog({
       if (error) throw error;
       return data as GroupContact[];
     },
-    enabled: !!instanceId,
+    enabled: instanceIds && instanceIds.length > 0,
   });
 
   // Fetch allowed groups for this sector
@@ -169,10 +169,15 @@ export function SectorDialog({
 
   useEffect(() => {
     if (sector) {
+      // Usar instance_ids se disponível, senão usar instance_id legado
+      const sectorInstanceIds = (sector as any).instance_ids?.length > 0 
+        ? (sector as any).instance_ids 
+        : sector.instance_id ? [sector.instance_id] : [];
+      
       reset({
         name: sector.name,
         description: sector.description || "",
-        instance_id: sector.instance_id,
+        instance_ids: sectorInstanceIds,
         is_default: sector.is_default,
         tipo_atendimento: sector.tipo_atendimento || "humano",
         gera_ticket: sector.gera_ticket || false,
@@ -187,7 +192,7 @@ export function SectorDialog({
       reset({
         name: "",
         description: "",
-        instance_id: instances[0]?.id || "",
+        instance_ids: instances.length === 1 ? [instances[0].id] : [],
         is_default: false,
         tipo_atendimento: "humano",
         gera_ticket: false,
@@ -288,12 +293,21 @@ Importante: quando fizer referência ao cliente ou ao ticket, use as variáveis 
   };
 
   const onSubmit = async (data: FormData) => {
+    if (data.instance_ids.length === 0) {
+      toast({
+        title: "Selecione ao menos uma instância",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const geraTicketAtivo = data.gera_ticket_usuarios || data.gera_ticket_grupos;
     
     const payload = {
       name: data.name,
       description: data.description || null,
-      instance_id: data.instance_id,
+      instance_id: data.instance_ids[0], // Primeira instância para compatibilidade
+      instance_ids: data.instance_ids,
       is_default: data.is_default,
       is_active: true,
       tipo_atendimento: data.tipo_atendimento,
@@ -382,22 +396,39 @@ Importante: quando fizer referência ao cliente ou ao ticket, use as variáveis 
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="instance">Instância</Label>
-            <Select
-              value={watch("instance_id")}
-              onValueChange={(value) => setValue("instance_id", value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecionar instância..." />
-              </SelectTrigger>
-              <SelectContent>
-                {instances.map((instance) => (
-                  <SelectItem key={instance.id} value={instance.id}>
-                    {instance.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Instâncias</Label>
+            <div className="rounded-md border p-3 space-y-2">
+              {instances.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhuma instância disponível</p>
+              ) : (
+                instances.map((instance) => (
+                  <div key={instance.id} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`instance-${instance.id}`}
+                      checked={instanceIds.includes(instance.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setValue("instance_ids", [...instanceIds, instance.id]);
+                        } else {
+                          setValue("instance_ids", instanceIds.filter(id => id !== instance.id));
+                        }
+                      }}
+                    />
+                    <Label 
+                      htmlFor={`instance-${instance.id}`} 
+                      className="text-sm font-normal cursor-pointer flex-1"
+                    >
+                      {instance.name}
+                    </Label>
+                  </div>
+                ))
+              )}
+            </div>
+            {instanceIds.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {instanceIds.length} instância(s) selecionada(s)
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
