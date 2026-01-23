@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { Play, Pause, Volume2, VolumeX, Download, Mic } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface MediaPlayerProps {
   src: string;
@@ -9,6 +10,8 @@ interface MediaPlayerProps {
   mimeType?: string;
   className?: string;
   isVoiceMessage?: boolean;
+  senderAvatar?: string;
+  senderName?: string;
 }
 
 const formatTime = (s: number) => {
@@ -19,7 +22,7 @@ const formatTime = (s: number) => {
 };
 
 // Generate stable waveform bars based on src
-const generateWaveformBars = (seed: string, count: number = 35) => {
+const generateWaveformBars = (seed: string, count: number = 28) => {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {
     hash = ((hash << 5) - hash) + seed.charCodeAt(i);
@@ -28,7 +31,9 @@ const generateWaveformBars = (seed: string, count: number = 35) => {
   
   return Array.from({ length: count }).map((_, i) => {
     const seedVal = Math.abs(hash + i * 31);
-    return 25 + (seedVal % 50);
+    // Create more natural waveform pattern
+    const base = 20 + (seedVal % 60);
+    return base;
   });
 };
 
@@ -38,7 +43,9 @@ export const MediaPlayer: React.FC<MediaPlayerProps> = ({
   poster, 
   mimeType, 
   className,
-  isVoiceMessage = false 
+  isVoiceMessage = false,
+  senderAvatar,
+  senderName = "User"
 }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -154,8 +161,12 @@ export const MediaPlayer: React.FC<MediaPlayerProps> = ({
 
   // WhatsApp style audio player
   if (type === 'audio') {
+    const getInitials = (name: string) => {
+      return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    };
+
     return (
-      <div className={cn('w-full max-w-[280px]', className)}>
+      <div className={cn('w-full max-w-[300px]', className)}>
         <audio 
           ref={audioRef} 
           src={src} 
@@ -163,33 +174,47 @@ export const MediaPlayer: React.FC<MediaPlayerProps> = ({
           crossOrigin="anonymous"
         />
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3 p-2 rounded-xl bg-[#1f3d38] dark:bg-[#1f3d38]">
+          {/* Avatar with mic icon overlay */}
+          <div className="relative shrink-0">
+            <Avatar className="h-11 w-11 border-2 border-[#00a884]">
+              <AvatarImage src={senderAvatar} alt={senderName} />
+              <AvatarFallback className="bg-[#00a884]/20 text-[#00a884] text-sm font-medium">
+                {getInitials(senderName)}
+              </AvatarFallback>
+            </Avatar>
+            {/* Mic icon overlay */}
+            <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-[#00a884] flex items-center justify-center">
+              <Mic className="h-3 w-3 text-white" />
+            </div>
+          </div>
+
           {/* Play/Pause button */}
           <button
             aria-label={isPlaying ? 'Pausar' : 'Tocar'}
             onClick={togglePlay}
             disabled={error}
             className={cn(
-              "inline-flex items-center justify-center rounded-full shrink-0 transition-all",
-              "h-10 w-10 bg-emerald-500 text-white hover:bg-emerald-600",
+              "shrink-0 transition-all",
+              "text-[#8696a0] hover:text-white",
               "disabled:opacity-50 disabled:cursor-not-allowed"
             )}
           >
             {isPlaying ? (
-              <Pause className="h-5 w-5" />
+              <Pause className="h-7 w-7" fill="currentColor" />
             ) : (
-              <Play className="h-5 w-5 ml-0.5" />
+              <Play className="h-7 w-7" fill="currentColor" />
             )}
           </button>
 
-          {/* Progress section */}
+          {/* Waveform and time */}
           <div className="flex-1 min-w-0">
-            {/* Waveform progress bar */}
+            {/* Waveform progress bar with dot indicator */}
             <div 
-              className="relative h-7 flex items-center cursor-pointer"
+              className="relative h-6 flex items-center cursor-pointer"
               onClick={handleSeek}
             >
-              <div className="w-full h-full flex items-center gap-[1px]">
+              <div className="w-full h-full flex items-center gap-[2px]">
                 {waveformBars.map((height, i) => {
                   const barProgress = ((i + 1) / waveformBars.length) * 100;
                   const isActive = barProgress <= progress;
@@ -197,34 +222,34 @@ export const MediaPlayer: React.FC<MediaPlayerProps> = ({
                     <div
                       key={i}
                       className={cn(
-                        "flex-1 rounded-full transition-colors duration-100",
-                        isActive ? "bg-emerald-600" : "bg-muted-foreground/25"
+                        "flex-1 rounded-full transition-colors duration-75",
+                        isActive ? "bg-[#00a884]" : "bg-[#8696a0]/40"
                       )}
                       style={{ height: `${height}%` }}
                     />
                   );
                 })}
               </div>
+              {/* Progress dot indicator */}
+              <div 
+                className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-[#00a884] shadow-lg transition-all"
+                style={{ left: `calc(${progress}% - 6px)` }}
+              />
             </div>
             
             {/* Time display */}
-            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-              <span>{formatTime(isPlaying ? currentTime : duration)}</span>
-              <button
-                onClick={cyclePlaybackRate}
-                className="font-medium hover:text-foreground transition-colors"
-              >
-                {playbackRate}x
-              </button>
+            <div className="flex items-center gap-2 text-[11px] text-[#8696a0] mt-0.5">
+              <span>{formatTime(currentTime || duration)}</span>
+              {playbackRate !== 1 && (
+                <button
+                  onClick={cyclePlaybackRate}
+                  className="font-medium hover:text-white transition-colors px-1 py-0.5 rounded bg-[#8696a0]/20"
+                >
+                  {playbackRate}×
+                </button>
+              )}
             </div>
           </div>
-
-          {/* Voice message icon */}
-          {isVoiceMessage && (
-            <div className="w-9 h-9 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
-              <Mic className="h-4 w-4 text-emerald-600" />
-            </div>
-          )}
         </div>
       </div>
     );
@@ -235,7 +260,7 @@ export const MediaPlayer: React.FC<MediaPlayerProps> = ({
     <div className={cn('w-full max-w-md', className)}>
       <div className="relative rounded-lg overflow-hidden bg-black">
         <video
-          ref={(el) => (mediaRef.current = el)}
+          ref={videoRef}
           src={src}
           poster={poster}
           className="w-full"
@@ -272,15 +297,6 @@ export const MediaPlayer: React.FC<MediaPlayerProps> = ({
               className="absolute h-full bg-primary transition-all"
               style={{ width: `${progress}%` }}
             />
-            <input
-              type="range"
-              min={0}
-              max={duration || 0}
-              step={0.1}
-              value={currentTime}
-              onChange={onSeek}
-              className="absolute inset-0 w-full opacity-0 cursor-pointer"
-            />
           </div>
           <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
             <span>{formatTime(currentTime)}</span>
@@ -295,9 +311,6 @@ export const MediaPlayer: React.FC<MediaPlayerProps> = ({
             aria-label={muted ? 'Desmutar' : 'Mutar'}
           >
             {muted || volume === 0 ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-          </button>
-          <button onClick={download} className="p-1 rounded hover:bg-muted" aria-label="Download">
-            <Download className="h-4 w-4" />
           </button>
         </div>
       </div>

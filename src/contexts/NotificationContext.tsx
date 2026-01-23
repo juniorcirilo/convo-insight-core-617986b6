@@ -2,6 +2,8 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 import { supabase } from "@/integrations/supabase/client";
 import { playNotificationSound } from "@/utils/notificationSound";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "@/hooks/use-toast";
+import { getNotificationSettings, NotificationSettingsData } from "@/components/settings/NotificationSettings";
 
 interface NotificationContextType {
   permission: NotificationPermission;
@@ -17,6 +19,16 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 const SOUND_ENABLED_KEY = "whatsapp-sound-enabled";
 
+// Custom audio player that uses settings
+const playCustomNotificationSound = (settings: NotificationSettingsData) => {
+  if (!settings.soundEnabled) return;
+  
+  const audioSrc = settings.customAudioUrl || "/notification.mp3";
+  const audio = new Audio(audioSrc);
+  audio.volume = 0.5;
+  audio.play().catch(console.error);
+};
+
 export const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
   const [permission, setPermission] = useState<NotificationPermission>(
     typeof Notification !== "undefined" ? Notification.permission : "default"
@@ -27,6 +39,19 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
   });
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const selectedConversationRef = useRef<string | null>(null);
+  const notificationSettingsRef = useRef<NotificationSettingsData>(getNotificationSettings());
+
+  // Listen for settings changes
+  useEffect(() => {
+    const handleSettingsChange = (e: CustomEvent<NotificationSettingsData>) => {
+      notificationSettingsRef.current = e.detail;
+    };
+    
+    window.addEventListener("notification-settings-changed" as any, handleSettingsChange);
+    return () => {
+      window.removeEventListener("notification-settings-changed" as any, handleSettingsChange);
+    };
+  }, []);
 
   // Sync ref with state for realtime listener
   useEffect(() => {
@@ -118,6 +143,10 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
         },
         async (payload) => {
           const newMessage = payload.new as any;
+          const settings = notificationSettingsRef.current;
+
+          // Check if notifications are enabled
+          if (!settings.enabled) return;
 
           // Ignore messages sent by us
           if (newMessage.is_from_me) return;
@@ -129,20 +158,31 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
           try {
             const { data: conversation } = await supabase
               .from("whatsapp_conversations")
-              .select("contact:whatsapp_contacts(name)")
+              .select("contact:whatsapp_contacts(name), status")
               .eq("id", newMessage.conversation_id)
               .single();
 
             const contactName = conversation?.contact?.name || "Contato";
             const messagePreview = newMessage.content || "Nova mensagem";
 
-            // Play sound
-            if (soundEnabled) {
-              playNotificationSound();
-            }
+            // Determine notification type and check settings
+            const isNewConversation = conversation?.status === "pending" || conversation?.status === "open";
+            
+            if (settings.showForReplies) {
+              // Play sound
+              if (settings.soundEnabled) {
+                playCustomNotificationSound(settings);
+              }
 
-            // Show web push notification
-            showWebNotification(contactName, messagePreview, newMessage.conversation_id);
+              // Show toast notification
+              toast({
+                title: contactName,
+                description: messagePreview.substring(0, 80) + (messagePreview.length > 80 ? "..." : ""),
+              });
+
+              // Show web push notification
+              showWebNotification(contactName, messagePreview, newMessage.conversation_id);
+            }
           } catch (error) {
             console.error("Error processing notification:", error);
           }
@@ -154,6 +194,101 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
       supabase.removeChannel(channel);
     };
   }, [soundEnabled, showWebNotification]);
+
+  // Global listener for conversation transfers/assignments
+  useEffect(() => {
+    const channel = supabase
+      .channel("global-transfers")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "whatsapp_conversations",
+        },
+        async (payload) => {
+          const settings = notificationSettingsRef.current;
+          if (!settings.enabled || !settings.showForTransfers) return;
+
+          const oldConv = payload.old as any;
+          const newConv = payload.new as any;
+
+          // Check if assigned_to changed (transfer/assignment)
+          if (oldConv.assigned_to === newConv.assigned_to) return;
+          if (!newConv.assigned_to) return; // Ignore when unassigning
+
+          // Get current user
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return;
+
+          // Check if current user is the one being assigned
+          if (newConv.assigned_to === user.id) {
+            // Fetch contact info
+            const { data: conversation } = await supabase
+              .from("whatsapp_conversations")
+              .select("contact:whatsapp_contacts(name)")
+              .eq("id", newConv.id)
+              .single();
+
+            const contactName = conversation?.contact?.name || "Contato";
+            
+            // Play sound
+            if (settings.soundEnabled) {
+              playCustomNotificationSound(settings);
+            }
+
+            // Show toast
+            toast({
+              title: "Conversa transferida para você",
+              description: `${contactName} foi atribuída a você`,
+            });
+          }
+
+          // Check if current user is admin/supervisor in the sector and should be notified
+          try {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("role")
+              .eq("id", user.id)
+              .single();
+
+            if (profile?.role === "admin" || profile?.role === "supervisor") {
+              // Get the assignee name
+              const { data: assignee } = await supabase
+                .from("profiles")
+                .select("full_name")
+                .eq("id", newConv.assigned_to)
+                .single();
+
+              // Get contact info
+              const { data: conversation } = await supabase
+                .from("whatsapp_conversations")
+                .select("contact:whatsapp_contacts(name)")
+                .eq("id", newConv.id)
+                .single();
+
+              const contactName = conversation?.contact?.name || "Contato";
+              const assigneeName = assignee?.full_name || "Atendente";
+
+              // Only notify if current user is NOT the assignee
+              if (newConv.assigned_to !== user.id) {
+                toast({
+                  title: "Conversa atribuída",
+                  description: `${contactName} foi atribuída a ${assigneeName}`,
+                });
+              }
+            }
+          } catch (error) {
+            console.error("Error checking admin status:", error);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   return (
     <NotificationContext.Provider

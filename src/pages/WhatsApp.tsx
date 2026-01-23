@@ -158,7 +158,7 @@ const WhatsApp = () => {
           </ResizablePanel>
 
           {/* Details Sidebar */}
-          <ResizableHandle />
+          <ResizableHandle withHandle />
           <ResizablePanel 
             defaultSize={isDetailsSidebarCollapsed ? 3 : 20} 
             minSize={3} 

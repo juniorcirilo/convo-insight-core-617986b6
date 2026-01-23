@@ -3,7 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Plus, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { InstancesList, AddInstanceDialog, TeamMembersList, AssignmentRulesManager, InstanceSetupCollapsible, SetupGuideCollapsible, SecuritySettings, WebhooksManager, ApiTokensManager, SectorsManager, AIAssistantSettings, WidgetSettings } from "@/components/settings";
+import { InstancesList, AddInstanceDialog, TeamMembersList, AssignmentRulesManager, InstanceSetupCollapsible, SetupGuideCollapsible, SecuritySettings, WebhooksManager, ApiTokensManager, SectorsManager, AIAssistantSettings, WidgetSettings, NotificationSettings, FilterPillsSettings } from "@/components/settings";
 import { MacrosManager } from "@/components/macros";
 import { CampaignsManager } from "@/components/campaigns";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,8 +13,8 @@ const WhatsAppSettings = () => {
   const { isAdmin } = useAuth();
 
   const allowedTabs = isAdmin
-    ? ["setup", "instances", "sectors", "macros", "assignment", "campaigns", "widget", "webhooks", "api", "ai", "team", "security"]
-    : ["setup", "instances", "sectors", "macros", "assignment"];
+    ? ["setup", "instances", "sectors", "macros", "assignment", "campaigns", "widget", "webhooks", "api", "ai", "team", "security", "notifications"]
+    : ["setup", "instances", "sectors", "macros", "assignment", "notifications"];
 
   const currentTabParam = searchParams.get("tab") || "setup";
   const safeTab = allowedTabs.includes(currentTabParam) ? currentTabParam : "setup";
@@ -79,6 +79,7 @@ const WhatsAppSettings = () => {
             {isAdmin && <TabsTrigger value="ai">Assistente I.A</TabsTrigger>}
             {isAdmin && <TabsTrigger value="team">Equipe</TabsTrigger>}
             {isAdmin && <TabsTrigger value="security">Segurança</TabsTrigger>}
+            <TabsTrigger value="notifications">Notificações</TabsTrigger>
           </TabsList>
 
           <TabsContent value="setup" className="mt-6">
@@ -152,6 +153,11 @@ const WhatsAppSettings = () => {
               <SecuritySettings />
             </TabsContent>
           )}
+
+          <TabsContent value="notifications" className="mt-6 space-y-6">
+            <NotificationSettings />
+            <FilterPillsSettings />
+          </TabsContent>
         </Tabs>
       </div>
 

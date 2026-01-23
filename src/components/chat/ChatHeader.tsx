@@ -76,8 +76,8 @@ export const ChatHeader = ({ contact, sentiment, isAnalyzing, onAnalyze, convers
   };
 
   return (
-    <div className="p-4 border-b border-border bg-card">
-      <div className="flex items-center justify-between">
+    <div className="px-4 py-2 border-b border-border bg-card h-[60px] flex items-center">
+      <div className="flex items-center justify-between w-full">
         <div className="flex items-center gap-3">
           <Avatar className="w-10 h-10">
             <AvatarImage src={contact.profile_picture_url || undefined} />

@@ -14,6 +14,7 @@ import { ConversationFiltersPopover } from "./ConversationFiltersPopover";
 import { NotificationToggle } from "@/components/notifications/NotificationToggle";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { useAuth } from "@/contexts/AuthContext";
+import { FilterType } from "@/components/settings/FilterPillsSettings";
 
 interface ConversationsSidebarProps {
   selectedId: string | null;
@@ -22,8 +23,6 @@ interface ConversationsSidebarProps {
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 }
-
-type FilterType = "all" | "unread" | "waiting" | "queue" | "mine";
 
 const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, onToggleCollapse }: ConversationsSidebarProps) => {
   const [search, setSearch] = useState("");
@@ -179,19 +178,19 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
   return (
     <div className="flex flex-col h-full w-full bg-sidebar overflow-hidden">
       {/* Title Header */}
-      <div className="p-3 border-b border-sidebar-border">
-        <div className="flex items-center justify-between">
+      <div className="p-3 border-b border-sidebar-border h-[60px] flex items-center">
+        <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-2">
             {/* Livachat Logo */}
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-green-500 flex items-center justify-center">
-                <MessageCircle className="h-5 w-5 text-white" />
+            <div className="flex items-center gap-1.5">
+              <div className="w-7 h-7 rounded-lg bg-green-500 flex items-center justify-center">
+                <MessageCircle className="h-4 w-4 text-white" />
               </div>
-              <span className="text-lg font-bold text-green-500">livechat</span>
+              <span className="text-base font-bold text-green-500">livechat</span>
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <UserMenu />
+            <UserMenu compact />
           </div>
         </div>
       </div>
