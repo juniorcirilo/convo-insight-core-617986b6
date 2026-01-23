@@ -231,12 +231,17 @@ const ConversationItem = ({
               </div>
             </div>
 
-            {/* Row 3: Topics + Queue/Status (only if has content) */}
-            {(topics.length > 0 || showStatusBadge || conversation.assigned_to) && (
+            {/* Row 3: Topics + Queue/Status/Instance (only if has content) */}
+            {(topics.length > 0 || showStatusBadge || conversation.assigned_to || conversation.instance?.name) && (
               <div className="flex items-center justify-between gap-2 pt-0.5">
                 <div className="min-w-0 flex-1">
                   {topics.length > 0 && (
                     <TopicBadges topics={topics} size="sm" maxTopics={2} />
+                  )}
+                  {conversation.instance?.name && (
+                    <Badge variant="outline" className="text-xs px-1.5 py-0 h-5 bg-blue-500/10 text-blue-700 border-blue-200">
+                      📱 {conversation.instance.name}
+                    </Badge>
                   )}
                 </div>
                     <div className="flex items-center gap-1.5 shrink-0">
