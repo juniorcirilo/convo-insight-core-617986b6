@@ -43,7 +43,14 @@ serve(async (req) => {
       );
     }
     const userJson = await userResp.json();
-    const requestingUser = userJson?.user;
+    const requestingUser = userJson?.user ?? userJson;
+
+    if (!requestingUser || !requestingUser.id) {
+      return new Response(
+        JSON.stringify({ error: "Usuário não autenticado" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Check if requesting user is an admin (use client with user header for RPC/queries)
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
