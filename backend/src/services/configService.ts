@@ -1,14 +1,14 @@
 import { eq } from 'drizzle-orm';
 import { db } from '../config/database.js';
-import { project_config } from '../db/schema/config.js';
+import { projectConfig } from '../db/schema/config.js';
 
 export const configService = {
   async setConfig(key: string, value: string) {
     const [config] = await db
-      .insert(project_config)
+      .insert(projectConfig)
       .values({ key, value })
       .onConflictDoUpdate({
-        target: project_config.key,
+        target: projectConfig.key,
         set: { value, updated_at: new Date() },
       })
       .returning();
@@ -19,22 +19,22 @@ export const configService = {
   async getConfig(key: string) {
     const [config] = await db
       .select()
-      .from(project_config)
-      .where(eq(project_config.key, key))
+      .from(projectConfig)
+      .where(eq(projectConfig.key, key))
       .limit(1);
 
     return config;
   },
 
   async getAllConfig() {
-    const configs = await db.select().from(project_config);
+    const configs = await db.select().from(projectConfig);
     return configs;
   },
 
   async deleteConfig(key: string) {
     const [deleted] = await db
-      .delete(project_config)
-      .where(eq(project_config.key, key))
+      .delete(projectConfig)
+      .where(eq(projectConfig.key, key))
       .returning();
 
     return deleted;

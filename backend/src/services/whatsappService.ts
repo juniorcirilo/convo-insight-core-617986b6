@@ -1,10 +1,10 @@
 import { eq } from 'drizzle-orm';
 import { db } from '../config/database.js';
 import { 
-  whatsapp_messages, 
-  whatsapp_conversations,
-  whatsapp_instances,
-  whatsapp_contacts
+  whatsappMessages, 
+  whatsappConversations,
+  whatsappInstances,
+  whatsappContacts
 } from '../db/schema/whatsapp.js';
 import axios from 'axios';
 
@@ -71,17 +71,17 @@ export const whatsappService = {
     // 1. Get conversation with instance details
     const [conversation] = await db
       .select({
-        id: whatsapp_conversations.id,
-        contact_phone: whatsapp_conversations.contact_phone,
-        instance_id: whatsapp_conversations.instance_id,
-        instance: whatsapp_instances,
+        id: whatsappConversations.id,
+        contact_phone: whatsappConversations.contact_phone,
+        instance_id: whatsappConversations.instance_id,
+        instance: whatsappInstances,
       })
-      .from(whatsapp_conversations)
+      .from(whatsappConversations)
       .leftJoin(
-        whatsapp_instances,
-        eq(whatsapp_conversations.instance_id, whatsapp_instances.id)
+        whatsappInstances,
+        eq(whatsappConversations.instance_id, whatsappInstances.id)
       )
-      .where(eq(whatsapp_conversations.id, data.conversationId))
+      .where(eq(whatsappConversations.id, data.conversationId))
       .limit(1);
 
     if (!conversation) {
@@ -155,7 +155,7 @@ export const whatsappService = {
     // 4. Store message in database (unless skipChat is true)
     if (!data.skipChat) {
       const [message] = await db
-        .insert(whatsapp_messages)
+        .insert(whatsappMessages)
         .values({
           conversation_id: data.conversationId,
           content: processedContent,
@@ -173,13 +173,13 @@ export const whatsappService = {
 
       // 5. Update conversation metadata
       await db
-        .update(whatsapp_conversations)
+        .update(whatsappConversations)
         .set({
           last_message_at: new Date(),
           last_message: processedContent || `[${data.messageType}]`,
           unread_count: 0,
         })
-        .where(eq(whatsapp_conversations.id, data.conversationId));
+        .where(eq(whatsappConversations.id, data.conversationId));
 
       return { message, evolutionResponse: evolutionResponse.data };
     }
@@ -190,20 +190,20 @@ export const whatsappService = {
   async getConversation(conversationId: string) {
     const [conversation] = await db
       .select({
-        id: whatsapp_conversations.id,
-        contact_phone: whatsapp_conversations.contact_phone,
-        contact_name: whatsapp_conversations.contact_name,
-        last_message: whatsapp_conversations.last_message,
-        last_message_at: whatsapp_conversations.last_message_at,
-        unread_count: whatsapp_conversations.unread_count,
-        instance: whatsapp_instances,
+        id: whatsappConversations.id,
+        contact_phone: whatsappConversations.contact_phone,
+        contact_name: whatsappConversations.contact_name,
+        last_message: whatsappConversations.last_message,
+        last_message_at: whatsappConversations.last_message_at,
+        unread_count: whatsappConversations.unread_count,
+        instance: whatsappInstances,
       })
-      .from(whatsapp_conversations)
+      .from(whatsappConversations)
       .leftJoin(
-        whatsapp_instances,
-        eq(whatsapp_conversations.instance_id, whatsapp_instances.id)
+        whatsappInstances,
+        eq(whatsappConversations.instance_id, whatsappInstances.id)
       )
-      .where(eq(whatsapp_conversations.id, conversationId))
+      .where(eq(whatsappConversations.id, conversationId))
       .limit(1);
 
     return conversation;
@@ -212,9 +212,9 @@ export const whatsappService = {
   async getMessages(conversationId: string, limit: number = 50, offset: number = 0) {
     const messages = await db
       .select()
-      .from(whatsapp_messages)
-      .where(eq(whatsapp_messages.conversation_id, conversationId))
-      .orderBy(whatsapp_messages.timestamp)
+      .from(whatsappMessages)
+      .where(eq(whatsappMessages.conversation_id, conversationId))
+      .orderBy(whatsappMessages.timestamp)
       .limit(limit)
       .offset(offset);
 
@@ -223,9 +223,9 @@ export const whatsappService = {
 
   async updateMessageStatus(messageId: string, status: string) {
     const [message] = await db
-      .update(whatsapp_messages)
+      .update(whatsappMessages)
       .set({ status, updated_at: new Date() })
-      .where(eq(whatsapp_messages.id, messageId))
+      .where(eq(whatsappMessages.id, messageId))
       .returning();
 
     return message;

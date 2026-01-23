@@ -11,11 +11,12 @@ export interface UploadOptions {
 export const storageService = {
   async uploadFile(options: UploadOptions): Promise<string> {
     const bucketName = BUCKETS[options.bucket];
-    const metadata = options.contentType
-      ? { 'Content-Type': options.contentType }
-      : undefined;
 
     if (Buffer.isBuffer(options.file)) {
+      const metadata = options.contentType
+        ? { 'Content-Type': options.contentType }
+        : {};
+
       await minioClient.putObject(
         bucketName,
         options.filename,
@@ -27,8 +28,7 @@ export const storageService = {
       await minioClient.putObject(
         bucketName,
         options.filename,
-        options.file,
-        metadata
+        options.file
       );
     }
 
