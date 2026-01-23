@@ -16,10 +16,10 @@ export function AgentFilter({ selectedAgent, onAgentChange }: AgentFilterProps) 
       disabled={isLoading}
     >
       <SelectTrigger className="w-[200px]">
-        <SelectValue placeholder="Todos os Agentes" />
-      </SelectTrigger>
+          <SelectValue placeholder="Todos os Atendentes" />
+        </SelectTrigger>
       <SelectContent>
-        <SelectItem value="all">Todos os Agentes</SelectItem>
+          <SelectItem value="all">Todos os Atendentes</SelectItem>
         {agents.map((agent) => (
           <SelectItem key={agent.id} value={agent.id}>
             {agent.full_name}

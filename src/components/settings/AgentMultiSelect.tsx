@@ -56,14 +56,14 @@ export function AgentMultiSelect({ value, onChange, sectorId, instanceId }: Agen
                 ))}
               </div>
             ) : (
-              <span className="text-muted-foreground">Selecionar agentes...</span>
+              <span className="text-muted-foreground">Selecionar atendentes...</span>
             )}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-full p-0" align="start">
           <Command>
-            <CommandInput placeholder="Buscar agente..." />
-            <CommandEmpty>Nenhum agente encontrado.</CommandEmpty>
+              <CommandInput placeholder="Buscar atendente..." />
+              <CommandEmpty>Nenhum atendente encontrado.</CommandEmpty>
             <CommandGroup>
               {agents.map((agent) => (
                 <CommandItem
@@ -89,7 +89,7 @@ export function AgentMultiSelect({ value, onChange, sectorId, instanceId }: Agen
       </Popover>
       {selectedAgents.length > 0 && (
         <p className="text-xs text-muted-foreground">
-          {selectedAgents.length} agente(s) selecionado(s)
+          {selectedAgents.length} atendente(s) selecionado(s)
         </p>
       )}
     </div>

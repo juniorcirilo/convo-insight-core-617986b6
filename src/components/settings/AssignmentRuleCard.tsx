@@ -81,7 +81,7 @@ export function AssignmentRuleCard({
             <User className="h-4 w-4 text-muted-foreground" />
             <span className="text-muted-foreground">Atribuição Fixa:</span>
             <span className="font-medium">
-              {fixedAgent ? fixedAgent.full_name : "Agente não encontrado"}
+              {fixedAgent ? fixedAgent.full_name : "Atendente não encontrado"}
             </span>
           </>
         ) : (

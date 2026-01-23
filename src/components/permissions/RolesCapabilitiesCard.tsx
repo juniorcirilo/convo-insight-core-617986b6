@@ -1,8 +1,9 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Shield, Eye, MessageSquare, LayoutGrid, Users, Settings, ArrowRightLeft, MessageCircle, Edit2, Trash } from 'lucide-react';
-import { usePermissionTypes } from '@/hooks/permissions';
+import { usePermissionTypes, useUpdatePermissionDefault } from '@/hooks/permissions';
 
 const permissionIcons: Record<string, React.ElementType> = {
   can_access_conversations: MessageSquare,
@@ -26,7 +27,8 @@ const RolesCapabilitiesCard = () => {
   const roles = [
     { key: 'admin', label: 'Admin', description: 'Acesso total ao sistema', variant: 'destructive' as const },
     { key: 'supervisor', label: 'Supervisor', description: 'Gerencia equipe e monitora conversas', variant: 'default' as const },
-    { key: 'agent', label: 'Agente', description: 'Atende conversas atribuídas', variant: 'secondary' as const },
+    { key: 'manager', label: 'Gerente', description: 'Gerencia equipes e recursos', variant: 'default' as const },
+    { key: 'agent', label: 'Atendente', description: 'Atende conversas atribuídas', variant: 'secondary' as const },
   ];
 
   const categories = [
@@ -38,6 +40,8 @@ const RolesCapabilitiesCard = () => {
   const contactPermissions = permissionTypes?.filter(pt => pt.key.includes('_contacts')) || [];
   const instancePermissions = permissionTypes?.filter(pt => pt.key.includes('_instances')) || [];
   const remainingPermissionTypes = permissionTypes?.filter(pt => !pt.key.includes('_contacts') && !pt.key.includes('_instances')) || [];
+
+  const updateDefault = useUpdatePermissionDefault();
 
   if (isLoading) {
     return (
@@ -66,10 +70,10 @@ const RolesCapabilitiesCard = () => {
       <CardContent>
         <div className="space-y-6">
           {/* Role descriptions */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
             {roles.map(role => (
-              <div key={role.key} className="p-4 border rounded-lg">
-                <Badge variant={role.variant} className="mb-2">
+              <div key={role.key} className="p-3 border rounded-lg">
+                <Badge variant={role.variant} className="mb-1">
                   {role.label}
                 </Badge>
                 <p className="text-sm text-muted-foreground">{role.description}</p>
@@ -112,9 +116,18 @@ const RolesCapabilitiesCard = () => {
                               </div>
                             </div>
                           </td>
-                          <td className="text-center py-3 px-4">{pt.default_for_admin ? <span className="text-green-600">✓</span> : <span className="text-muted-foreground">—</span>}</td>
-                          <td className="text-center py-3 px-4">{pt.default_for_supervisor ? <span className="text-green-600">✓</span> : <span className="text-muted-foreground">—</span>}</td>
-                          <td className="text-center py-3 px-4">{pt.default_for_agent ? <span className="text-green-600">✓</span> : <span className="text-muted-foreground">—</span>}</td>
+                            <td className="text-center py-3 px-4">
+                              <Switch checked={pt.default_for_admin} onCheckedChange={(v) => updateDefault.mutate({ permissionKey: pt.key, roleKey: 'admin', value: v as boolean })} />
+                            </td>
+                            <td className="text-center py-3 px-4">
+                              <Switch checked={pt.default_for_supervisor} onCheckedChange={(v) => updateDefault.mutate({ permissionKey: pt.key, roleKey: 'supervisor', value: v as boolean })} />
+                            </td>
+                            <td className="text-center py-3 px-4">
+                              <Switch checked={pt.default_for_manager ?? false} onCheckedChange={(v) => updateDefault.mutate({ permissionKey: pt.key, roleKey: 'manager', value: v as boolean })} />
+                            </td>
+                            <td className="text-center py-3 px-4">
+                              <Switch checked={pt.default_for_agent} onCheckedChange={(v) => updateDefault.mutate({ permissionKey: pt.key, roleKey: 'agent', value: v as boolean })} />
+                            </td>
                         </tr>
                       );
                     })}
@@ -142,9 +155,18 @@ const RolesCapabilitiesCard = () => {
                               </div>
                             </div>
                           </td>
-                          <td className="text-center py-3 px-4">{pt.default_for_admin ? <span className="text-green-600">✓</span> : <span className="text-muted-foreground">—</span>}</td>
-                          <td className="text-center py-3 px-4">{pt.default_for_supervisor ? <span className="text-green-600">✓</span> : <span className="text-muted-foreground">—</span>}</td>
-                          <td className="text-center py-3 px-4">{pt.default_for_agent ? <span className="text-green-600">✓</span> : <span className="text-muted-foreground">—</span>}</td>
+                          <td className="text-center py-3 px-4">
+                            <Switch checked={pt.default_for_admin} onCheckedChange={(v) => updateDefault.mutate({ permissionKey: pt.key, roleKey: 'admin', value: v as boolean })} />
+                          </td>
+                          <td className="text-center py-3 px-4">
+                            <Switch checked={pt.default_for_supervisor} onCheckedChange={(v) => updateDefault.mutate({ permissionKey: pt.key, roleKey: 'supervisor', value: v as boolean })} />
+                          </td>
+                          <td className="text-center py-3 px-4">
+                            <Switch checked={pt.default_for_manager ?? false} onCheckedChange={(v) => updateDefault.mutate({ permissionKey: pt.key, roleKey: 'manager', value: v as boolean })} />
+                          </td>
+                          <td className="text-center py-3 px-4">
+                            <Switch checked={pt.default_for_agent} onCheckedChange={(v) => updateDefault.mutate({ permissionKey: pt.key, roleKey: 'agent', value: v as boolean })} />
+                          </td>
                         </tr>
                       );
                     })}
@@ -177,25 +199,16 @@ const RolesCapabilitiesCard = () => {
                               </div>
                             </td>
                             <td className="text-center py-3 px-4">
-                              {pt.default_for_admin ? (
-                                <span className="text-green-600">✓</span>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
+                              <Switch checked={pt.default_for_admin} onCheckedChange={(v) => updateDefault.mutate({ permissionKey: pt.key, roleKey: 'admin', value: v as boolean })} />
                             </td>
                             <td className="text-center py-3 px-4">
-                              {pt.default_for_supervisor ? (
-                                <span className="text-green-600">✓</span>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
+                              <Switch checked={pt.default_for_supervisor} onCheckedChange={(v) => updateDefault.mutate({ permissionKey: pt.key, roleKey: 'supervisor', value: v as boolean })} />
                             </td>
                             <td className="text-center py-3 px-4">
-                              {pt.default_for_agent ? (
-                                <span className="text-green-600">✓</span>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
+                              <Switch checked={pt.default_for_manager ?? false} onCheckedChange={(v) => updateDefault.mutate({ permissionKey: pt.key, roleKey: 'manager', value: v as boolean })} />
+                            </td>
+                            <td className="text-center py-3 px-4">
+                              <Switch checked={pt.default_for_agent} onCheckedChange={(v) => updateDefault.mutate({ permissionKey: pt.key, roleKey: 'agent', value: v as boolean })} />
                             </td>
                           </tr>
                         );

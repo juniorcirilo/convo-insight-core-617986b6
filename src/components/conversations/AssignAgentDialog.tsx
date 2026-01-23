@@ -144,7 +144,7 @@ export function AssignAgentDialog({
             <div className="flex items-center gap-2">
               <Building2 className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
-                Mostrar agentes de todos os setores
+                Mostrar atendentes de todos os setores
               </span>
             </div>
             <Switch

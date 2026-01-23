@@ -31,7 +31,7 @@ interface UserPermissionsModalProps {
 const roleConfig = {
   admin: { label: 'Admin', variant: 'destructive' as const },
   supervisor: { label: 'Supervisor', variant: 'default' as const },
-  agent: { label: 'Agente', variant: 'secondary' as const },
+  agent: { label: 'Atendente', variant: 'secondary' as const },
 };
 
 const sourceLabels = {

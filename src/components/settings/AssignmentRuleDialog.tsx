@@ -167,7 +167,7 @@ export function AssignmentRuleDialog({
             {rule ? "Editar Regra" : "Nova Regra de Atribuição"}
           </DialogTitle>
           <DialogDescription>
-            Configure como as conversas serão atribuídas automaticamente aos agentes.
+            Configure como as conversas serão atribuídas automaticamente aos atendentes.
           </DialogDescription>
         </DialogHeader>
 
@@ -257,7 +257,7 @@ export function AssignmentRuleDialog({
                     Round-Robin
                   </Label>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Conversas distribuídas alternadamente entre múltiplos agentes
+                    Conversas distribuídas alternadamente entre múltiplos atendentes
                   </p>
                 </div>
               </div>
@@ -293,7 +293,7 @@ export function AssignmentRuleDialog({
 
           {ruleType === 'round_robin' && (
             <div className="space-y-2">
-              <Label>Agentes Participantes</Label>
+              <Label>Atendentes Participantes</Label>
               <AgentMultiSelect
                 value={roundRobinAgents}
                 onChange={setRoundRobinAgents}

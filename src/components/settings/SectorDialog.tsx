@@ -387,7 +387,7 @@ Contexto do setor: ${context || 'Atendimento ao cliente'}`,
             <p className="text-xs text-muted-foreground">
               {tipoAtendimento === 'chatbot' 
                 ? 'Respostas automáticas serão geradas por IA'
-                : 'Mensagens serão respondidas por agentes humanos'}
+                : 'Mensagens serão respondidas por atendentes humanos'}
             </p>
           </div>
 

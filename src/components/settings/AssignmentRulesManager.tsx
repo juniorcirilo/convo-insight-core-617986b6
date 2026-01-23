@@ -54,7 +54,7 @@ export function AssignmentRulesManager() {
           <div>
             <h2 className="text-2xl font-bold">Regras de Atribuição</h2>
             <p className="text-muted-foreground mt-1">
-              Configure a atribuição automática de conversas para agentes
+              Configure a atribuição automática de conversas para atendentes
             </p>
           </div>
         </div>
@@ -72,7 +72,7 @@ export function AssignmentRulesManager() {
         <div>
           <h2 className="text-2xl font-bold">Regras de Atribuição</h2>
           <p className="text-muted-foreground mt-1">
-            Configure a atribuição automática de conversas para agentes
+            Configure a atribuição automática de conversas para atendentes
           </p>
         </div>
         <Button onClick={handleCreate}>
