@@ -158,12 +158,14 @@ export const MessageBubble = ({ message, reactions = [], onReply, isGroupChat = 
         );
       
       case 'audio':
+        // Check if it's a voice message (ptt = push to talk) by checking mimetype or filename
+        const isVoiceMessage = message.media_mimetype?.includes('ogg') || 
+                               message.media_mimetype?.includes('opus') ||
+                               message.media_filename?.includes('ptt');
         return (
           <div className="space-y-2">
             {isMediaLoading ? renderMediaLoading() : mediaUrl ? (
-              <div className="max-w-xs">
-                <MediaPlayer src={mediaUrl} type="audio" mimeType={message.media_mimetype || 'audio/ogg'} />
-              </div>
+              <MediaPlayer src={mediaUrl} type="audio" mimeType={message.media_mimetype || 'audio/ogg'} isVoiceMessage={isVoiceMessage} />
             ) : message.media_url ? renderMediaError('audio') : null}
             {message.transcription_status === 'processing' && (
               <p className={cn(
@@ -175,11 +177,21 @@ export const MessageBubble = ({ message, reactions = [], onReply, isGroupChat = 
             )}
             {message.audio_transcription && (
               <div className={cn(
-                "text-xs p-2 rounded-md",
-                isFromMe ? "bg-white/10 text-white" : "bg-muted"
+                "border-l-2 pl-2 py-1 mt-1",
+                isFromMe ? "border-white/40" : "border-primary/50"
               )}>
-                <p className="font-medium mb-0.5 text-[10px] uppercase tracking-wide opacity-70">Transcrição</p>
-                <p>{message.audio_transcription}</p>
+                <p className={cn(
+                  "text-[10px] font-medium uppercase tracking-wide mb-0.5",
+                  isFromMe ? "text-white/60" : "text-muted-foreground"
+                )}>
+                  Transcrição
+                </p>
+                <p className={cn(
+                  "text-xs",
+                  isFromMe ? "text-white/90" : "text-foreground"
+                )}>
+                  {message.audio_transcription}
+                </p>
               </div>
             )}
           </div>

@@ -146,7 +146,7 @@ export const AudioRecorder = ({ onSend, onCancel }: AudioRecorderProps) => {
         </div>
         
         <div className="w-full">
-          <MediaPlayer src={audioUrl} type="audio" mimeType="audio/webm" />
+          <MediaPlayer src={audioUrl} type="audio" mimeType="audio/webm" isVoiceMessage={true} />
         </div>
         
         <div className="flex gap-2 justify-end">

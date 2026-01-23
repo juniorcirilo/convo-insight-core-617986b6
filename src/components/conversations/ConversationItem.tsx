@@ -124,12 +124,16 @@ const ConversationItem = ({
       <div
         onClick={onClick}
         className={cn(
-          "flex items-start gap-3 p-3 cursor-pointer transition-colors w-full",
+          "flex items-start gap-3 p-3 cursor-pointer transition-colors w-full relative",
           "hover:bg-sidebar-accent",
           isSelected && "bg-sidebar-accent",
-          isGroup && "border-l-2 border-l-primary/50"
+          isGroup && !isSelected && "border-l-2 border-l-primary/50"
         )}
       >
+        {/* Selected indicator */}
+        {isSelected && (
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-white rounded-r" />
+        )}
           {/* Avatar - Group with embedded sender avatar */}
           <div className="relative shrink-0">
             <Avatar className={cn("h-10 w-10", isGroup && "rounded-lg")}>
