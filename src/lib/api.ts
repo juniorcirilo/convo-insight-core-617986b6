@@ -145,6 +145,30 @@ export const api = {
       apiClient.get(`/storage/${bucket}/list`, { params: { prefix } }),
   },
 
+  // WhatsApp
+  whatsapp: {
+    sendMessage: (data: any) => apiClient.post('/whatsapp/send', data),
+    getConversation: (conversationId: string) =>
+      apiClient.get(`/whatsapp/conversations/${conversationId}`),
+    getMessages: (conversationId: string, limit?: number, offset?: number) =>
+      apiClient.get(`/whatsapp/conversations/${conversationId}/messages`, {
+        params: { limit, offset },
+      }),
+    updateMessageStatus: (messageId: string, status: string) =>
+      apiClient.patch(`/whatsapp/messages/${messageId}/status`, { status }),
+  },
+
+  // Config
+  config: {
+    setup: (data: { projectUrl?: string; anonKey?: string }) =>
+      apiClient.post('/config/setup', data),
+    set: (key: string, value: string) =>
+      apiClient.post('/config', { key, value }),
+    get: (key: string) => apiClient.get(`/config/${key}`),
+    getAll: () => apiClient.get('/config'),
+    delete: (key: string) => apiClient.delete(`/config/${key}`),
+  },
+
   // Health check
   health: () => apiClient.get('/health'),
 };
