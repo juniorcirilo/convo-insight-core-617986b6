@@ -13,15 +13,19 @@ export class StorageController {
         return;
       }
 
-      // Validate bucket
-      const validBuckets = Object.keys(BUCKETS).map(k => BUCKETS[k as keyof typeof BUCKETS]);
-      if (!validBuckets.includes(bucket)) {
+      // Validate bucket with proper type checking
+      const validBuckets = Object.keys(BUCKETS);
+      const bucketKey = Object.keys(BUCKETS).find(
+        k => BUCKETS[k as keyof typeof BUCKETS] === bucket
+      ) as keyof typeof BUCKETS | undefined;
+
+      if (!bucketKey) {
         res.status(400).json({ error: 'Invalid bucket' });
         return;
       }
 
       const result = await StorageService.uploadFile(
-        bucket as any,
+        bucketKey,
         req.file as Express.Multer.File,
         {
           uploadedBy: req.user?.userId || 'anonymous',

@@ -1,4 +1,4 @@
-import { pgTable, text, uuid, timestamp, integer, json, decimal } from 'drizzle-orm/pg-core';
+import { pgTable, text, uuid, timestamp, integer, json, decimal, boolean } from 'drizzle-orm/pg-core';
 import { profiles, sectors } from './users.js';
 import { whatsappContacts } from './whatsapp.js';
 

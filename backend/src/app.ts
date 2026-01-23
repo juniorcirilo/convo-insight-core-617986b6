@@ -5,6 +5,7 @@ import { corsMiddleware } from './middleware/cors.js';
 import { errorHandler } from './middleware/error.js';
 import { env } from './config/env.js';
 import authRoutes from './routes/auth.routes.js';
+import storageRoutes from './routes/storage.routes.js';
 
 export function createApp(): Application {
   const app = express();
@@ -32,9 +33,7 @@ export function createApp(): Application {
 
   // API routes
   app.use('/api/auth', authRoutes);
-  
-  // Storage routes will be added
-  // app.use('/api/storage', storageRoutes);
+  app.use('/api/storage', storageRoutes);
 
   // Error handling
   app.use(errorHandler);

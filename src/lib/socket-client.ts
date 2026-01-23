@@ -134,9 +134,16 @@ class SocketClient {
 // Singleton instance
 export const socketClient = new SocketClient();
 
-// Auto-connect when user is logged in
-if (localStorage.getItem('access_token')) {
-  socketClient.connect();
+// Auto-connect when user is logged in with token validation
+const token = localStorage.getItem('access_token');
+if (token) {
+  try {
+    // Note: Token expiry validation happens on connect error
+    // The server will reject invalid/expired tokens
+    socketClient.connect();
+  } catch (error) {
+    console.warn('Failed to auto-connect socket:', error);
+  }
 }
 
 export default socketClient;

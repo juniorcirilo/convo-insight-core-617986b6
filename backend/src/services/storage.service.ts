@@ -69,9 +69,9 @@ export class StorageService {
     }
   }
 
-  static async listFiles(bucket: string, prefix?: string) {
+  static async listFiles(bucket: string, prefix?: string): Promise<MinIOObjectInfo[]> {
     try {
-      const objectsList: any[] = [];
+      const objectsList: MinIOObjectInfo[] = [];
       const stream = minioClient.listObjects(bucket, prefix, true);
 
       return new Promise((resolve, reject) => {
@@ -84,4 +84,13 @@ export class StorageService {
       throw new AppError(500, 'Failed to list files');
     }
   }
+}
+
+// MinIO object info type
+interface MinIOObjectInfo {
+  name: string;
+  prefix?: string;
+  size: number;
+  etag: string;
+  lastModified: Date;
 }

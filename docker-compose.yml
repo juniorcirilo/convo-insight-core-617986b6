@@ -48,8 +48,8 @@ services:
       PORT: 3000
       API_URL: http://localhost:3000
       DATABASE_URL: postgresql://user:password@postgres:5432/convo_insight
-      JWT_SECRET: your-secret-key-here-change-in-production
-      JWT_REFRESH_SECRET: your-refresh-secret-here-change-in-production
+      JWT_SECRET: changeme-generate-a-secure-random-secret-minimum-32-characters
+      JWT_REFRESH_SECRET: changeme-generate-another-secure-random-secret-32plus-chars
       JWT_EXPIRES_IN: 15m
       JWT_REFRESH_EXPIRES_IN: 7d
       MINIO_ENDPOINT: minio
