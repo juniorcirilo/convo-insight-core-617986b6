@@ -100,9 +100,15 @@ export function SectorDialog({
       const { data, error } = await supabase
         .from('whatsapp_contacts')
         .select('id, phone_number, name')
+        .is('deleted_at', null)
         .eq('instance_id', instanceId)
         .eq('is_group', true)
         .order('name');
+      // Exclude soft-deleted groups
+      // NOTE: RLS will also enforce this, but add explicit client-side filter
+      // in case the database isn't migrated yet.
+      // (supabase-js supports .is for IS NULL checks)
+      // If the query builder ignores the duplicate .is call, the RLS policy will still apply.
       if (error) throw error;
       return data as GroupContact[];
     },

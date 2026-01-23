@@ -267,6 +267,7 @@ export const useWhatsAppActions = () => {
           const { data: contact } = await supabase
             .from('whatsapp_contacts')
             .select('id, name')
+            .is('deleted_at', null)
             .eq('id', conv.contact_id)
             .maybeSingle();
 
@@ -357,6 +358,27 @@ export const useWhatsAppActions = () => {
     },
   });
 
+  // Soft-delete contact
+  const deleteContactMutation = useMutation({
+    mutationFn: async (contactId: string) => {
+      const { error } = await supabase
+        .from('whatsapp_contacts')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', contactId);
+      if (error) throw error;
+    },
+    onSuccess: (_, contactId) => {
+      toast.success('Contato removido (soft-delete)');
+      queryClient.invalidateQueries({ queryKey: ['whatsapp-contacts'] });
+      queryClient.invalidateQueries({ queryKey: ['contact-details', contactId] });
+      queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
+    },
+    onError: (error) => {
+      console.error('Erro ao remover contato:', error);
+      toast.error('Erro ao remover contato');
+    },
+  });
+
   return {
     archiveConversation: archiveMutation.mutate,
     isArchiving: archiveMutation.isPending,
@@ -372,5 +394,7 @@ export const useWhatsAppActions = () => {
 
     updateContact: updateContactMutation.mutate,
     isUpdatingContact: updateContactMutation.isPending,
+    deleteContact: deleteContactMutation.mutate,
+    isDeletingContact: deleteContactMutation.isPending,
   };
 };

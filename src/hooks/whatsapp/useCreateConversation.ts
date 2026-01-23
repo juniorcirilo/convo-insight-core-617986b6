@@ -26,6 +26,7 @@ export const useCreateConversation = () => {
           phone_number: params.phoneNumber,
           name: params.contactName,
           profile_picture_url: params.profilePictureUrl,
+          deleted_at: null,
         }, {
           onConflict: 'instance_id,phone_number',
         })
