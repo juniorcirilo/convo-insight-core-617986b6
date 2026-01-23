@@ -17,12 +17,58 @@ interface SendMessageRequest {
   // Supervisor message support
   isSupervisorMessage?: boolean;
   supervisorId?: string;
-}
+  // When true, do not record this message in the chat or update conversation metadata
+  skip_chat?: boolean;
+  // When true, skip adding agent name prefix (for automatic messages)
+  skipAgentPrefix?: boolean;
+  // Used for template variable replacement in automatic messages
+  templateContext?: {
+    clienteNome?: string;
+    clienteTelefone?: string;
+    atendenteNome?: string;
+    ticketNumero?: number | string;
+    setorNome?: string;
+  };
+} 
 
 // Helper function to get Evolution API auth headers based on provider type
 function getEvolutionAuthHeaders(apiKey: string, providerType: string): Record<string, string> {
   // Evolution Cloud confirmou: ambos usam header 'apikey'
   return { apikey: apiKey };
+}
+
+// Helper function to replace template variables in message content
+function replaceTemplateVariables(content: string, context: SendMessageRequest['templateContext']): string {
+  if (!context) return content;
+  
+  let result = content;
+  
+  // Replace all template variables
+  if (context.clienteNome) {
+    result = result.replace(/\{\{clienteNome\}\}/g, context.clienteNome);
+  }
+  if (context.clienteTelefone) {
+    result = result.replace(/\{\{clienteTelefone\}\}/g, context.clienteTelefone);
+  }
+  if (context.atendenteNome) {
+    result = result.replace(/\{\{atendenteNome\}\}/g, context.atendenteNome);
+  }
+  if (context.ticketNumero !== undefined) {
+    result = result.replace(/\{\{ticketNumero\}\}/g, String(context.ticketNumero));
+  }
+  if (context.setorNome) {
+    result = result.replace(/\{\{setorNome\}\}/g, context.setorNome);
+  }
+  
+  // Replace date/time variables
+  const now = new Date();
+  const dataAtual = now.toLocaleDateString('pt-BR');
+  const horaAtual = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  
+  result = result.replace(/\{\{dataAtual\}\}/g, dataAtual);
+  result = result.replace(/\{\{horaAtual\}\}/g, horaAtual);
+  
+  return result;
 }
 
 Deno.serve(async (req) => {
@@ -42,6 +88,10 @@ Deno.serve(async (req) => {
       conversationId: body.conversationId, 
       messageType: body.messageType 
     });
+
+    // Default skip_chat to false when not provided
+    const skipChat: boolean = body.skip_chat ?? false;
+    console.log('[send-whatsapp-message] skip_chat:', skipChat);
 
     // Validate request
     if (!body.conversationId || !body.messageType) {
@@ -119,15 +169,49 @@ Deno.serve(async (req) => {
 
     console.log('[send-whatsapp-message] Sending to:', contact.phone_number, 'Provider:', providerType, 'Instance:', instanceIdentifier);
 
+    // Get current user (agent) info for message prefix
+    let agentName: string | null = null;
+    if (!body.skipAgentPrefix && body.messageType === 'text') {
+      // Try to get current user from auth header
+      const authHeader = req.headers.get('Authorization');
+      if (authHeader) {
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user } } = await supabase.auth.getUser(token);
+        if (user?.id) {
+          // Fetch user profile to get full name
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', user.id)
+            .single();
+          
+          agentName = profile?.full_name || null;
+        }
+      }
+    }
+
+    // Process message content - apply template variables and agent prefix
+    let processedContent = body.content || '';
+    
+    // Apply template variable replacements if context provided
+    if (body.templateContext) {
+      processedContent = replaceTemplateVariables(processedContent, body.templateContext);
+    }
+    
+    // Add agent name prefix for text messages (if agent is identified and prefix not skipped)
+    if (agentName && body.messageType === 'text' && !body.skipAgentPrefix) {
+      processedContent = `*[ ${agentName} ]*\n${processedContent}`;
+    }
+
     // Determine destination number format
     const destinationNumber = getDestinationNumber(contact.phone_number);
 
-    // Build request for Evolution API
+    // Build request for Evolution API (use processedContent instead of body.content)
     const { endpoint, requestBody } = buildEvolutionRequest(
       secrets.api_url,
       instanceIdentifier,
       destinationNumber,
-      body
+      { ...body, content: processedContent }
     );
 
     console.log('[send-whatsapp-message] Evolution API endpoint:', endpoint);
@@ -177,9 +261,34 @@ Deno.serve(async (req) => {
       console.log('[send-whatsapp-message] Extracted media URL:', extractedMediaUrl);
     }
 
-    // Save message to database
+    // If skip_chat is true, do not save the message or update conversation metadata
+    if (skipChat) {
+      console.log('[send-whatsapp-message] skip_chat=true, not saving message or updating conversation');
+      const responsePayload = {
+        success: true,
+        message: {
+          id: messageId,
+          message_id: messageId,
+          content: processedContent || '',
+          message_type: body.messageType,
+          media_url: extractedMediaUrl || body.mediaUrl || null,
+          media_mimetype: body.mediaMimetype || null,
+          status: 'sent',
+          is_from_me: true,
+          timestamp: new Date().toISOString(),
+          skipped_chat: true,
+        }
+      };
+
+      return new Response(
+        JSON.stringify(responsePayload),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Save message to database (use processedContent which includes agent prefix and template vars)
     const messageContent = body.messageType === 'text' 
-      ? (body.content || '') 
+      ? processedContent 
       : (body.content || `Sent ${body.messageType}`);
 
     const { data: savedMessage, error: saveError } = await supabase

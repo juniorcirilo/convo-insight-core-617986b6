@@ -42,6 +42,9 @@ export const useWhatsAppContacts = (
           instance_id
         `);
 
+      // Exclude soft-deleted contacts
+      query = query.is('deleted_at', null);
+
       if (instanceId) {
         query = query.eq('instance_id', instanceId);
       }
@@ -54,6 +57,9 @@ export const useWhatsAppContacts = (
       let countQuery = supabase
         .from('whatsapp_contacts')
         .select('*', { count: 'exact', head: true });
+
+      // Exclude soft-deleted contacts from count
+      countQuery = countQuery.is('deleted_at', null);
 
       if (instanceId) {
         countQuery = countQuery.eq('instance_id', instanceId);

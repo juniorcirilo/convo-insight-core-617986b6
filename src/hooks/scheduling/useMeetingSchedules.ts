@@ -96,18 +96,25 @@ export const useMeetingSchedules = (filters?: MeetingFilters) => {
 
   // Realtime subscription
   useEffect(() => {
+    let meetingInvalidateTimeout: NodeJS.Timeout;
+
     const channel = supabase
       .channel('meeting-schedules-changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'meeting_schedules' },
         () => {
-          queryClient.invalidateQueries({ queryKey: ['meeting-schedules'] });
+          // Debounce invalidation to prevent excessive re-renders
+          clearTimeout(meetingInvalidateTimeout);
+          meetingInvalidateTimeout = setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ['meeting-schedules'] });
+          }, 100);
         }
       )
       .subscribe();
 
     return () => {
+      clearTimeout(meetingInvalidateTimeout);
       supabase.removeChannel(channel);
     };
   }, [queryClient]);

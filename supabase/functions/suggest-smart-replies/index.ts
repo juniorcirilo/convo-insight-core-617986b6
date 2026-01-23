@@ -61,10 +61,10 @@ serve(async (req) => {
       .eq('id', conversationId)
       .single();
 
-    const contactName = conversation?.contact?.name || 'Cliente';
+    const contactName = (conversation?.contact as { name?: string })?.name || 'Cliente';
 
     // Filtrar apenas mensagens de texto e inverter ordem (mais antigas primeiro)
-    const textMessages = messages?.filter(m => m.message_type === 'text').reverse() || [];
+    const textMessages = messages?.filter((m: any) => m.message_type === 'text').reverse() || [];
 
     if (textMessages.length === 0) {
       console.log('No text messages found, returning defaults');
@@ -75,7 +75,7 @@ serve(async (req) => {
     }
 
     // Identificar última mensagem do cliente
-    const lastClientMessage = textMessages.filter(m => !m.is_from_me).pop();
+    const lastClientMessage = textMessages.filter((m: any) => !m.is_from_me).pop();
 
     if (!lastClientMessage) {
       console.log('No client messages found, returning defaults');
@@ -86,17 +86,24 @@ serve(async (req) => {
     }
 
     // Montar histórico das últimas 8 mensagens para contexto
-    const recentMessages = textMessages.slice(-8).map(m => 
+    const recentMessages = textMessages.slice(-8).map((m: any) => 
       `${m.is_from_me ? 'Você' : contactName}: ${m.content}`
     ).join('\n');
 
-    console.log('Calling Lovable AI for suggestions...');
-
-    // Chamar Lovable AI
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
+    // Usar apenas GROQ
+    const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
+    
+    if (!GROQ_API_KEY) {
+      console.warn('GROQ_API_KEY not configured, returning default suggestions');
+      return new Response(
+        JSON.stringify({ suggestions: defaultSuggestions, context: { contactName, lastMessage: lastClientMessage.content } }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
+
+    // Importar modelo adequado - chat_fast para sugestões rápidas
+    const { getGroqModel } = await import('../groq-models.ts');
+    const model = getGroqModel('chat_fast'); // llama3-8b
 
     const systemPrompt = `Você é um assistente que gera respostas CURTAS (até 2 frases) e ÚTEIS para atendimento ao cliente.
 
@@ -114,117 +121,71 @@ CONTEXTO:
 - Histórico recente:
 ${recentMessages}`;
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: 'Gere 3 sugestões de resposta com tons diferentes.' }
-        ],
-        tools: [{
-          type: 'function',
-          function: {
-            name: 'suggest_replies',
-            description: 'Retorna 3 sugestões de resposta com tons diferentes',
-            parameters: {
-              type: 'object',
-              properties: {
-                suggestions: {
-                  type: 'array',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      text: { type: 'string', description: 'Texto da sugestão (máximo 2 frases)' },
-                      tone: { 
-                        type: 'string', 
-                        enum: ['formal', 'friendly', 'direct'],
-                        description: 'Tom da resposta'
-                      }
-                    },
-                    required: ['text', 'tone']
-                  },
-                  minItems: 3,
-                  maxItems: 3
-                }
-              },
-              required: ['suggestions']
+    try {
+      console.log('Calling GROQ AI for suggestions with model:', model);
+      
+      const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: 'GERE_UM_JSON: Retorne exatamente um JSON com a chave "suggestions" contendo 3 objetos com "text" e "tone" (formal|friendly|direct). Não inclua texto adicional.' }
+          ],
+          max_tokens: 300,
+          temperature: 0.7,
+        }),
+      });
+
+      if (groqResp.ok) {
+        const data = await groqResp.json();
+        const content = data?.choices?.[0]?.message?.content || '';
+        
+        // Tentar extrair JSON da resposta
+        try {
+          // Primeiro tenta parsear direto
+          const parsed = JSON.parse(content);
+          if (parsed?.suggestions && Array.isArray(parsed.suggestions)) {
+            console.log('GROQ suggestions parsed successfully');
+            return new Response(
+              JSON.stringify({ suggestions: parsed.suggestions, context: { contactName, lastMessage: lastClientMessage.content } }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        } catch {
+          // Tenta extrair JSON do meio do texto
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            try {
+              const parsed = JSON.parse(jsonMatch[0]);
+              if (parsed?.suggestions && Array.isArray(parsed.suggestions)) {
+                console.log('GROQ suggestions extracted from text');
+                return new Response(
+                  JSON.stringify({ suggestions: parsed.suggestions, context: { contactName, lastMessage: lastClientMessage.content } }),
+                  { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+                );
+              }
+            } catch {
+              console.warn('Failed to parse JSON from GROQ response');
             }
           }
-        }],
-        tool_choice: { type: 'function', function: { name: 'suggest_replies' } }
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('AI API error:', aiResponse.status, errorText);
-
-      if (aiResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ 
-            error: 'Rate limit exceeded. Please try again in a moment.',
-            suggestions: defaultSuggestions,
-            context: { contactName, lastMessage: lastClientMessage.content }
-          }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      if (aiResponse.status === 402) {
-        return new Response(
-          JSON.stringify({ 
-            error: 'Insufficient credits. Please add credits to your Lovable AI workspace.',
-            suggestions: defaultSuggestions,
-            context: { contactName, lastMessage: lastClientMessage.content }
-          }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Fallback para sugestões padrão em caso de erro
-      return new Response(
-        JSON.stringify({ 
-          suggestions: defaultSuggestions,
-          context: { contactName, lastMessage: lastClientMessage.content }
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const aiData = await aiResponse.json();
-    console.log('AI response received:', JSON.stringify(aiData));
-
-    // Extrair sugestões do tool call
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall) {
-      console.error('No tool call in AI response');
-      return new Response(
-        JSON.stringify({ 
-          suggestions: defaultSuggestions,
-          context: { contactName, lastMessage: lastClientMessage.content }
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const suggestionsData = JSON.parse(toolCall.function.arguments);
-    const suggestions = suggestionsData.suggestions || defaultSuggestions;
-
-    console.log('Returning suggestions:', suggestions);
-
-    return new Response(
-      JSON.stringify({
-        suggestions,
-        context: {
-          contactName,
-          lastMessage: lastClientMessage.content
         }
-      }),
+      } else {
+        const errorText = await groqResp.text();
+        console.error('GROQ API error:', groqResp.status, errorText);
+      }
+    } catch (e) {
+      console.error('Error calling GROQ API:', e);
+    }
+
+    // Fallback para sugestões padrão
+    console.warn('GROQ did not return valid suggestions, returning defaults');
+    return new Response(
+      JSON.stringify({ suggestions: defaultSuggestions, context: { contactName, lastMessage: lastClientMessage.content } }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
@@ -232,9 +193,9 @@ ${recentMessages}`;
     console.error('Error in suggest-smart-replies:', error);
     return new Response(
       JSON.stringify({ 
-        suggestions: defaultSuggestions,
-        context: null,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        suggestions: defaultSuggestions, 
+        context: null, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

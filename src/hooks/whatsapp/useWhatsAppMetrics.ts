@@ -248,6 +248,7 @@ export const useWhatsAppMetrics = (filters: WhatsAppMetricsFilters) => {
         ? await supabase
             .from('whatsapp_contacts')
             .select('id, name, phone_number')
+            .is('deleted_at', null)
             .in('id', contactIds)
         : { data: [] };
 

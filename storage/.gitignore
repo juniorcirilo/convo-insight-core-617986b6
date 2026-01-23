@@ -1,0 +1,13 @@
+# Ignore all files in storage buckets
+whatsapp-media/**/*
+contacts/**/*
+uploads/**/*
+
+# Keep directory structure
+!whatsapp-media/.gitkeep
+!contacts/.gitkeep
+!uploads/.gitkeep
+
+# Keep migration files (for reference)
+!migration-mapping.json
+!update-media-paths.sql

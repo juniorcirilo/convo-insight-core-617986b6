@@ -30,12 +30,17 @@ export const useSmartReply = (conversationId: string | null) => {
         body: { conversationId }
       });
 
+      // If function returned a body, prefer it even when response status indicates error.
+      if (data) {
+        return data as SmartReplyResponse;
+      }
+
       if (error) {
-        console.error('Smart reply error:', error);
+        console.warn('Smart reply function error with no data:', error);
         throw error;
       }
 
-      return data as SmartReplyResponse;
+      return { suggestions: [], context: null } as SmartReplyResponse;
     },
     enabled: !!conversationId,
     staleTime: 5 * 60 * 1000, // Cache por 5 minutos
@@ -52,8 +57,14 @@ export const useSmartReply = (conversationId: string | null) => {
         body: { conversationId }
       });
 
-      if (error) throw error;
-      return data as SmartReplyResponse;
+      if (data) return data as SmartReplyResponse;
+
+      if (error) {
+        console.warn('Smart reply refresh error with no data:', error);
+        throw error;
+      }
+
+      return { suggestions: [], context: null } as SmartReplyResponse;
     },
     onSuccess: (data) => {
       queryClient.setQueryData(['smart-replies', conversationId], data);

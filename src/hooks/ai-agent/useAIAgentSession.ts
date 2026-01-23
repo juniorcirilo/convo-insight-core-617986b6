@@ -45,6 +45,8 @@ export const useAIAgentSession = (conversationId?: string | null) => {
   useEffect(() => {
     if (!conversationId) return;
 
+    let sessionInvalidateTimeout: NodeJS.Timeout;
+
     const channel = supabase
       .channel(`ai-session-${conversationId}`)
       .on(
@@ -56,12 +58,17 @@ export const useAIAgentSession = (conversationId?: string | null) => {
           filter: `conversation_id=eq.${conversationId}`,
         },
         () => {
-          queryClient.invalidateQueries({ queryKey: ['ai-agent-session', conversationId] });
+          // Debounce invalidation to prevent excessive re-renders
+          clearTimeout(sessionInvalidateTimeout);
+          sessionInvalidateTimeout = setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ['ai-agent-session', conversationId] });
+          }, 100);
         }
       )
       .subscribe();
 
     return () => {
+      clearTimeout(sessionInvalidateTimeout);
       supabase.removeChannel(channel);
     };
   }, [conversationId, queryClient]);
@@ -116,7 +123,8 @@ export const useAIAgentSession = (conversationId?: string | null) => {
     },
     onSuccess: (mode) => {
       queryClient.invalidateQueries({ queryKey: ['ai-agent-session', conversationId] });
-      queryClient.invalidateQueries({ queryKey: ['whatsapp-conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
       
       const modeLabels: Record<ConversationMode, string> = {
         ai: 'Modo AI ativado',
@@ -132,13 +140,167 @@ export const useAIAgentSession = (conversationId?: string | null) => {
 
   const assumeConversation = useMutation({
     mutationFn: async (userId: string) => {
-      return changeMode.mutateAsync({ mode: 'human', userId });
+      if (!conversationId) throw new Error('No conversation ID');
+      
+      // Buscar nome do usuário
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', userId)
+        .single();
+      
+      const userName = profile?.full_name || 'Agente';
+      
+      // 1. Atribuir conversa ao agente
+      const { error: assignError } = await supabase
+        .from('whatsapp_conversations')
+        .update({ 
+          assigned_to: userId,
+          conversation_mode: 'human'
+        })
+        .eq('id', conversationId);
+      
+      if (assignError) throw assignError;
+      
+      // 2. Atualizar sessão AI
+      const sessionUpdate = {
+        mode: 'human' as const,
+        escalated_at: new Date().toISOString(),
+        escalation_reason: 'manual_takeover',
+        escalated_to: userId,
+      };
+
+      const { data: existingSession } = await supabase
+        .from('ai_agent_sessions')
+        .select('id')
+        .eq('conversation_id', conversationId)
+        .maybeSingle();
+
+      if (existingSession) {
+        await supabase
+          .from('ai_agent_sessions')
+          .update(sessionUpdate)
+          .eq('conversation_id', conversationId);
+      } else {
+        await supabase
+          .from('ai_agent_sessions')
+          .insert({
+            conversation_id: conversationId,
+            ...sessionUpdate,
+          });
+      }
+
+      // 3. Criar mensagem de sistema
+      const { data: conversation } = await supabase
+        .from('whatsapp_conversations')
+        .select('contact_id, whatsapp_contacts(phone_number)')
+        .eq('id', conversationId)
+        .single();
+
+      const remoteJid = (conversation?.whatsapp_contacts as any)?.phone_number || 'system';
+
+      await supabase.from('whatsapp_messages').insert({
+        conversation_id: conversationId,
+        content: `👤 ${userName} assumiu a conversa`,
+        message_type: 'text',
+        is_from_me: true,
+        is_internal: true,
+        message_id: `system_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        remote_jid: remoteJid,
+        timestamp: new Date().toISOString(),
+        status: 'sent',
+      });
+
+      return 'human';
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ai-agent-session', conversationId] });
+      queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['whatsapp', 'messages', conversationId] });
+      queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
+      toast.success('Conversa assumida com sucesso');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Erro ao assumir conversa');
     },
   });
 
   const returnToAI = useMutation({
     mutationFn: async () => {
-      return changeMode.mutateAsync({ mode: 'ai' });
+      if (!conversationId) throw new Error('No conversation ID');
+
+      // 1. Atualizar sessão AI
+      const sessionUpdate = {
+        mode: 'ai' as const,
+        auto_reply_count: 0,
+        escalated_at: null,
+        escalation_reason: null,
+        escalated_to: null,
+      };
+
+      const { data: existingSession } = await supabase
+        .from('ai_agent_sessions')
+        .select('id')
+        .eq('conversation_id', conversationId)
+        .maybeSingle();
+
+      if (existingSession) {
+        await supabase
+          .from('ai_agent_sessions')
+          .update(sessionUpdate)
+          .eq('conversation_id', conversationId);
+      } else {
+        await supabase
+          .from('ai_agent_sessions')
+          .insert({
+            conversation_id: conversationId,
+            ...sessionUpdate,
+          });
+      }
+
+      // 2. Desatribuir conversa e atualizar modo
+      const { error } = await supabase
+        .from('whatsapp_conversations')
+        .update({ 
+          conversation_mode: 'ai',
+          assigned_to: null 
+        })
+        .eq('id', conversationId);
+
+      if (error) throw error;
+
+      // 3. Criar mensagem de sistema
+      const { data: conversation } = await supabase
+        .from('whatsapp_conversations')
+        .select('contact_id, whatsapp_contacts(phone_number)')
+        .eq('id', conversationId)
+        .single();
+
+      const remoteJid = (conversation?.whatsapp_contacts as any)?.phone_number || 'system';
+
+      await supabase.from('whatsapp_messages').insert({
+        conversation_id: conversationId,
+        content: '🤖 Conversa devolvida para a I.A.',
+        message_type: 'text',
+        is_from_me: true,
+        is_internal: true,
+        message_id: `system_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        remote_jid: remoteJid,
+        timestamp: new Date().toISOString(),
+        status: 'sent',
+      });
+
+      return 'ai';
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ai-agent-session', conversationId] });
+      queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['whatsapp', 'messages', conversationId] });
+      queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
+      toast.success('Conversa devolvida para a I.A.');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Erro ao devolver conversa');
     },
   });
 

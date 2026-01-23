@@ -18,16 +18,18 @@ serve(async (req) => {
       throw new Error('Message and action are required');
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY');
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || Deno.env.get('VITE_SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('VITE_SUPABASE_ANON_KEY');
+    const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY') || Deno.env.get('VITE_GROQ_API_KEY');
 
     if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Supabase configuration missing');
+      console.error('Supabase env missing. SUPABASE_URL:', !!supabaseUrl, 'SUPABASE_KEY:', !!supabaseKey);
+      return new Response(JSON.stringify({ error: 'Supabase configuration missing in function env' }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    if (!lovableApiKey) {
-      throw new Error('LOVABLE_API_KEY not configured');
+    if (!GROQ_API_KEY) {
+      console.error('GROQ_API_KEY missing in function env');
+      return new Response(JSON.stringify({ error: 'GROQ_API_KEY not configured' }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -135,41 +137,53 @@ Responda apenas com a tradução.`;
         throw new Error(`Unknown action: ${action}`);
     }
 
-    console.log('Calling Lovable AI with action:', action);
+    console.log('Calling GROQ for composition action:', action);
+    const { getGroqModel } = await import('../groq-models.ts');
+    // For grammar correction use the tested example model
+    const model = action === 'fix_grammar' ? 'llama-3.3-70b-versatile' : getGroqModel('chat_simple');
 
-    // Chamar Lovable AI Gateway
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model,
         messages: [
-          { role: 'user', content: prompt }
+          { role: 'system', content: prompt },
+          { role: 'user', content: '' }
         ],
+        max_tokens: 300,
+        temperature: 0.6,
       }),
     });
 
-    // Tratar erros de rate limit e pagamento
-    if (!aiResponse.ok) {
-      if (aiResponse.status === 429) {
-        throw new Error('Rate limit exceeded. Please try again later.');
-      }
-      if (aiResponse.status === 402) {
-        throw new Error('Payment required. Please add credits.');
-      }
-      const errorText = await aiResponse.text();
-      console.error('AI Gateway error:', aiResponse.status, errorText);
-      throw new Error('AI processing failed');
+    if (!groqResp.ok) {
+      const errText = await groqResp.text();
+      console.error('GROQ error:', groqResp.status, errText);
+      // Surface upstream error to caller for easier debugging
+      return new Response(
+        JSON.stringify({ error: 'GROQ API error', status: groqResp.status, details: errText }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    const aiData = await aiResponse.json();
-    const composedText = aiData.choices?.[0]?.message?.content;
+    const text = await groqResp.text();
+    let composedText = '';
+    try {
+      const parsed = JSON.parse(text);
+      composedText = parsed?.choices?.[0]?.message?.content || parsed?.choices?.[0]?.text || parsed?.text || text;
+    } catch {
+      composedText = text;
+    }
 
     if (!composedText) {
-      throw new Error('No response from AI');
+      console.error('No composed text returned from GROQ response');
+      return new Response(
+        JSON.stringify({ error: 'No response from AI' }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log('AI composition successful for action:', action);

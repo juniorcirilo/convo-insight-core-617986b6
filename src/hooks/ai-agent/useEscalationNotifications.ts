@@ -73,21 +73,27 @@ export const useEscalationNotifications = () => {
   useEffect(() => {
     if (!user) return;
 
+    let notificationsInvalidateTimeout: NodeJS.Timeout;
+
     const channel = supabase
       .channel(`escalation-notifications-${user.id}`)
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'escalation_notifications',
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
-          queryClient.invalidateQueries({ queryKey: ['escalation-notifications', user.id] });
+          // Debounce invalidation to prevent excessive re-renders
+          clearTimeout(notificationsInvalidateTimeout);
+          notificationsInvalidateTimeout = setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ['escalation-notifications', user.id] });
+          }, 100);
           
-          // Play notification sound for new escalations
-          if (payload.new && (payload.new as any).notification_type === 'new_escalation') {
+          // Play notification sound for new escalations (only on INSERT)
+          if (payload.eventType === 'INSERT' && payload.new && (payload.new as any).notification_type === 'new_escalation') {
             playNotificationSound();
           }
         }
@@ -95,6 +101,7 @@ export const useEscalationNotifications = () => {
       .subscribe();
 
     return () => {
+      clearTimeout(notificationsInvalidateTimeout);
       supabase.removeChannel(channel);
     };
   }, [user, queryClient]);

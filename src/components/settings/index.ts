@@ -19,3 +19,7 @@ export { ApiTokenDialog } from "./ApiTokenDialog";
 export { SectorsManager } from "./SectorsManager";
 export { SectorDialog } from "./SectorDialog";
 export { SectorMembersDialog } from "./SectorMembersDialog";
+export { AIAssistantSettings } from "./AIAssistantSettings";
+export { WidgetSettings } from "./WidgetSettings";
+export { NotificationSettings } from "./NotificationSettings";
+export { FilterPillsSettings } from "./FilterPillsSettings";

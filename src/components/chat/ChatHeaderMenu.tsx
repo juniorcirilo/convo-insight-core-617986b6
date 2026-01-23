@@ -1,6 +1,11 @@
 import { useState } from 'react';
-import { MoreVertical, Edit, Archive, Download, CheckCircle, RotateCcw } from 'lucide-react';
+import { MoreVertical, Edit, Archive, Download, CheckCircle, RotateCcw, RefreshCw, UserPlus, Building2, Bot, ArrowRightLeft } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useAIAgentSession } from '@/hooks/ai-agent';
+import { useConversationAssignment } from '@/hooks/whatsapp/useConversationAssignment';
+import { useTickets } from '@/hooks/useTickets';
 import { Checkbox } from '@/components/ui/checkbox';
+import { AssignAgentDialog } from '@/components/conversations/AssignAgentDialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,12 +32,15 @@ import { toast } from 'sonner';
 interface ChatHeaderMenuProps {
   conversation: any;
   onRefresh?: () => void;
+  onAnalyze?: () => void;
+  isAnalyzing?: boolean;
 }
 
-export function ChatHeaderMenu({ conversation, onRefresh }: ChatHeaderMenuProps) {
+export function ChatHeaderMenu({ conversation, onRefresh, onAnalyze, isAnalyzing }: ChatHeaderMenuProps) {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [showCloseDialog, setShowCloseDialog] = useState(false);
   const [generateSummary, setGenerateSummary] = useState(true);
+  const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
 
   const { 
     archiveConversation, 
@@ -42,6 +50,14 @@ export function ChatHeaderMenu({ conversation, onRefresh }: ChatHeaderMenuProps)
     isClosing, 
     isReopening 
   } = useWhatsAppActions();
+
+  const { user } = useAuth();
+  const { assignConversation } = useConversationAssignment();
+  const { ticket, updateTicketStatus } = useTickets(conversation?.id);
+
+  const isInQueue = !conversation?.assigned_to;
+
+  const { assumeConversation, setHybridMode, returnToAI } = useAIAgentSession(conversation?.id);
 
   const handleArchive = () => {
     archiveConversation(conversation.id, {
@@ -85,6 +101,56 @@ export function ChatHeaderMenu({ conversation, onRefresh }: ChatHeaderMenuProps)
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48 bg-background z-50">
+          <DropdownMenuSeparator />
+          {isInQueue && (
+            <DropdownMenuItem onClick={() => {
+              if (conversation?.id && user?.id) assumeConversation.mutate(user.id);
+            }}>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Assumir Conversa
+            </DropdownMenuItem>
+          )}
+
+          <DropdownMenuItem onClick={() => onAnalyze?.()} disabled={isAnalyzing}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${isAnalyzing ? 'animate-spin' : ''}`} />
+            Analisar
+          </DropdownMenuItem>
+
+          <DropdownMenuItem onClick={() => {
+            if (conversation?.id && user?.id) setHybridMode.mutate(user.id);
+          }}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Modo Híbrido
+          </DropdownMenuItem>
+
+          <DropdownMenuItem onClick={() => returnToAI.mutate()}>
+            <Bot className="mr-2 h-4 w-4" />
+            Devolver para I.A
+          </DropdownMenuItem>
+
+          {ticket && (
+            <DropdownMenuItem
+              onClick={() => {
+                if (!ticket || ticket.status !== 'aberto') return;
+                updateTicketStatus.mutate({ ticketId: ticket.id, status: 'em_atendimento' });
+              }}
+              disabled={!ticket || ticket.status !== 'aberto'}
+            >
+              <Building2 className="mr-2 h-4 w-4" />
+              Iniciar Atendimento
+            </DropdownMenuItem>
+          )}
+
+          {/* Transferir conversa - só mostra se tem alguém atribuído */}
+          {!isInQueue && (
+            <DropdownMenuItem onClick={() => setIsTransferDialogOpen(true)}>
+              <ArrowRightLeft className="mr-2 h-4 w-4" />
+              Transferir
+            </DropdownMenuItem>
+          )}
+
+          <DropdownMenuSeparator />
+
           <DropdownMenuItem onClick={() => setIsEditModalOpen(true)}>
             <Edit className="mr-2 h-4 w-4" />
             Editar contato
@@ -158,6 +224,16 @@ export function ChatHeaderMenu({ conversation, onRefresh }: ChatHeaderMenuProps)
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Transfer Dialog */}
+      <AssignAgentDialog
+        open={isTransferDialogOpen}
+        onOpenChange={setIsTransferDialogOpen}
+        conversationId={conversation?.id}
+        currentAssignee={conversation?.assigned_to}
+        isTransfer={true}
+        onSuccess={onRefresh}
+      />
     </>
   );
 }

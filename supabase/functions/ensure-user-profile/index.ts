@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get user from JWT
+    // Get user from JWT via Supabase REST to avoid local JWT verification
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       console.error('❌ Missing authorization header');
@@ -26,12 +26,31 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    );
+    const token = authHeader.replace('Bearer ', '');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    if (userError || !user) {
-      console.error('❌ Invalid token:', userError);
+    const userResp = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'apikey': serviceRoleKey,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!userResp.ok) {
+      console.error('❌ Invalid token via REST fetch');
+      return new Response(JSON.stringify({ error: 'Invalid token' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const userJson = await userResp.json();
+    const user = userJson?.user;
+
+    if (!user) {
+      console.error('❌ Invalid token: no user');
       return new Response(JSON.stringify({ error: 'Invalid token' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

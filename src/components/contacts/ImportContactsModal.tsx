@@ -81,7 +81,7 @@ export function ImportContactsModal({ open, onOpenChange }: ImportContactsModalP
       // Store import config in localStorage for after redirect
       localStorage.setItem('googleImportConfig', JSON.stringify({
         instanceId: selectedInstanceId,
-        sectorId: selectedSectorId || null,
+        sectorId: selectedSectorId === '__none__' ? null : selectedSectorId,
       }));
 
     } catch (error: any) {
@@ -164,7 +164,7 @@ export function ImportContactsModal({ open, onOpenChange }: ImportContactsModalP
                     <SelectValue placeholder="Sem setor específico" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Sem setor específico</SelectItem>
+                    <SelectItem value="__none__">Sem setor específico</SelectItem>
                     {sectors.map((sector) => (
                       <SelectItem key={sector.id} value={sector.id}>
                         {sector.name}

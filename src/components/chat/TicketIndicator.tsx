@@ -23,16 +23,18 @@ interface TicketIndicatorProps {
   sectorGeraTicket?: boolean;
 }
 
-const statusColors = {
+const statusColors: Record<string, string> = {
   aberto: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
   em_atendimento: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
   finalizado: 'bg-green-500/10 text-green-600 border-green-500/20',
+  reaberto: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
 };
 
-const statusLabels = {
+const statusLabels: Record<string, string> = {
   aberto: 'Ticket Aberto',
   em_atendimento: 'Em Atendimento',
   finalizado: 'Finalizado',
+  reaberto: 'Reaberto',
 };
 
 export function TicketIndicator({ conversationId, sectorGeraTicket }: TicketIndicatorProps) {
@@ -47,6 +49,7 @@ export function TicketIndicator({ conversationId, sectorGeraTicket }: TicketIndi
   }
   
   const slaConfig = slaConfigMap?.[ticket.prioridade || 'media'];
+  const isFinalized = ticket.status === 'finalizado';
 
   const handleStartAttending = async () => {
     if (ticket.status === 'aberto') {
@@ -78,24 +81,11 @@ export function TicketIndicator({ conversationId, sectorGeraTicket }: TicketIndi
           </span>
         </Badge>
 
-        {/* SLA Indicator */}
-        {ticket.status !== 'finalizado' && slaConfig && (
-          <SLAIndicator ticket={ticket} slaConfig={slaConfig} />
-        )}
+        {/* SLA Indicator removed */}
 
-        {ticket.status === 'aberto' && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs"
-            onClick={handleStartAttending}
-            disabled={updateTicketStatus.isPending}
-          >
-            Iniciar Atendimento
-          </Button>
-        )}
+        {/* Iniciar Atendimento moved to ChatHeader consolidated actions dropdown */}
 
-        {ticket.status === 'em_atendimento' && (
+        {(ticket.status === 'em_atendimento' || ticket.status === 'reaberto') && (
           <>
             <Button
               size="sm"

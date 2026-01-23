@@ -18,7 +18,7 @@ export function AgentPerformanceChart({ data }: AgentPerformanceChartProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Performance por Agente</CardTitle>
+          <CardTitle>Performance por Atendente</CardTitle>
           <CardDescription>Conversas atendidas e tempo médio de resposta</CardDescription>
         </CardHeader>
         <CardContent className="flex items-center justify-center h-[300px] text-muted-foreground">
@@ -34,7 +34,7 @@ export function AgentPerformanceChart({ data }: AgentPerformanceChartProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Performance por Agente</CardTitle>
+        <CardTitle>Performance por Atendente</CardTitle>
         <CardDescription>Conversas atendidas e tempo médio de resposta</CardDescription>
       </CardHeader>
       <CardContent>

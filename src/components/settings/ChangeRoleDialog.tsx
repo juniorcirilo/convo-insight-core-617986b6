@@ -29,7 +29,7 @@ const roleOptions = [
   {
     value: 'supervisor' as AppRole,
     label: 'Supervisor',
-    description: 'Pode visualizar todas as conversas e atribuir agentes',
+    description: 'Pode visualizar todas as conversas e atribuir atendentes',
     icon: UserCog,
   },
   {

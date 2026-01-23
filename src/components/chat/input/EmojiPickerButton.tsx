@@ -25,11 +25,12 @@ export const EmojiPickerButton = ({ onEmojiSelect, disabled }: EmojiPickerButton
           size="icon" 
           variant="ghost"
           disabled={disabled}
+          className="h-9 w-9 shrink-0"
         >
-          <Smile className="w-5 h-5" />
+          <Smile className="w-4 h-4" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0 border-0" align="start">
+      <PopoverContent className="w-full p-0 border-0" align="end" side="top">
         <EmojiPicker
           onEmojiClick={handleEmojiClick}
           autoFocusSearch={false}

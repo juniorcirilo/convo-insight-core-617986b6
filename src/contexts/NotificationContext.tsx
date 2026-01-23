@@ -2,6 +2,10 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 import { supabase } from "@/integrations/supabase/client";
 import { playNotificationSound } from "@/utils/notificationSound";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "@/hooks/use-toast";
+import { getNotificationSettings, NotificationSettingsData } from "@/components/settings/NotificationSettings";
+
+type NotificationSoundType = "reply" | "new_conversation" | "transfer";
 
 interface NotificationContextType {
   permission: NotificationPermission;
@@ -17,6 +21,30 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 const SOUND_ENABLED_KEY = "whatsapp-sound-enabled";
 
+// Custom audio player that uses settings with support for different sound types
+const playCustomNotificationSound = (settings: NotificationSettingsData, type: NotificationSoundType = "reply") => {
+  if (!settings.soundEnabled) return;
+  
+  let audioSrc: string;
+  
+  switch (type) {
+    case "new_conversation":
+      audioSrc = settings.customAudioNewConversation || settings.customAudioUrl || "/notification.mp3";
+      break;
+    case "transfer":
+      audioSrc = settings.customAudioTransfer || settings.customAudioUrl || "/notification.mp3";
+      break;
+    case "reply":
+    default:
+      audioSrc = settings.customAudioUrl || "/notification.mp3";
+      break;
+  }
+  
+  const audio = new Audio(audioSrc);
+  audio.volume = 0.5;
+  audio.play().catch(console.error);
+};
+
 export const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
   const [permission, setPermission] = useState<NotificationPermission>(
     typeof Notification !== "undefined" ? Notification.permission : "default"
@@ -27,6 +55,19 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
   });
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const selectedConversationRef = useRef<string | null>(null);
+  const notificationSettingsRef = useRef<NotificationSettingsData>(getNotificationSettings());
+
+  // Listen for settings changes
+  useEffect(() => {
+    const handleSettingsChange = (e: CustomEvent<NotificationSettingsData>) => {
+      notificationSettingsRef.current = e.detail;
+    };
+    
+    window.addEventListener("notification-settings-changed" as any, handleSettingsChange);
+    return () => {
+      window.removeEventListener("notification-settings-changed" as any, handleSettingsChange);
+    };
+  }, []);
 
   // Sync ref with state for realtime listener
   useEffect(() => {
@@ -118,6 +159,10 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
         },
         async (payload) => {
           const newMessage = payload.new as any;
+          const settings = notificationSettingsRef.current;
+
+          // Check if notifications are enabled
+          if (!settings.enabled) return;
 
           // Ignore messages sent by us
           if (newMessage.is_from_me) return;
@@ -129,20 +174,28 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
           try {
             const { data: conversation } = await supabase
               .from("whatsapp_conversations")
-              .select("contact:whatsapp_contacts(name)")
+              .select("contact:whatsapp_contacts(name), status")
               .eq("id", newMessage.conversation_id)
               .single();
 
             const contactName = conversation?.contact?.name || "Contato";
             const messagePreview = newMessage.content || "Nova mensagem";
 
-            // Play sound
-            if (soundEnabled) {
-              playNotificationSound();
-            }
+            if (settings.showForReplies) {
+              // Play sound
+              if (settings.soundEnabled) {
+                playCustomNotificationSound(settings, "reply");
+              }
 
-            // Show web push notification
-            showWebNotification(contactName, messagePreview, newMessage.conversation_id);
+              // Show toast notification
+              toast({
+                title: contactName,
+                description: messagePreview.substring(0, 80) + (messagePreview.length > 80 ? "..." : ""),
+              });
+
+              // Show web push notification
+              showWebNotification(contactName, messagePreview, newMessage.conversation_id);
+            }
           } catch (error) {
             console.error("Error processing notification:", error);
           }
@@ -154,6 +207,239 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
       supabase.removeChannel(channel);
     };
   }, [soundEnabled, showWebNotification]);
+
+  // Global listener for conversation transfers/assignments and status changes
+  useEffect(() => {
+    const channel = supabase
+      .channel("global-conversation-updates")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "whatsapp_conversations",
+        },
+        async (payload) => {
+          const settings = notificationSettingsRef.current;
+          if (!settings.enabled) return;
+
+          const oldConv = payload.old as any;
+          const newConv = payload.new as any;
+
+          // Get current user
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return;
+
+          // Check if status changed to open (reopened) or if it's a transfer
+          const wasReopened = oldConv.status === "closed" && newConv.status === "open";
+          const wasTransferred = oldConv.assigned_to !== newConv.assigned_to && newConv.assigned_to;
+          const sectorChanged = oldConv.sector_id !== newConv.sector_id && newConv.sector_id;
+
+          // Fetch contact info
+          const { data: conversation } = await supabase
+            .from("whatsapp_conversations")
+            .select("contact:whatsapp_contacts(name)")
+            .eq("id", newConv.id)
+            .single();
+
+          const contactName = conversation?.contact?.name || "Contato";
+
+          // Handle transfer notifications
+          if (wasTransferred && settings.showForTransfers) {
+            // Notify the user being assigned
+            if (newConv.assigned_to === user.id) {
+              if (settings.soundEnabled) {
+                playCustomNotificationSound(settings, "transfer");
+              }
+              toast({
+                title: "Conversa transferida para você",
+                description: `${contactName} foi atribuída a você`,
+              });
+            }
+
+            // Notify members of the conversation's sector
+            if (newConv.sector_id) {
+              try {
+                // Check if current user is in the sector
+                const { data: userSector } = await supabase
+                  .from("user_sectors")
+                  .select("id")
+                  .eq("user_id", user.id)
+                  .eq("sector_id", newConv.sector_id)
+                  .maybeSingle();
+
+                // If user is in the sector and is NOT the assignee, notify them
+                if (userSector && newConv.assigned_to !== user.id) {
+                  const { data: assignee } = await supabase
+                    .from("profiles")
+                    .select("full_name")
+                    .eq("id", newConv.assigned_to)
+                    .single();
+
+                  const assigneeName = assignee?.full_name || "Atendente";
+
+                  toast({
+                    title: "Conversa atribuída",
+                    description: `${contactName} foi atribuída a ${assigneeName}`,
+                  });
+                }
+              } catch (error) {
+                console.error("Error checking sector membership:", error);
+              }
+            }
+          }
+
+          // Handle sector change (transfer to another sector)
+          if (sectorChanged && settings.showForTransfers) {
+            try {
+              // Check if current user is in the NEW sector
+              const { data: userSector } = await supabase
+                .from("user_sectors")
+                .select("id")
+                .eq("user_id", user.id)
+                .eq("sector_id", newConv.sector_id)
+                .maybeSingle();
+
+              // If user is in the new sector, notify them
+              if (userSector) {
+                const { data: sector } = await supabase
+                  .from("sectors")
+                  .select("name")
+                  .eq("id", newConv.sector_id)
+                  .single();
+
+                const sectorName = sector?.name || "Setor";
+
+                if (settings.soundEnabled) {
+                  playCustomNotificationSound(settings, "transfer");
+                }
+                toast({
+                  title: "Nova conversa no setor",
+                  description: `${contactName} foi transferida para ${sectorName}`,
+                });
+              }
+            } catch (error) {
+              console.error("Error handling sector change:", error);
+            }
+          }
+
+          // Handle reopened conversations
+          if (wasReopened && settings.showForNewConversation) {
+            try {
+              // Check if current user is in the conversation's sector
+              if (newConv.sector_id) {
+                const { data: userSector } = await supabase
+                  .from("user_sectors")
+                  .select("id")
+                  .eq("user_id", user.id)
+                  .eq("sector_id", newConv.sector_id)
+                  .maybeSingle();
+
+                if (userSector) {
+                  if (settings.soundEnabled) {
+                    playCustomNotificationSound(settings, "new_conversation");
+                  }
+                  toast({
+                    title: "Conversa reaberta",
+                    description: `${contactName} reabriu a conversa`,
+                  });
+                }
+              }
+            } catch (error) {
+              console.error("Error handling reopened conversation:", error);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Global listener for new conversations (INSERT)
+  useEffect(() => {
+    const channel = supabase
+      .channel("global-new-conversations")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "whatsapp_conversations",
+        },
+        async (payload) => {
+          const settings = notificationSettingsRef.current;
+          if (!settings.enabled || !settings.showForNewConversation) return;
+
+          const newConv = payload.new as any;
+
+          // Get current user
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return;
+
+          // Fetch contact info
+          const { data: conversation } = await supabase
+            .from("whatsapp_conversations")
+            .select("contact:whatsapp_contacts(name)")
+            .eq("id", newConv.id)
+            .single();
+
+          const contactName = conversation?.contact?.name || "Contato";
+
+          // Check if current user is in the conversation's sector
+          if (newConv.sector_id) {
+            try {
+              const { data: userSector } = await supabase
+                .from("user_sectors")
+                .select("id")
+                .eq("user_id", user.id)
+                .eq("sector_id", newConv.sector_id)
+                .maybeSingle();
+
+              if (userSector) {
+                if (settings.soundEnabled) {
+                  playCustomNotificationSound(settings, "new_conversation");
+                }
+                toast({
+                  title: "Nova conversa",
+                  description: `${contactName} iniciou uma nova conversa`,
+                });
+              }
+            } catch (error) {
+              console.error("Error handling new conversation:", error);
+            }
+          } else {
+            // No sector assigned - notify admins/supervisors
+            try {
+              const { data: profile } = await supabase
+                .from("profiles")
+                .select("role")
+                .eq("id", user.id)
+                .single();
+
+              if (profile?.role === "admin" || profile?.role === "supervisor") {
+                if (settings.soundEnabled) {
+                  playCustomNotificationSound(settings, "new_conversation");
+                }
+                toast({
+                  title: "Nova conversa",
+                  description: `${contactName} iniciou uma nova conversa`,
+                });
+              }
+            } catch (error) {
+              console.error("Error checking admin status:", error);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   return (
     <NotificationContext.Provider

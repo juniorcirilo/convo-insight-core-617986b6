@@ -31,7 +31,7 @@ interface UserPermissionsModalProps {
 const roleConfig = {
   admin: { label: 'Admin', variant: 'destructive' as const },
   supervisor: { label: 'Supervisor', variant: 'default' as const },
-  agent: { label: 'Agente', variant: 'secondary' as const },
+  agent: { label: 'Atendente', variant: 'secondary' as const },
 };
 
 const sourceLabels = {
@@ -86,11 +86,17 @@ const UserPermissionsModal = ({ member, open, onOpenChange }: UserPermissionsMod
     });
   };
 
-  const categories = [
-    { key: 'conversations', label: 'Conversas' },
-    { key: 'sales', label: 'Vendas' },
-    { key: 'admin', label: 'Administração' },
-  ];
+  // Group specific permission items for easier discovery
+  // We'll surface 'Instâncias' and 'Contatos' first, then render the remaining categories
+  const contactPermissions = permissionTypes?.filter(pt => pt.key.includes('_contacts')) || [];
+  const instancePermissions = permissionTypes?.filter(pt => pt.key.includes('_instances')) || [];
+  const remainingPermissions = permissionTypes?.filter(pt => !pt.key.includes('_contacts') && !pt.key.includes('_instances')) || [];
+
+  // Group remaining by their category key
+  const remainingByCategory = remainingPermissions.reduce<Record<string, typeof permissionTypes>>((acc, pt) => {
+    (acc[pt.category] = acc[pt.category] || []).push(pt);
+    return acc;
+  }, {} as Record<string, typeof permissionTypes>);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -140,109 +146,305 @@ const UserPermissionsModal = ({ member, open, onOpenChange }: UserPermissionsMod
 
         {/* Permissions list */}
         <div className="space-y-4">
-          {categories.map(category => {
-            const categoryPermissions = permissionTypes?.filter(pt => pt.category === category.key) || [];
-            if (categoryPermissions.length === 0) return null;
-            
-            return (
-              <div key={category.key}>
-                <h4 className="font-medium text-sm text-muted-foreground mb-2 flex items-center gap-2">
-                  <Shield className="h-4 w-4" />
-                  {category.label}
-                </h4>
-                <div className="space-y-2">
-                  {categoryPermissions.map(pt => {
-                    const effective = effectivePermissions?.find(ep => ep.permission_key === pt.key);
-                    const isEnabled = effective?.is_enabled ?? false;
-                    const source = effective?.source ?? 'role_default';
-                    const sourceConfig = sourceLabels[source];
-                    const isEditing = editingPermission === pt.key;
+          {/* Contatos group */}
+          {contactPermissions.length > 0 && (
+            <div key="contacts">
+              <h4 className="font-medium text-sm text-muted-foreground mb-2 flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                Contatos
+              </h4>
+              <div className="space-y-2">
+                {contactPermissions.map(pt => {
+                  const effective = effectivePermissions?.find(ep => ep.permission_key === pt.key);
+                  const isEnabled = effective?.is_enabled ?? false;
+                  const source = effective?.source ?? 'role_default';
+                  const sourceConfig = sourceLabels[source];
+                  const isEditing = editingPermission === pt.key;
 
-                    return (
-                      <div 
-                        key={pt.key} 
-                        className={`p-3 border rounded-lg transition-colors ${isEditing ? 'border-primary bg-primary/5' : ''}`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">{pt.name}</span>
-                              <Badge className={`text-xs ${sourceConfig.color}`}>
-                                {sourceConfig.label}
-                              </Badge>
-                            </div>
-                            {pt.description && (
-                              <p className="text-xs text-muted-foreground mt-1">{pt.description}</p>
-                            )}
-                          </div>
+                  return (
+                    <div 
+                      key={pt.key} 
+                      className={`p-3 border rounded-lg transition-colors ${isEditing ? 'border-primary bg-primary/5' : ''}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            {source === 'user_override' && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    onClick={() => handleRemoveOverride(pt.key)}
-                                    disabled={isRemovingOverride}
-                                  >
-                                    <Undo2 className="h-4 w-4" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  Remover override (voltar ao padrão)
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                            <Switch
-                              checked={isEnabled}
-                              onCheckedChange={() => handleTogglePermission(pt.key, isEnabled, source)}
-                              disabled={isSettingOverride || isRemovingOverride}
-                            />
+                            <span className="font-medium">{pt.name}</span>
+                            <Badge className={`text-xs ${sourceConfig.color}`}>
+                              {sourceConfig.label}
+                            </Badge>
+                          </div>
+                          {pt.description && (
+                            <p className="text-xs text-muted-foreground mt-1">{pt.description}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {source === 'user_override' && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => handleRemoveOverride(pt.key)}
+                                  disabled={isRemovingOverride}
+                                >
+                                  <Undo2 className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                Remover override (voltar ao padrão)
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                          <Switch
+                            checked={isEnabled}
+                            onCheckedChange={() => handleTogglePermission(pt.key, isEnabled, source)}
+                            disabled={isSettingOverride || isRemovingOverride}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Override confirmation */}
+                      {isEditing && (
+                        <div className="mt-3 pt-3 border-t space-y-3">
+                          <p className="text-sm text-muted-foreground">
+                            Você está criando um override que sobrescreverá o padrão do setor/role
+                          </p>
+                          <Textarea
+                            placeholder="Motivo (opcional)"
+                            value={overrideReason}
+                            onChange={(e) => setOverrideReason(e.target.value)}
+                            className="text-sm"
+                            rows={2}
+                          />
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              onClick={() => handleConfirmOverride(pt.key, !isEnabled)}
+                              disabled={isSettingOverride}
+                            >
+                              {isEnabled ? 'Desativar' : 'Ativar'}
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => {
+                                setEditingPermission(null);
+                                setOverrideReason('');
+                              }}
+                            >
+                              Cancelar
+                            </Button>
                           </div>
                         </div>
-
-                        {/* Override confirmation */}
-                        {isEditing && (
-                          <div className="mt-3 pt-3 border-t space-y-3">
-                            <p className="text-sm text-muted-foreground">
-                              Você está criando um override que sobrescreverá o padrão do setor/role
-                            </p>
-                            <Textarea
-                              placeholder="Motivo (opcional)"
-                              value={overrideReason}
-                              onChange={(e) => setOverrideReason(e.target.value)}
-                              className="text-sm"
-                              rows={2}
-                            />
-                            <div className="flex gap-2">
-                              <Button 
-                                size="sm" 
-                                onClick={() => handleConfirmOverride(pt.key, !isEnabled)}
-                                disabled={isSettingOverride}
-                              >
-                                {isEnabled ? 'Desativar' : 'Ativar'}
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => {
-                                  setEditingPermission(null);
-                                  setOverrideReason('');
-                                }}
-                              >
-                                Cancelar
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          )}
+
+          {/* Instâncias group */}
+          {instancePermissions.length > 0 && (
+            <div key="instances">
+              <h4 className="font-medium text-sm text-muted-foreground mb-2 flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                Instâncias
+              </h4>
+              <div className="space-y-2">
+                {instancePermissions.map(pt => {
+                  const effective = effectivePermissions?.find(ep => ep.permission_key === pt.key);
+                  const isEnabled = effective?.is_enabled ?? false;
+                  const source = effective?.source ?? 'role_default';
+                  const sourceConfig = sourceLabels[source];
+                  const isEditing = editingPermission === pt.key;
+
+                  return (
+                    <div 
+                      key={pt.key} 
+                      className={`p-3 border rounded-lg transition-colors ${isEditing ? 'border-primary bg-primary/5' : ''}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{pt.name}</span>
+                            <Badge className={`text-xs ${sourceConfig.color}`}>
+                              {sourceConfig.label}
+                            </Badge>
+                          </div>
+                          {pt.description && (
+                            <p className="text-xs text-muted-foreground mt-1">{pt.description}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {source === 'user_override' && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => handleRemoveOverride(pt.key)}
+                                  disabled={isRemovingOverride}
+                                >
+                                  <Undo2 className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                Remover override (voltar ao padrão)
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                          <Switch
+                            checked={isEnabled}
+                            onCheckedChange={() => handleTogglePermission(pt.key, isEnabled, source)}
+                            disabled={isSettingOverride || isRemovingOverride}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Override confirmation */}
+                      {isEditing && (
+                        <div className="mt-3 pt-3 border-t space-y-3">
+                          <p className="text-sm text-muted-foreground">
+                            Você está criando um override que sobrescreverá o padrão do setor/role
+                          </p>
+                          <Textarea
+                            placeholder="Motivo (opcional)"
+                            value={overrideReason}
+                            onChange={(e) => setOverrideReason(e.target.value)}
+                            className="text-sm"
+                            rows={2}
+                          />
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              onClick={() => handleConfirmOverride(pt.key, !isEnabled)}
+                              disabled={isSettingOverride}
+                            >
+                              {isEnabled ? 'Desativar' : 'Ativar'}
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => {
+                                setEditingPermission(null);
+                                setOverrideReason('');
+                              }}
+                            >
+                              Cancelar
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Remaining categories */}
+          {Object.entries(remainingByCategory).map(([catKey, perms]) => (
+            <div key={catKey}>
+              <h4 className="font-medium text-sm text-muted-foreground mb-2 flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                {catKey.charAt(0).toUpperCase() + catKey.slice(1)}
+              </h4>
+              <div className="space-y-2">
+                {perms.map(pt => {
+                  const effective = effectivePermissions?.find(ep => ep.permission_key === pt.key);
+                  const isEnabled = effective?.is_enabled ?? false;
+                  const source = effective?.source ?? 'role_default';
+                  const sourceConfig = sourceLabels[source];
+                  const isEditing = editingPermission === pt.key;
+
+                  return (
+                    <div 
+                      key={pt.key} 
+                      className={`p-3 border rounded-lg transition-colors ${isEditing ? 'border-primary bg-primary/5' : ''}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{pt.name}</span>
+                            <Badge className={`text-xs ${sourceConfig.color}`}>
+                              {sourceConfig.label}
+                            </Badge>
+                          </div>
+                          {pt.description && (
+                            <p className="text-xs text-muted-foreground mt-1">{pt.description}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {source === 'user_override' && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => handleRemoveOverride(pt.key)}
+                                  disabled={isRemovingOverride}
+                                >
+                                  <Undo2 className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                Remover override (voltar ao padrão)
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                          <Switch
+                            checked={isEnabled}
+                            onCheckedChange={() => handleTogglePermission(pt.key, isEnabled, source)}
+                            disabled={isSettingOverride || isRemovingOverride}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Override confirmation */}
+                      {isEditing && (
+                        <div className="mt-3 pt-3 border-t space-y-3">
+                          <p className="text-sm text-muted-foreground">
+                            Você está criando um override que sobrescreverá o padrão do setor/role
+                          </p>
+                          <Textarea
+                            placeholder="Motivo (opcional)"
+                            value={overrideReason}
+                            onChange={(e) => setOverrideReason(e.target.value)}
+                            className="text-sm"
+                            rows={2}
+                          />
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              onClick={() => handleConfirmOverride(pt.key, !isEnabled)}
+                              disabled={isSettingOverride}
+                            >
+                              {isEnabled ? 'Desativar' : 'Ativar'}
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => {
+                                setEditingPermission(null);
+                                setOverrideReason('');
+                              }}
+                            >
+                              Cancelar
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       </DialogContent>
     </Dialog>

@@ -5,6 +5,7 @@ import { Tables } from "@/integrations/supabase/types";
 import { format } from "date-fns";
 import { Check, CheckCheck, Clock, Reply, Pencil, User, Eye, UserCog, Loader2, Bot } from "lucide-react";
 import { AIFeedbackButton } from "@/components/ai-agent";
+import MediaPlayer from '@/components/ui/MediaPlayer';
 import { cn } from "@/lib/utils";
 import { QuotedMessagePreview } from "./QuotedMessagePreview";
 import { ImageViewerModal } from "./ImageViewerModal";
@@ -24,9 +25,11 @@ interface MessageBubbleProps {
   message: Message;
   reactions?: Reaction[];
   onReply?: (message: Message) => void;
+  isGroupChat?: boolean;
+  senderName?: string;
 }
 
-export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbleProps) => {
+export const MessageBubble = ({ message, reactions = [], onReply, isGroupChat = false, senderName }: MessageBubbleProps) => {
   const [viewerImage, setViewerImage] = useState<string | null>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -73,15 +76,15 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
     
     switch (message.status) {
       case 'sending':
-        return <Clock className="w-3 h-3" />;
+        return <Clock className="w-4 h-4 text-primary-foreground/60" />;
       case 'sent':
-        return <Check className="w-3 h-3" />;
+        return <Check className="w-4 h-4 text-primary-foreground/70" />;
       case 'delivered':
-        return <CheckCheck className="w-3 h-3" />;
+        return <CheckCheck className="w-4 h-4 text-primary-foreground/80" />;
       case 'read':
-        return <CheckCheck className="w-3 h-3 text-blue-500" />;
+        return <CheckCheck className="w-4 h-4 text-sky-400" />;
       default:
-        return <Check className="w-3 h-3" />;
+        return <Check className="w-4 h-4 text-primary-foreground/70" />;
     }
   };
 
@@ -115,19 +118,27 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
     </div>
   );
 
+  const renderMediaError = (type: string) => (
+    <div className="flex items-center justify-center p-4 bg-muted/50 rounded-md">
+      <p className="text-sm text-muted-foreground">
+        Não foi possível carregar {type === 'audio' ? 'o áudio' : type === 'video' ? 'o vídeo' : 'a mídia'}
+      </p>
+    </div>
+  );
+
   const renderContent = () => {
     switch (message.message_type) {
       case 'image':
         return (
           <div className="space-y-2">
-            {isMediaLoading ? renderMediaLoading() : mediaUrl && (
+            {isMediaLoading ? renderMediaLoading() : mediaUrl ? (
               <img
                 src={mediaUrl}
                 alt="Imagem"
                 className="max-w-xs rounded-md cursor-pointer hover:opacity-90 transition-opacity"
                 onClick={() => setViewerImage(mediaUrl)}
               />
-            )}
+            ) : message.media_url ? renderMediaError('image') : null}
             {message.content && <p className="text-sm">{message.content}</p>}
           </div>
         );
@@ -135,40 +146,52 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
       case 'sticker':
         return (
           <div>
-            {isMediaLoading ? renderMediaLoading() : mediaUrl && (
+            {isMediaLoading ? renderMediaLoading() : mediaUrl ? (
               <img
                 src={mediaUrl}
                 alt="Sticker"
                 className="max-w-[150px] cursor-pointer hover:scale-105 transition-transform"
                 onClick={() => setViewerImage(mediaUrl)}
               />
-            )}
+            ) : message.media_url ? renderMediaError('sticker') : null}
           </div>
         );
       
       case 'audio':
+        // Check if it's a voice message (ptt = push to talk) by checking mimetype or filename
+        const isVoiceMessage = message.media_mimetype?.includes('ogg') || 
+                               message.media_mimetype?.includes('opus') ||
+                               message.media_filename?.includes('ptt');
         return (
           <div className="space-y-2">
-            {isMediaLoading ? renderMediaLoading() : mediaUrl && (
-              <audio controls className="max-w-xs">
-                <source src={mediaUrl} type={message.media_mimetype || 'audio/ogg'} />
-              </audio>
-            )}
+            {isMediaLoading ? renderMediaLoading() : mediaUrl ? (
+              <MediaPlayer src={mediaUrl} type="audio" mimeType={message.media_mimetype || 'audio/ogg'} isVoiceMessage={isVoiceMessage} />
+            ) : message.media_url ? renderMediaError('audio') : null}
             {message.transcription_status === 'processing' && (
               <p className={cn(
                 "text-xs italic",
-                isFromMe ? "text-primary-foreground/70" : "text-muted-foreground"
+                isFromMe ? "text-white/70" : "text-muted-foreground"
               )}>
                 Transcrevendo...
               </p>
             )}
             {message.audio_transcription && (
               <div className={cn(
-                "text-xs p-2 rounded-md",
-                isFromMe ? "bg-primary-foreground/10" : "bg-muted"
+                "border-l-2 pl-2 py-1 mt-1",
+                isFromMe ? "border-white/40" : "border-primary/50"
               )}>
-                <p className="font-medium mb-0.5 text-[10px] uppercase tracking-wide opacity-70">Transcrição</p>
-                <p>{message.audio_transcription}</p>
+                <p className={cn(
+                  "text-[10px] font-medium uppercase tracking-wide mb-0.5",
+                  isFromMe ? "text-white/60" : "text-muted-foreground"
+                )}>
+                  Transcrição
+                </p>
+                <p className={cn(
+                  "text-xs",
+                  isFromMe ? "text-white/90" : "text-foreground"
+                )}>
+                  {message.audio_transcription}
+                </p>
               </div>
             )}
           </div>
@@ -177,11 +200,11 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
       case 'video':
         return (
           <div className="space-y-2">
-            {isMediaLoading ? renderMediaLoading() : mediaUrl && (
-              <video controls className="max-w-xs rounded-md">
-                <source src={mediaUrl} type={message.media_mimetype || 'video/mp4'} />
-              </video>
-            )}
+            {isMediaLoading ? renderMediaLoading() : mediaUrl ? (
+              <div className="max-w-xs">
+                <MediaPlayer src={mediaUrl} type="video" mimeType={message.media_mimetype || 'video/mp4'} />
+              </div>
+            ) : message.media_url ? renderMediaError('video') : null}
             {message.content && <p className="text-sm">{message.content}</p>}
           </div>
         );
@@ -189,7 +212,7 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
       case 'document':
         return (
           <div className="space-y-2">
-            {isMediaLoading ? renderMediaLoading() : mediaUrl && (
+            {isMediaLoading ? renderMediaLoading() : mediaUrl ? (
               <a
                 href={mediaUrl}
                 target="_blank"
@@ -198,7 +221,7 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
               >
                 📄 {message.content || 'Documento'}
               </a>
-            )}
+            ) : message.media_url ? renderMediaError('document') : null}
           </div>
         );
       
@@ -282,6 +305,12 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
                   : 'bg-card text-card-foreground'
           )}
         >
+          {/* Group sender name */}
+          {isGroupChat && !isFromMe && senderName && (
+            <p className="text-xs font-semibold text-primary mb-1">
+              {senderName}
+            </p>
+          )}
           {message.is_internal && (
             <div className="flex items-center gap-1.5 mb-2">
               <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/50">
@@ -298,6 +327,14 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
               </Badge>
             </div>
           )}
+          {(message as any).from_bot && !message.is_internal && (
+            <div className="flex items-center gap-1.5 mb-2">
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-blue-500/20 text-blue-700 dark:text-blue-400 border-blue-500/50">
+                <Bot className="h-3 w-3 mr-1" />
+                🤖 Assistente Virtual
+              </Badge>
+            </div>
+          )}
           {message.quoted_message_id && (
             <QuotedMessagePreview messageId={message.quoted_message_id} />
           )}
@@ -308,7 +345,7 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
             <span
               className={cn(
                 'text-xs',
-                isFromMe ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                isFromMe ? 'text-white/90' : 'text-muted-foreground'
               )}
             >
               {time}
@@ -319,7 +356,7 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
                   <button 
                     className={cn(
                       "text-xs italic hover:underline cursor-pointer",
-                      isFromMe ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                      isFromMe ? 'text-white/80' : 'text-muted-foreground'
                     )}
                   >
                     Editado
@@ -335,14 +372,8 @@ export const MessageBubble = ({ message, reactions = [], onReply }: MessageBubbl
               </Popover>
             )}
             {getStatusIcon()}
-            {(message as any).is_ai_generated && (
-              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 ml-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30">
-                <Bot className="h-2.5 w-2.5 mr-0.5" />
-                IA
-              </Badge>
-            )}
           </div>
-          {(message as any).is_ai_generated && isFromMe && (
+          {((message as any).is_ai_generated || (message as any).from_bot) && isFromMe && (
             <AIFeedbackButton
               conversationId={message.conversation_id}
               messageId={message.message_id}

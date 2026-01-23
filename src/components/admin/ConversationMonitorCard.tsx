@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { AdminConversation } from '@/hooks/admin/useAdminConversations';
 import { SLAIndicator } from './SLAIndicator';
 import { useSLAConfig, getSLAConfigForPriority } from '@/hooks/admin/useSLAConfig';
+import { formatPhoneForDisplay } from '@/utils/phoneUtils';
 interface ConversationMonitorCardProps {
   conversation: AdminConversation;
   onView: (conversationId: string) => void;
@@ -86,7 +87,7 @@ export function ConversationMonitorCard({
             </div>
 
             <p className="text-sm text-muted-foreground truncate mb-2">
-              {conversation.contact?.phone_number}
+              {formatPhoneForDisplay(conversation.contact?.phone_number)}
             </p>
 
             {conversation.last_message_preview && (

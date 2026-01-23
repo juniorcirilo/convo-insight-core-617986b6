@@ -20,7 +20,15 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
+    const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
+
+    if (!GROQ_API_KEY) {
+      console.warn('GROQ_API_KEY not configured, returning minimal response');
+      return new Response(
+        JSON.stringify({ message: 'GROQ_API_KEY not configured' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -83,45 +91,54 @@ Retorne APENAS um JSON válido sem markdown:
   "sentiment": "positive"
 }`;
 
-    // 4. Chamar Lovable AI
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'system',
-            content: 'Você é um assistente de atendimento ao cliente. Gere resumos objetivos e úteis. Sempre responda com JSON válido sem formatação markdown.'
-          },
-          { role: 'user', content: prompt }
-        ],
-      }),
-    });
+    // 4. Call GROQ completions
+    const systemPrompt = 'Você é um assistente de atendimento ao cliente. Gere resumos objetivos e úteis. Sempre responda com JSON válido sem formatação markdown.';
+    let aiContent = '';
+    try {
+      const { getGroqModel } = await import('../groq-models.ts');
+      const model = getGroqModel('chat_long_texts');
 
-    if (!aiResponse.ok) {
-      if (aiResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Limite de requisições atingido. Tente novamente mais tarde.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: prompt }
+          ],
+          max_tokens: 800,
+          temperature: 0.2,
+        }),
+      });
+
+      if (!groqResp.ok) {
+        const txt = await groqResp.text();
+        console.error('GROQ error:', groqResp.status, txt);
+        if (groqResp.status === 429) {
+          return new Response(
+            JSON.stringify({ error: 'Limite de requisições atingido. Tente novamente mais tarde.' }),
+            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        return new Response(JSON.stringify({ error: 'GROQ API error', status: groqResp.status, details: txt }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
-      if (aiResponse.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Créditos insuficientes. Adicione créditos à sua workspace.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      throw new Error(`Erro na geração: ${aiResponse.status}`);
+
+      const parsed = await groqResp.json().catch(async () => {
+        const txt = await groqResp.text();
+        try { return JSON.parse(txt); } catch { return { text: txt }; }
+      });
+
+      aiContent = parsed?.choices?.[0]?.message?.content || parsed?.choices?.[0]?.text || parsed?.text || '';
+
+      console.log('Resposta da IA:', aiContent);
+    } catch (e) {
+      console.error('Erro chamando GROQ:', e);
+      throw e;
     }
-
-    const aiData = await aiResponse.json();
-    const aiContent = aiData.choices[0].message.content;
-
-    console.log('Resposta da IA:', aiContent);
 
     // Extrair JSON
     let result;

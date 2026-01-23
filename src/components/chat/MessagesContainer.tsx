@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageBubble } from "./MessageBubble";
+import { TicketEventMarker, isTicketEvent, parseTicketNumber } from "./TicketEventMarker";
 import { Tables } from "@/integrations/supabase/types";
 import { format, isToday, isYesterday, isSameWeek } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -15,9 +16,10 @@ interface MessagesContainerProps {
   isLoading: boolean;
   conversationId: string | null;
   onReplyMessage?: (message: Message) => void;
+  isGroupChat?: boolean;
 }
 
-export const MessagesContainer = ({ messages, isLoading, conversationId, onReplyMessage }: MessagesContainerProps) => {
+export const MessagesContainer = ({ messages, isLoading, conversationId, onReplyMessage, isGroupChat = false }: MessagesContainerProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [newMessagesCount, setNewMessagesCount] = useState(0);
@@ -65,7 +67,15 @@ export const MessagesContainer = ({ messages, isLoading, conversationId, onReply
   const groupMessagesByDate = () => {
     const groups: { [key: string]: Message[] } = {};
     
-    messages.forEach(msg => {
+    // Garantir que as mensagens estejam ordenadas antes de agrupar
+    const sortedMessages = [...messages].sort((a, b) => {
+      const timeA = new Date(a.timestamp).getTime();
+      const timeB = new Date(b.timestamp).getTime();
+      if (timeA !== timeB) return timeA - timeB;
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    });
+
+    sortedMessages.forEach(msg => {
       const date = new Date(msg.timestamp);
       const dateKey = format(date, 'yyyy-MM-dd');
       
@@ -75,10 +85,12 @@ export const MessagesContainer = ({ messages, isLoading, conversationId, onReply
       groups[dateKey].push(msg);
     });
 
-    return Object.entries(groups).map(([dateKey, msgs]) => ({
-      date: new Date(dateKey),
-      messages: msgs,
-    }));
+    return Object.entries(groups)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([dateKey, msgs]) => ({
+        date: new Date(dateKey + 'T12:00:00'), // Meio do dia para evitar problemas de fuso
+        messages: msgs,
+      }));
   };
 
   const messageGroups = groupMessagesByDate();
@@ -92,7 +104,7 @@ export const MessagesContainer = ({ messages, isLoading, conversationId, onReply
   }
 
   return (
-    <div className="flex-1 relative min-h-0">
+    <div className="flex-1 relative min-h-0 h-full">
       <ScrollArea className="h-full p-4" viewportRef={scrollRef} onScroll={handleScroll}>
         <div className="space-y-4">
           {messageGroups.map((group, idx) => (
@@ -104,14 +116,30 @@ export const MessagesContainer = ({ messages, isLoading, conversationId, onReply
               </div>
               
               <div className="space-y-2">
-                {group.messages.map((message) => (
-                  <MessageBubble 
-                    key={message.id} 
-                    message={message}
-                    reactions={reactionsByMessage[message.message_id]}
-                    onReply={onReplyMessage}
-                  />
-                ))}
+                {group.messages.map((message) => {
+                  // Check if this is a ticket event marker
+                  if (isTicketEvent(message.message_type)) {
+                    return (
+                      <TicketEventMarker
+                        key={message.id}
+                        eventType={message.message_type as any}
+                        ticketNumber={parseTicketNumber(message.content)}
+                        timestamp={message.timestamp}
+                      />
+                    );
+                  }
+                  
+                  return (
+                    <MessageBubble 
+                      key={message.id} 
+                      message={message}
+                      reactions={reactionsByMessage[message.message_id]}
+                      onReply={onReplyMessage}
+                      isGroupChat={isGroupChat}
+                      senderName={(message as any).sender_name}
+                    />
+                  );
+                })}
               </div>
             </div>
           ))}

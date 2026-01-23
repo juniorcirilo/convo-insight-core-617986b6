@@ -16,7 +16,7 @@ import UserPermissionsModal from './UserPermissionsModal';
 const roleConfig = {
   admin: { label: 'Admin', variant: 'destructive' as const },
   supervisor: { label: 'Supervisor', variant: 'default' as const },
-  agent: { label: 'Agente', variant: 'secondary' as const },
+  agent: { label: 'Atendente', variant: 'secondary' as const },
 };
 
 interface MemberRowProps {
@@ -189,7 +189,7 @@ const PermissionsMatrix = () => {
                 <SelectItem value="all">Todos os roles</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
                 <SelectItem value="supervisor">Supervisor</SelectItem>
-                <SelectItem value="agent">Agente</SelectItem>
+                <SelectItem value="agent">Atendente</SelectItem>
               </SelectContent>
             </Select>
             <Select value={sectorFilter} onValueChange={setSectorFilter}>

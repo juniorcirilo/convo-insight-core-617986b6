@@ -34,15 +34,21 @@ type Macro = Tables<'whatsapp_macros'>;
 
 const macroSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
-  shortcut: z
-    .string()
-    .min(1, "Atalho é obrigatório")
-    .regex(/^[a-z0-9_-]+$/, "Use apenas letras minúsculas, números, _ ou -")
-    .transform(val => val.toLowerCase().replace(/\s+/g, '')),
   content: z.string().min(1, "Conteúdo é obrigatório"),
   description: z.string().optional(),
   category: z.string().default('geral'),
 });
+
+// Generate shortcut from name
+const generateShortcut = (name: string): string => {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove accents
+    .replace(/[^a-z0-9\s]/g, '') // Remove special chars
+    .replace(/\s+/g, '_') // Replace spaces with underscore
+    .substring(0, 20); // Limit length
+};
 
 type MacroFormValues = z.infer<typeof macroSchema>;
 
@@ -76,7 +82,6 @@ export const MacroDialog = ({
     resolver: zodResolver(macroSchema),
     defaultValues: {
       name: macro?.name || "",
-      shortcut: macro?.shortcut || "",
       content: macro?.content || "",
       description: macro?.description || "",
       category: macro?.category || "geral",
@@ -84,7 +89,9 @@ export const MacroDialog = ({
   });
 
   const handleSubmit = (data: MacroFormValues) => {
-    onSubmit({ ...data, instance_id: instanceId });
+    // Auto-generate shortcut from name
+    const shortcut = macro?.shortcut || generateShortcut(data.name);
+    onSubmit({ ...data, shortcut, instance_id: instanceId });
     form.reset();
   };
 
@@ -111,30 +118,6 @@ export const MacroDialog = ({
                   <FormControl>
                     <Input placeholder="Boas-vindas" {...field} />
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="shortcut"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Atalho</FormLabel>
-                  <FormControl>
-                    <Input 
-                      placeholder="bv" 
-                      {...field}
-                      onChange={(e) => {
-                        const value = e.target.value.toLowerCase().replace(/\s+/g, '');
-                        field.onChange(value);
-                      }}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Use /macro:{field.value || "atalho"} no chat para inserir
-                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

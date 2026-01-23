@@ -17,6 +17,16 @@ interface SentimentResult {
   reasoning: string;
 }
 
+// Extract JSON from markdown code blocks if present
+function extractJsonFromResponse(content: string): string {
+  // Check if content is wrapped in markdown code blocks
+  const jsonBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (jsonBlockMatch) {
+    return jsonBlockMatch[1].trim();
+  }
+  return content.trim();
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -25,10 +35,10 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
 
-    if (!lovableApiKey) {
-      console.error('LOVABLE_API_KEY not configured');
+    if (!GROQ_API_KEY) {
+      console.error('GROQ_API_KEY not configured');
       return new Response(
         JSON.stringify({ success: false, error: 'AI service not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -120,99 +130,55 @@ ${messagesText}
 
 Analise o contexto geral e determine o sentimento predominante.`;
 
-    console.log('Calling Lovable AI Gateway...');
+    console.log('Calling GROQ for sentiment analysis...');
+    const { getGroqModel } = await import('../groq-models.ts');
+    const model = getGroqModel('chat_fast');
 
-    // Call Lovable AI Gateway with tool calling for structured output
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model,
         messages: [
-          { role: 'user', content: prompt }
+          { role: 'system', content: 'You are a sentiment analysis assistant. Return only valid JSON with keys: sentiment, confidence, summary, reasoning.' },
+          { role: 'user', content: `${prompt}\n\nRETORNE APENAS UM JSON COM campos: sentiment, confidence, summary, reasoning` }
         ],
-        tools: [{
-          type: "function",
-          function: {
-            name: "analyze_sentiment",
-            description: "Analisa o sentimento das mensagens do cliente",
-            parameters: {
-              type: "object",
-              properties: {
-                sentiment: {
-                  type: "string",
-                  enum: ["positive", "neutral", "negative"],
-                  description: "Sentimento geral detectado"
-                },
-                confidence: {
-                  type: "number",
-                  description: "Score de confiança entre 0.00 e 1.00"
-                },
-                summary: {
-                  type: "string",
-                  description: "Resumo curto do sentimento (máx 100 caracteres)"
-                },
-                reasoning: {
-                  type: "string",
-                  description: "Explicação do raciocínio"
-                }
-              },
-              required: ["sentiment", "confidence", "summary", "reasoning"],
-              additionalProperties: false
-            }
-          }
-        }],
-        tool_choice: { type: "function", function: { name: "analyze_sentiment" } }
+        max_tokens: 200,
+        temperature: 0.2,
       }),
     });
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('Lovable AI error:', aiResponse.status, errorText);
+    if (!groqResp.ok) {
+      const errorText = await groqResp.text();
+      console.error('GROQ AI error:', groqResp.status, errorText);
 
-      if (aiResponse.status === 429) {
+      if (groqResp.status === 429) {
         return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: 'Rate limit excedido. Tente novamente em alguns segundos.' 
-          }),
+          JSON.stringify({ success: false, error: 'Rate limit excedido. Tente novamente em alguns segundos.' }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      if (aiResponse.status === 402) {
-        return new Response(
-          JSON.stringify({ 
-            success: false, 
-            error: 'Créditos insuficientes. Adicione créditos ao workspace.' 
-          }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      return new Response(
-        JSON.stringify({ success: false, error: 'AI analysis failed' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ success: false, error: 'AI analysis failed', details: errorText }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const aiData = await aiResponse.json();
-    console.log('AI response received:', JSON.stringify(aiData));
+    const parsed = await groqResp.json().catch(async () => {
+      const txt = await groqResp.text();
+      try { return JSON.parse(txt); } catch { return { text: txt }; }
+    });
 
-    // Extract sentiment result from tool call
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall?.function?.arguments) {
-      console.error('No tool call in AI response');
-      return new Response(
-        JSON.stringify({ success: false, error: 'Invalid AI response format' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    let result: SentimentResult;
+    try {
+      const rawContent = parsed?.choices?.[0]?.message?.content || parsed?.choices?.[0]?.text || parsed?.text || '';
+      const cleanedContent = extractJsonFromResponse(rawContent);
+      result = JSON.parse(cleanedContent);
+    } catch (e) {
+      console.error('Failed to parse GROQ response:', parsed);
+      return new Response(JSON.stringify({ success: false, error: 'Invalid AI response format' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-
-    const result: SentimentResult = JSON.parse(toolCall.function.arguments);
     console.log('Parsed sentiment result:', result);
 
     // Validate sentiment value
@@ -236,7 +202,7 @@ Analise o contexto geral e determine o sentimento predominante.`;
         reasoning: result.reasoning,
         messages_analyzed: messages.length,
         metadata: { 
-          model: 'google/gemini-2.5-flash',
+          model,
           analyzed_at: new Date().toISOString()
         }
       }, {

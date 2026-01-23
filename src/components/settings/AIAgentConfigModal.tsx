@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Bot, MessageSquare, Clock, AlertTriangle, BookOpen, Brain } from "lucide-react";
+import { Bot, MessageSquare, Clock, AlertTriangle, BookOpen, Brain, Image as ImageIcon, User } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { KnowledgeBaseManager, ResponseTemplatesEditor, LearningExamplesPanel, KnowledgeInsights } from "@/components/ai-agent";
 import { useAIAgentConfig, AIAgentConfigInsert } from "@/hooks/ai-agent";
@@ -35,6 +35,7 @@ interface AIAgentConfigModalProps {
 
 interface FormData {
   agent_name: string;
+  agent_image: string;
   persona_description: string;
   welcome_message: string;
   tone_of_voice: 'professional' | 'friendly' | 'casual';
@@ -71,6 +72,7 @@ export const AIAgentConfigModal = ({ open, onOpenChange, sector }: AIAgentConfig
   const { register, handleSubmit, reset, setValue, watch } = useForm<FormData>({
     defaultValues: {
       agent_name: 'Assistente',
+      agent_image: '',
       persona_description: '',
       welcome_message: '',
       tone_of_voice: 'professional',
@@ -97,6 +99,7 @@ export const AIAgentConfigModal = ({ open, onOpenChange, sector }: AIAgentConfig
     if (config) {
       reset({
         agent_name: config.agent_name,
+        agent_image: config.agent_image || '',
         persona_description: config.persona_description || '',
         welcome_message: config.welcome_message || '',
         tone_of_voice: config.tone_of_voice,
@@ -119,6 +122,7 @@ export const AIAgentConfigModal = ({ open, onOpenChange, sector }: AIAgentConfig
     } else {
       reset({
         agent_name: 'Assistente',
+        agent_image: '',
         persona_description: '',
         welcome_message: '',
         tone_of_voice: 'professional',
@@ -155,6 +159,7 @@ export const AIAgentConfigModal = ({ open, onOpenChange, sector }: AIAgentConfig
     const configData: AIAgentConfigInsert = {
       sector_id: sector.id,
       agent_name: data.agent_name,
+      agent_image: data.agent_image || null,
       persona_description: data.persona_description || null,
       welcome_message: data.welcome_message || null,
       tone_of_voice: data.tone_of_voice,
@@ -248,13 +253,59 @@ export const AIAgentConfigModal = ({ open, onOpenChange, sector }: AIAgentConfig
             </TabsList>
 
             <TabsContent value="persona" className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label htmlFor="agent_name">Nome do Agente</Label>
-                <Input
-                  id="agent_name"
-                  {...register('agent_name')}
-                  placeholder="Ex: Sofia, Assistente Virtual"
-                />
+              {/* Agent Identity Section */}
+              <div className="flex gap-4 items-start p-4 rounded-lg border bg-muted/30">
+                {/* Avatar Preview */}
+                <div className="flex-shrink-0">
+                  <div className="relative w-20 h-20 rounded-full overflow-hidden bg-gradient-to-br from-primary/20 to-primary/5 border-2 border-primary/20 flex items-center justify-center">
+                    {watch('agent_image') ? (
+                      <img 
+                        src={watch('agent_image')} 
+                        alt="Avatar do Agente" 
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                        }}
+                      />
+                    ) : null}
+                    <div className={`absolute inset-0 flex items-center justify-center ${watch('agent_image') ? 'hidden' : ''}`}>
+                      <Bot className="h-10 w-10 text-primary/50" />
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Name and Image Fields */}
+                <div className="flex-1 space-y-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="agent_name" className="text-sm font-medium flex items-center gap-1.5">
+                      <User className="h-3.5 w-3.5" />
+                      Nome do Agente
+                    </Label>
+                    <Input
+                      id="agent_name"
+                      {...register('agent_name')}
+                      placeholder="Ex: Sofia, Assistente Virtual"
+                      className="h-9"
+                    />
+                  </div>
+                  
+                  <div className="space-y-1.5">
+                    <Label htmlFor="agent_image" className="text-sm font-medium flex items-center gap-1.5">
+                      <ImageIcon className="h-3.5 w-3.5" />
+                      Imagem do Agente (URL)
+                    </Label>
+                    <Input
+                      id="agent_image"
+                      {...register('agent_image')}
+                      placeholder="https://exemplo.com/avatar.png"
+                      className="h-9"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      URL de uma imagem para o avatar do assistente virtual
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-2">

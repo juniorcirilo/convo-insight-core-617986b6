@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -27,9 +27,32 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useWhatsAppInstances, useCreateConversation } from "@/hooks/whatsapp";
 import { toast } from "sonner";
 import { normalizeBrazilianPhone } from "@/utils/phoneUtils";
+
+// Phone mask function: supports (00) 0000-0000 (landline) and (00) 00000-0000 (mobile)
+const formatPhoneMask = (value: string): string => {
+  // Remove all non-digits
+  const digits = value.replace(/\D/g, '');
+  
+  // Apply mask progressively
+  if (digits.length === 0) {
+    return '';
+  } else if (digits.length <= 2) {
+    return `(${digits}`;
+  } else if (digits.length <= 6) {
+    // (00) 0000
+    return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  } else if (digits.length <= 10) {
+    // Landline: (00) 0000-0000
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  } else {
+    // Mobile: (00) 00000-0000
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
+  }
+};
 
 interface NewConversationModalProps {
   open: boolean;
@@ -38,18 +61,19 @@ interface NewConversationModalProps {
   onSuccess?: (conversationId: string) => void;
 }
 
-const phoneRegex = /^(?:\+?55\s?)?(?:\(?\d{2}\)?\s?)?\d{4,5}-?\d{4}$/;
-
 const formSchema = z.object({
   instanceId: z.string().min(1, "Selecione uma instância"),
   phoneNumber: z
     .string()
-    .min(10, "Número muito curto")
-    .max(20, "Número muito longo")
-    .refine((val) => phoneRegex.test(val), {
-      message: "Formato inválido. Ex: (11) 98765-4321 ou 11987654321",
+    .refine((val) => {
+      const digits = val.replace(/\D/g, '');
+      // Accept 10 digits (landline) or 11 digits (mobile)
+      return digits.length === 10 || digits.length === 11;
+    }, {
+      message: "Preencha o número completo: (00) 0000-0000 ou (00) 00000-0000",
     }),
-  contactName: z.string().min(2, "Nome muito curto").max(100, "Nome muito longo"),
+  contactName: z.string().min(2, "Nome deve ter pelo menos 2 caracteres").max(100, "Nome muito longo"),
+  generateTicket: z.boolean().default(false),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -69,8 +93,15 @@ const NewConversationModal = ({
       instanceId: instanceId || "",
       phoneNumber: "",
       contactName: "",
+      generateTicket: false,
     },
   });
+
+  // Handle phone input with mask
+  const handlePhoneChange = useCallback((e: React.ChangeEvent<HTMLInputElement>, onChange: (value: string) => void) => {
+    const formatted = formatPhoneMask(e.target.value);
+    onChange(formatted);
+  }, []);
 
   // Auto-select first instance if only one exists or if no instance is selected
   useEffect(() => {
@@ -80,14 +111,16 @@ const NewConversationModal = ({
   }, [instances, form]);
 
   const onSubmit = (values: FormValues) => {
-    // Normalize phone number and add country code 55 automatically
-    const normalizedPhone = normalizeBrazilianPhone(values.phoneNumber);
+    // Extract only digits and normalize phone number with country code 55
+    const onlyDigits = values.phoneNumber.replace(/\D/g, '');
+    const normalizedPhone = normalizeBrazilianPhone(onlyDigits);
 
     createConversation(
       {
         instanceId: values.instanceId,
         phoneNumber: normalizedPhone,
         contactName: values.contactName,
+        generateTicket: values.generateTicket,
       },
       {
         onSuccess: (data) => {
@@ -148,7 +181,7 @@ const NewConversationModal = ({
               />
             )}
 
-            {/* Phone number */}
+            {/* Phone number with mask */}
             <FormField
               control={form.control}
               name="phoneNumber"
@@ -157,8 +190,13 @@ const NewConversationModal = ({
                   <FormLabel>Número de Telefone</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="(91) 91516-1370"
-                      {...field}
+                      placeholder="(00) 0000-0000 ou (00) 00000-0000"
+                      value={field.value}
+                      onChange={(e) => handlePhoneChange(e, field.onChange)}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      ref={field.ref}
+                      maxLength={16}
                     />
                   </FormControl>
                   <p className="text-xs text-muted-foreground">
@@ -183,6 +221,30 @@ const NewConversationModal = ({
                     />
                   </FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Generate ticket checkbox (optional) */}
+            <FormField
+              control={form.control}
+              name="generateTicket"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel className="cursor-pointer">
+                      Gerar ticket de atendimento
+                    </FormLabel>
+                    <p className="text-xs text-muted-foreground">
+                      Opcional: cria um ticket para esta conversa
+                    </p>
+                  </div>
                 </FormItem>
               )}
             />

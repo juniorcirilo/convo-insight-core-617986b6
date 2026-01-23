@@ -24,10 +24,12 @@ BEGIN
     );
 
     INSERT INTO public.profiles (id, full_name, email, is_approved, created_at, updated_at)
-    VALUES (uid, 'Admin', 'admin@livechat.app', true, now(), now());
+    VALUES (uid, 'Admin', 'admin@livechat.app', true, now(), now())
+    ON CONFLICT (id) DO NOTHING;
 
     INSERT INTO public.user_roles (user_id, role, created_at)
-    VALUES (uid, 'admin', now());
+    VALUES (uid, 'admin', now())
+    ON CONFLICT (user_id, role) DO NOTHING;
 
     -- Create identity for email provider (so GoTrue recognizes the user)
     INSERT INTO auth.identities (provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at, id)
@@ -105,10 +107,12 @@ BEGIN
     );
 
     INSERT INTO public.profiles (id, full_name, email, is_approved, created_at, updated_at)
-    VALUES (uid, 'Usuário Comum', 'user@livechat.app', true, now(), now());
+    VALUES (uid, 'Usuário Comum', 'user@livechat.app', true, now(), now())
+    ON CONFLICT (id) DO NOTHING;
 
     INSERT INTO public.user_roles (user_id, role, created_at)
-    VALUES (uid, 'agent', now());
+    VALUES (uid, 'agent', now())
+    ON CONFLICT (user_id, role) DO NOTHING;
 
     -- Create identity for email provider
     INSERT INTO auth.identities (provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at, id)

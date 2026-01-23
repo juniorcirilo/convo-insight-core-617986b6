@@ -45,6 +45,8 @@ export const useWhatsAppSentiment = (conversationId: string | null) => {
   useEffect(() => {
     if (!conversationId) return;
 
+    let sentimentInvalidateTimeout: NodeJS.Timeout;
+
     const channel = supabase
       .channel(`sentiment-updates-${conversationId}`)
       .on('postgres_changes', {
@@ -58,14 +60,19 @@ export const useWhatsAppSentiment = (conversationId: string | null) => {
         if (newRecord?.conversation_id === conversationId || 
             oldRecord?.conversation_id === conversationId) {
           console.log('[sentiment-realtime] Update detected, invalidating query');
-          queryClient.invalidateQueries({ 
-            queryKey: ['whatsapp', 'sentiment', conversationId] 
-          });
+          // Debounce invalidation to prevent excessive re-renders
+          clearTimeout(sentimentInvalidateTimeout);
+          sentimentInvalidateTimeout = setTimeout(() => {
+            queryClient.invalidateQueries({ 
+              queryKey: ['whatsapp', 'sentiment', conversationId] 
+            });
+          }, 100);
         }
       })
       .subscribe();
 
     return () => {
+      clearTimeout(sentimentInvalidateTimeout);
       supabase.removeChannel(channel);
     };
   }, [conversationId, queryClient]);

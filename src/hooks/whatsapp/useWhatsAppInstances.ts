@@ -12,6 +12,7 @@ type InstanceInsertWithSecrets = InstanceInsert & {
   api_key: string;
   provider_type?: string;
   instance_id_external?: string;
+  webhook_endpoint?: string;
 };
 
 type InstanceUpdateWithSecrets = InstanceUpdate & {
@@ -39,7 +40,7 @@ export const useWhatsAppInstances = () => {
 
   const createInstance = useMutation({
     mutationFn: async (instance: InstanceInsertWithSecrets) => {
-      const { api_url, api_key, provider_type, instance_id_external, ...instanceData } = instance;
+      const { api_url, api_key, provider_type, instance_id_external, webhook_endpoint, ...instanceData } = instance as any;
 
       // 1. Create instance in main table with provider_type and instance_id_external
       const { data: instanceResult, error: instanceError } = await supabase
@@ -55,24 +56,29 @@ export const useWhatsAppInstances = () => {
       if (instanceError) throw instanceError;
 
       // 2. Create secrets in separate table
-      const { error: secretsError } = await supabase
+      const { data: secretsResult, error: secretsError } = await supabase
         .from('whatsapp_instance_secrets')
         .insert({
           instance_id: instanceResult.id,
           api_url,
           api_key,
-        });
+          webhook_endpoint: webhook_endpoint || null,
+        })
+        .select()
+        .maybeSingle();
 
-      if (secretsError) {
+      if (secretsError || !secretsResult) {
+        console.error('createInstance: failed to insert secrets', { secretsError, secretsResult });
         // Rollback: delete instance if secrets insertion fails
         await supabase
           .from('whatsapp_instances')
           .delete()
           .eq('id', instanceResult.id);
-        throw secretsError;
+        throw secretsError || new Error('Failed to insert secrets');
       }
 
-      return instanceResult;
+      console.log('createInstance: created instance and secrets', { instanceResult, secretsResult });
+      return { instance: instanceResult, secrets: secretsResult } as any;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['whatsapp', 'instances'] });
@@ -100,20 +106,58 @@ export const useWhatsAppInstances = () => {
 
       if (instanceError) throw instanceError;
 
-      // 2. Update secrets if provided (upsert)
-      if (api_url || api_key) {
-        const { error: secretsError } = await supabase
-          .from('whatsapp_instance_secrets')
-          .upsert(
-            {
-              instance_id: id,
-              ...(api_url && { api_url }),
-              ...(api_key && { api_key }),
-            },
-            { onConflict: 'instance_id' }
-          );
+      // 2. Update secrets if provided
+      // Only update if at least one value is provided and non-empty
+      const hasApiUrl = api_url && api_url.trim().length > 0;
+      const hasApiKey = api_key && api_key.trim().length > 0;
+      const hasWebhookEndpoint = (updates as any).webhook_endpoint && (updates as any).webhook_endpoint.trim().length > 0;
 
-        if (secretsError) throw secretsError;
+      console.log('updateInstance: updating secrets', { hasApiUrl, hasApiKey, hasWebhookEndpoint, api_url: hasApiUrl ? 'present' : 'missing', api_key: hasApiKey ? 'present' : 'missing' });
+
+      if (hasApiUrl || hasApiKey || hasWebhookEndpoint) {
+        // First check if secrets exist
+        const { data: existingSecrets } = await supabase
+          .from('whatsapp_instance_secrets')
+          .select('id')
+          .eq('instance_id', id)
+          .maybeSingle();
+
+        console.log('updateInstance: existing secrets found:', !!existingSecrets);
+
+        if (existingSecrets) {
+          // Update existing secrets
+          const secretUpdates: { api_url?: string; api_key?: string; webhook_endpoint?: string | null } = {};
+          if (hasApiUrl) secretUpdates.api_url = api_url;
+          if (hasApiKey) secretUpdates.api_key = api_key;
+          if (hasWebhookEndpoint) secretUpdates.webhook_endpoint = (updates as any).webhook_endpoint;
+          
+          const { error: updateSecretsError } = await supabase
+            .from('whatsapp_instance_secrets')
+            .update(secretUpdates)
+            .eq('instance_id', id);
+          
+          if (updateSecretsError) {
+            console.error('updateInstance: failed to update secrets', updateSecretsError);
+            throw updateSecretsError;
+          }
+          console.log('updateInstance: successfully updated secrets');
+        } else {
+          // Insert new secrets (require at least api_url and api_key if not present before)
+          const insertPayload: any = { instance_id: id };
+          if (hasApiUrl) insertPayload.api_url = api_url!;
+          if (hasApiKey) insertPayload.api_key = api_key!;
+          if (hasWebhookEndpoint) insertPayload.webhook_endpoint = (updates as any).webhook_endpoint;
+
+          const { error: insertSecretsError } = await supabase
+            .from('whatsapp_instance_secrets')
+            .insert(insertPayload);
+
+          if (insertSecretsError) {
+            console.error('updateInstance: failed to insert secrets', insertSecretsError);
+            throw insertSecretsError;
+          }
+          console.log('updateInstance: successfully inserted new secrets');
+        }
       }
 
       return data;

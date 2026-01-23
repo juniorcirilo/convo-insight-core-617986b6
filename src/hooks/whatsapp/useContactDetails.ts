@@ -48,6 +48,7 @@ export const useContactDetails = (contactId: string | null) => {
       const { data: contact, error: contactError } = await supabase
         .from('whatsapp_contacts')
         .select('*')
+        .is('deleted_at', null)
         .eq('id', contactId)
         .single();
 

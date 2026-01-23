@@ -3,6 +3,7 @@ export { useWhatsAppConversations } from './useWhatsAppConversations';
 export type { ConversationsResult } from './useWhatsAppConversations';
 export { useWhatsAppMessages } from './useWhatsAppMessages';
 export { useWhatsAppSend } from './useWhatsAppSend';
+export { useMarkMessagesRead } from './useMarkMessagesRead';
 export { useCreateConversation } from './useCreateConversation';
 export { useWhatsAppSentiment } from './useWhatsAppSentiment';
 export { useWhatsAppMacros } from './useWhatsAppMacros';

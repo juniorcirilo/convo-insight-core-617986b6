@@ -16,9 +16,14 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+
     // 1. Get caller's authentication
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error('No auth header');
       return new Response(
         JSON.stringify({ error: 'Não autenticado' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -26,14 +31,37 @@ Deno.serve(async (req) => {
     }
 
     // 2. Verify caller
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) {
+    const token = authHeader.replace('Bearer ', '');
+    let userId: string | null = null;
+    
+    // Check if it's a service role token first (for internal calls)
+    try {
+      const parts = token.split('.');
+      if (parts.length === 3) {
+        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+        if (payload.role === 'service_role') {
+          console.log('[get-media-signed-url] Service role access');
+          userId = 'service-role';
+        }
+      }
+    } catch (e) {
+      // Not a valid JWT or decode failed, continue with user check
+    }
+    
+    // If not service role, try to verify via /auth/v1/user
+    if (!userId) {
+      const userResp = await fetch(`${supabaseUrl}/auth/v1/user`, {
+        headers: { Authorization: authHeader, apikey: supabaseAnonKey }
+      });
+      
+      if (userResp.ok) {
+        const userJson = await userResp.json();
+        userId = userJson?.id || userJson?.user?.id;
+      }
+    }
+    
+    if (!userId) {
+      console.error('Invalid token: no user found');
       return new Response(
         JSON.stringify({ error: 'Autenticação inválida' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -49,37 +77,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 3. If conversationId is provided, verify access using RPC
-    if (conversationId) {
-      const { data: hasAccess, error: accessError } = await supabaseClient
-        .rpc('can_access_conversation', {
-          _conversation_id: conversationId,
-          _user_id: user.id
-        });
+    console.log('[get-media-signed-url] Generating URL for:', filePath);
 
-      if (accessError) {
-        console.error('[get-media-signed-url] Error checking access:', accessError);
-        return new Response(
-          JSON.stringify({ error: 'Erro ao verificar acesso' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+    // 3. Generate signed URL using service role
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-      if (!hasAccess) {
-        return new Response(
-          JSON.stringify({ error: 'Sem permissão para acessar este arquivo' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-    }
-
-    // 4. Generate signed URL using service role
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-
-    // Generate a signed URL that expires in 1 hour
     const { data: signedUrlData, error: signedUrlError } = await supabaseAdmin.storage
       .from('whatsapp-media')
       .createSignedUrl(filePath, 3600); // 1 hour expiry
@@ -92,24 +94,37 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Get the public URL from environment or use a default
+    const publicUrl = Deno.env.get('SUPABASE_PUBLIC_URL') || 'http://192.168.3.100:54321';
+    
+    // Ensure the URL uses the public-facing URL (not internal Docker network)
+    let finalUrl = signedUrlData.signedUrl;
+    
+    // Replace internal Docker URLs with public URL
+    if (finalUrl) {
+      finalUrl = finalUrl
+        .replace('http://kong:8000', publicUrl)
+        .replace('http://localhost:54321', publicUrl)
+        .replace('http://127.0.0.1:54321', publicUrl);
+    }
+    
+    // If still relative, make absolute
+    if (finalUrl && !finalUrl.startsWith('http')) {
+      finalUrl = `${publicUrl}/storage/v1${finalUrl.startsWith('/') ? '' : '/'}${finalUrl}`;
+    }
+
+    console.log('[get-media-signed-url] Generated URL successfully:', finalUrl);
+
     return new Response(
-      JSON.stringify({ 
-        signedUrl: signedUrlData.signedUrl 
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      JSON.stringify({ signedUrl: finalUrl }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error: any) {
     console.error('[get-media-signed-url] Error:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

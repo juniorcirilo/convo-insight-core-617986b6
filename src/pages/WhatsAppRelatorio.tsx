@@ -201,7 +201,7 @@ export default function WhatsAppRelatorio() {
                 title="Tempo Médio de Resposta"
                 value={formatDuration(metrics?.avgResponseTimeMinutes || 0)}
                 icon={Timer}
-                info="Tempo médio entre mensagem do cliente e resposta do agente"
+                info="Tempo médio entre mensagem do cliente e resposta do atendente"
                 trend={{
                   value: metrics?.previousPeriod 
                     ? ((metrics.avgResponseTimeMinutes - metrics.previousPeriod.avgResponseTimeMinutes) / (metrics.previousPeriod.avgResponseTimeMinutes || 1)) * 100
@@ -223,7 +223,7 @@ export default function WhatsAppRelatorio() {
                 title="Mensagens Enviadas"
                 value={metrics?.sentMessages || 0}
                 icon={Send}
-                info="Mensagens enviadas pelos agentes (is_from_me = true)"
+                info="Mensagens enviadas pelos atendentes (is_from_me = true)"
               />
               <MetricCard
                 title="Mensagens Recebidas"
@@ -257,7 +257,7 @@ export default function WhatsAppRelatorio() {
                 title="Tempo de 1ª Resposta"
                 value={formatDuration(metrics?.avgFirstResponseTimeMinutes || 0)}
                 icon={Zap}
-                info="Tempo médio entre primeira mensagem do cliente e primeira resposta do agente"
+                info="Tempo médio entre primeira mensagem do cliente e primeira resposta do atendente"
                 trend={{
                   value: metrics?.previousPeriod && metrics.previousPeriod.avgFirstResponseTimeMinutes > 0
                     ? ((metrics.avgFirstResponseTimeMinutes - metrics.previousPeriod.avgFirstResponseTimeMinutes) / metrics.previousPeriod.avgFirstResponseTimeMinutes) * 100
@@ -269,7 +269,7 @@ export default function WhatsAppRelatorio() {
                 title="Conversas na Fila"
                 value={metrics?.queuedConversations || 0}
                 icon={Inbox}
-                info="Conversas sem agente atribuído aguardando atendimento"
+                info="Conversas sem atendente atribuído aguardando atendimento"
               />
               <MetricCard
                 title="Tempo Médio Atendimento"

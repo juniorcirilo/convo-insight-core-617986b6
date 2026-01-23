@@ -13,13 +13,13 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
 
-    if (!lovableApiKey) {
-      console.error('[transcribe-audio] LOVABLE_API_KEY not configured');
+    if (!GROQ_API_KEY) {
+      console.error('[transcribe-audio] GROQ_API_KEY not configured');
       return new Response(
-        JSON.stringify({ error: 'API key not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Transcription not supported: GROQ does not provide audio transcription' }),
+        { status: 501, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -73,89 +73,106 @@ Deno.serve(async (req) => {
       .update({ transcription_status: 'processing' })
       .eq('id', messageId);
 
-    console.log('[transcribe-audio] Downloading audio from:', message.media_url);
+    console.log('[transcribe-audio] Processing audio from storage path:', message.media_url);
 
-    // Download audio file
-    const audioResponse = await fetch(message.media_url);
-    if (!audioResponse.ok) {
-      throw new Error(`Failed to download audio: ${audioResponse.status}`);
+    // Get audio URL - either it's already a URL or it's a storage path
+    let audioUrl = message.media_url;
+    
+    // Check if it's a storage path (not a URL)
+    if (!audioUrl.startsWith('http://') && !audioUrl.startsWith('https://')) {
+      // It's a storage path, generate signed URL
+      console.log('[transcribe-audio] Generating signed URL for storage path:', audioUrl);
+      
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+        .from('whatsapp-media')
+        .createSignedUrl(audioUrl, 3600); // 1 hour expiry
+      
+      if (signedUrlError || !signedUrlData?.signedUrl) {
+        console.error('[transcribe-audio] Failed to generate signed URL:', signedUrlError);
+        await supabase
+          .from('whatsapp_messages')
+          .update({ transcription_status: 'failed' })
+          .eq('id', messageId);
+        return new Response(
+          JSON.stringify({ error: 'Failed to access audio file' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      audioUrl = signedUrlData.signedUrl;
+      console.log('[transcribe-audio] Signed URL generated successfully');
     }
 
-    const audioBuffer = await audioResponse.arrayBuffer();
-    const base64Audio = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)));
+    console.log('[transcribe-audio] Downloading audio...');
 
-    console.log('[transcribe-audio] Audio downloaded, size:', audioBuffer.byteLength);
-
-    // Determine mime type
-    const mimeType = message.media_mimetype || 'audio/ogg';
-
-    // Call Lovable AI for transcription using Gemini
-    const response = await fetch('https://api.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: 'Transcreva este áudio em português. Retorne APENAS o texto transcrito, sem explicações ou formatação adicional. Se não conseguir entender o áudio, responda com "[Áudio inaudível]".'
-              },
-              {
-                type: 'input_audio',
-                input_audio: {
-                  data: base64Audio,
-                  format: mimeType.includes('ogg') ? 'ogg' : mimeType.includes('mp3') ? 'mp3' : 'wav'
-                }
-              }
-            ]
-          }
-        ],
-        max_tokens: 1000,
-        temperature: 0.1,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[transcribe-audio] AI API error:', response.status, errorText);
-      
+    // Download audio file
+    const audioResponse = await fetch(audioUrl);
+    if (!audioResponse.ok) {
+      console.error('[transcribe-audio] Failed to download audio:', audioResponse.status, await audioResponse.text().catch(() => ''));
       await supabase
         .from('whatsapp_messages')
         .update({ transcription_status: 'failed' })
         .eq('id', messageId);
-      
-      return new Response(
-        JSON.stringify({ error: 'Transcription failed' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      throw new Error(`Failed to download audio: ${audioResponse.status}`);
     }
 
-    const result = await response.json();
-    const transcription = result.choices?.[0]?.message?.content?.trim() || '';
+    const audioBuffer = await audioResponse.arrayBuffer();
 
-    console.log('[transcribe-audio] Transcription result:', transcription.substring(0, 100));
+    console.log('[transcribe-audio] Audio downloaded, size:', audioBuffer.byteLength);
 
-    // Save transcription
-    await supabase
-      .from('whatsapp_messages')
-      .update({
-        audio_transcription: transcription,
-        transcription_status: 'completed',
-      })
-      .eq('id', messageId);
+    // Determine mime type
+    const mimeType = message.media_mimetype || 'audio/m4a';
 
-    console.log('[transcribe-audio] Transcription saved successfully');
+    // Prepare multipart form for GROQ transcription (example provided)
+    const form = new FormData();
+    const blob = new Blob([audioBuffer], { type: mimeType });
+    form.append('file', blob, 'audio.m4a');
+    form.append('model', 'whisper-large-v3');
 
-    return new Response(
-      JSON.stringify({ success: true, transcription }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    // Call GROQ transcription endpoint
+    try {
+      const groqResp = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
+          // Let fetch set Content-Type for multipart/form-data
+        },
+        body: form as unknown as BodyInit,
+      });
+
+      if (!groqResp.ok) {
+        const errText = await groqResp.text();
+        console.error('[transcribe-audio] GROQ transcription error:', groqResp.status, errText);
+        await supabase
+          .from('whatsapp_messages')
+          .update({ transcription_status: 'failed' })
+          .eq('id', messageId);
+        return new Response(JSON.stringify({ error: 'Transcription failed', details: errText }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      const parsed = await groqResp.json().catch(async () => {
+        const t = await groqResp.text();
+        try { return JSON.parse(t); } catch { return { text: t }; }
+      });
+
+      const transcription = parsed?.text ?? parsed?.transcription ?? parsed?.data?.transcription ?? parsed?.results?.[0]?.alternatives?.[0]?.transcript ?? JSON.stringify(parsed);
+
+      // Save transcription
+      await supabase
+        .from('whatsapp_messages')
+        .update({ audio_transcription: transcription, transcription_status: 'completed' })
+        .eq('id', messageId);
+
+      return new Response(JSON.stringify({ success: true, transcription }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+    } catch (err) {
+      console.error('[transcribe-audio] Error calling GROQ transcription:', err);
+      await supabase
+        .from('whatsapp_messages')
+        .update({ transcription_status: 'failed' })
+        .eq('id', messageId);
+      return new Response(JSON.stringify({ error: String(err) }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
 
   } catch (error) {
     console.error('[transcribe-audio] Error:', error);

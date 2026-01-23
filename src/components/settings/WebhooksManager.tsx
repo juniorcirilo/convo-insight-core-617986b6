@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Plus, Trash2, ExternalLink, CheckCircle, XCircle, Loader2, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { useWebhooks, WEBHOOK_EVENTS } from '@/hooks/webhooks/useWebhooks';
+import { useWebhooks, WEBHOOK_EVENT_CATEGORIES } from '@/hooks/webhooks/useWebhooks';
 import { WebhookDialog } from './WebhookDialog';
 import { WebhookLogsDialog } from './WebhookLogsDialog';
 import { format } from 'date-fns';
@@ -19,16 +19,38 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 export function WebhooksManager() {
-  const { webhooks, isLoading, deleteWebhook, toggleWebhook, isDeleting } = useWebhooks();
+  const { 
+    webhooks, 
+    isLoading, 
+    deleteWebhook, 
+    toggleWebhook, 
+    isDeleting,
+    createWebhook,
+    updateWebhook,
+    isCreating,
+    isUpdating
+  } = useWebhooks();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingWebhook, setEditingWebhook] = useState<any>(null);
+  const [editingWebhookId, setEditingWebhookId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [logsWebhookId, setLogsWebhookId] = useState<string | null>(null);
 
+  // Buscar webhook para edição de forma estável
+  const editingWebhook = useMemo(() => {
+    if (!editingWebhookId || !webhooks) return null;
+    return webhooks.find(w => w.id === editingWebhookId) || null;
+  }, [editingWebhookId, webhooks]);
+
   const handleEdit = (webhook: any) => {
-    setEditingWebhook(webhook);
+    setEditingWebhookId(webhook.id);
     setIsDialogOpen(true);
   };
 
@@ -39,8 +61,20 @@ export function WebhooksManager() {
     }
   };
 
+  // Get all events from all categories
+  const allEvents = Object.values(WEBHOOK_EVENT_CATEGORIES).flatMap(cat => cat.events);
+
   const getEventLabel = (event: string) => {
-    return WEBHOOK_EVENTS.find(e => e.value === event)?.label || event;
+    return allEvents.find(e => e.value === event)?.label || event;
+  };
+
+  const getEventCategory = (event: string) => {
+    for (const [key, category] of Object.entries(WEBHOOK_EVENT_CATEGORIES)) {
+      if (category.events.some(e => e.value === event)) {
+        return { key, label: category.label };
+      }
+    }
+    return null;
   };
 
   if (isLoading) {
@@ -112,11 +146,39 @@ export function WebhooksManager() {
               </CardHeader>
               <CardContent className="pt-0">
                 <div className="flex flex-wrap gap-2 mb-3">
-                  {webhook.events.map((event) => (
-                    <Badge key={event} variant="secondary">
-                      {getEventLabel(event)}
-                    </Badge>
-                  ))}
+                  <TooltipProvider>
+                    {webhook.events.slice(0, 5).map((event) => {
+                      const category = getEventCategory(event);
+                      return (
+                        <Tooltip key={event}>
+                          <TooltipTrigger asChild>
+                            <Badge variant="secondary" className="cursor-help">
+                              {getEventLabel(event)}
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{category?.label || 'Geral'}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      );
+                    })}
+                    {webhook.events.length > 5 && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge variant="outline" className="cursor-help">
+                            +{webhook.events.length - 5}
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <div className="space-y-1">
+                            {webhook.events.slice(5).map((event) => (
+                              <p key={event}>{getEventLabel(event)}</p>
+                            ))}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </TooltipProvider>
                 </div>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   {webhook.last_success_at && (
@@ -157,9 +219,13 @@ export function WebhooksManager() {
         open={isDialogOpen}
         onOpenChange={(open) => {
           setIsDialogOpen(open);
-          if (!open) setEditingWebhook(null);
+          if (!open) setEditingWebhookId(null);
         }}
         webhook={editingWebhook}
+        createWebhook={createWebhook}
+        updateWebhook={updateWebhook}
+        isCreating={isCreating}
+        isUpdating={isUpdating}
       />
 
       <WebhookLogsDialog

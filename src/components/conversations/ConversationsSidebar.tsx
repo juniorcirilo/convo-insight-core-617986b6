@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
-import { Search, Plus, Settings, Loader2, BarChart3, ChevronRight, ChevronLeft, MessageSquare, Users, TrendingUp, Monitor } from "lucide-react";
+import { Search, Plus, Loader2, ChevronRight, ChevronLeft, LogOut, MessageCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -12,9 +13,8 @@ import NewConversationModal from "./NewConversationModal";
 import { ConversationFiltersPopover } from "./ConversationFiltersPopover";
 import { NotificationToggle } from "@/components/notifications/NotificationToggle";
 import { UserMenu } from "@/components/auth/UserMenu";
-import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { FilterType } from "@/components/settings/FilterPillsSettings";
 
 interface ConversationsSidebarProps {
   selectedId: string | null;
@@ -23,8 +23,6 @@ interface ConversationsSidebarProps {
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 }
-
-type FilterType = "all" | "unread" | "waiting" | "queue" | "mine";
 
 const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, onToggleCollapse }: ConversationsSidebarProps) => {
   const [search, setSearch] = useState("");
@@ -35,21 +33,21 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
   const [isNewConversationOpen, setIsNewConversationOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 20;
-  const { user, isAdmin, isSupervisor } = useAuth();
+  const { user, isAdmin, isSupervisor, signOut } = useAuth();
 
   // Debounce search for advanced message search
   const debouncedSearchQuery = useDebounce(search, 300);
   const { data: messageSearchResults, isLoading: isSearchingMessages } = useWhatsAppMessageSearch(debouncedSearchQuery);
 
   // Build filters for conversations query
-  const conversationFilters = {
+  const conversationFilters = useMemo(() => ({
     instanceId: instanceFilter || instanceId,
     status: statusFilter === "all" ? undefined : statusFilter,
     page: currentPage,
     pageSize,
     assignedTo: filter === "mine" ? user?.id : undefined,
     unassigned: filter === "queue" ? true : undefined,
-  };
+  }), [instanceFilter, instanceId, statusFilter, currentPage, filter, user?.id]);
 
   const { conversations, totalCount, totalPages, unreadCount, waitingCount, isLoading } = useWhatsAppConversations(conversationFilters);
 
@@ -135,9 +133,6 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
           <ChevronRight className="h-4 w-4" />
         </Button>
         
-        {/* Conversations icon */}
-        <MessageSquare className="h-5 w-5 text-muted-foreground" />
-        
         {/* New conversation */}
         <Button 
           size="icon" 
@@ -148,41 +143,8 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
           <Plus className="h-4 w-4" />
         </Button>
         
-        {/* Quick links */}
+        {/* Quick links - Removed per request */}
         <NotificationToggle />
-        
-        <Link to="/whatsapp/contatos">
-          <Button variant="ghost" size="icon" title="Contatos">
-            <Users className="h-4 w-4" />
-          </Button>
-        </Link>
-        
-        <Link to="/whatsapp/relatorio">
-          <Button variant="ghost" size="icon" title="Relatórios">
-            <BarChart3 className="h-4 w-4" />
-          </Button>
-        </Link>
-        
-        <Link to="/vendas">
-          <Button variant="ghost" size="icon" title="Dashboard de Vendas">
-            <TrendingUp className="h-4 w-4" />
-          </Button>
-        </Link>
-        
-        {/* Monitoring - Admin/Supervisor only */}
-        {(isAdmin || isSupervisor) && (
-          <Link to="/admin/conversas">
-            <Button variant="ghost" size="icon" title="Monitoramento">
-              <Monitor className="h-4 w-4" />
-            </Button>
-          </Link>
-        )}
-        
-        <Link to="/whatsapp/settings">
-          <Button variant="ghost" size="icon" title="Configurações">
-            <Settings className="h-4 w-4" />
-          </Button>
-        </Link>
         
         {/* Unread badge */}
         {unreadCount > 0 && (
@@ -206,60 +168,31 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
     );
   }
 
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut?.();
+    navigate('/auth');
+  };
+
   return (
-    <div className="flex flex-col h-full w-80 bg-sidebar">
+    <div className="flex flex-col h-full w-full bg-sidebar overflow-hidden">
       {/* Title Header */}
-      <div className="p-3 border-b border-sidebar-border">
-        <div className="flex items-center justify-between mb-3">
-          <h1 className="text-lg font-semibold">Conversas</h1>
+      <div className="p-3 border-b border-sidebar-border h-[60px] flex items-center">
+        <div className="flex items-center justify-between w-full">
+          <div className="flex items-center gap-2">
+            {/* Livachat Logo */}
+            <div className="flex items-center gap-1.5">
+              <div className="w-7 h-7 rounded-lg bg-green-500 flex items-center justify-center">
+                <MessageCircle className="h-4 w-4 text-white" />
+              </div>
+              <span className="text-base font-bold text-green-500">livechat</span>
+            </div>
+          </div>
           <div className="flex items-center gap-1">
-            <NotificationToggle />
-            <Link to="/whatsapp/contatos">
-              <Button variant="ghost" size="icon" title="Contatos">
-                <Users className="h-5 w-5" />
-              </Button>
-            </Link>
-            <Link to="/whatsapp/relatorio">
-              <Button variant="ghost" size="icon" title="Relatórios">
-                <BarChart3 className="h-5 w-5" />
-              </Button>
-            </Link>
-            <Link to="/vendas">
-              <Button variant="ghost" size="icon" title="Dashboard de Vendas">
-                <TrendingUp className="h-5 w-5" />
-              </Button>
-            </Link>
-            {/* Monitoring - Admin/Supervisor only */}
-            {(isAdmin || isSupervisor) && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link to="/admin/conversas">
-                    <Button variant="ghost" size="icon">
-                      <Monitor className="h-5 w-5 text-primary" />
-                    </Button>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>Monitoramento de Conversas</TooltipContent>
-              </Tooltip>
-            )}
-            <Link to="/whatsapp/settings">
-              <Button variant="ghost" size="icon" title="Configurações">
-                <Settings className="h-5 w-5" />
-              </Button>
-            </Link>
-            {onToggleCollapse && (
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={onToggleCollapse}
-                title="Recolher"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-            )}
+            <UserMenu compact />
           </div>
         </div>
-        <UserMenu />
       </div>
 
       {/* Search and new conversation */}
@@ -271,8 +204,18 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
               placeholder="Buscar conversas..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 h-9 bg-sidebar-accent border-sidebar-border"
+              className="pl-9 pr-10 h-9 bg-sidebar-accent border-sidebar-border"
             />
+            <div className="absolute right-2 top-1/2 -translate-y-1/2">
+              <ConversationFiltersPopover
+                statusFilter={statusFilter}
+                onStatusChange={setStatusFilter}
+                sortBy={sortBy}
+                onSortChange={setSortBy}
+                instanceFilter={instanceFilter}
+                onInstanceChange={setInstanceFilter}
+              />
+            </div>
           </div>
           <Button
             size="icon"
@@ -293,14 +236,6 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
             queueCount={queueCount}
             myConversationsCount={myConversationsCount}
           />
-          <ConversationFiltersPopover
-            statusFilter={statusFilter}
-            onStatusChange={setStatusFilter}
-            sortBy={sortBy}
-            onSortChange={setSortBy}
-            instanceFilter={instanceFilter}
-            onInstanceChange={setInstanceFilter}
-          />
         </div>
 
         {/* Indicadores de busca */}
@@ -318,7 +253,7 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
       </div>
 
       {/* Conversations list */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 w-full overflow-hidden">
         {isLoading ? (
           <div className="p-4 text-center text-muted-foreground">
             Carregando...
@@ -328,7 +263,7 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
             {search ? "Nenhuma conversa encontrada" : "Nenhuma conversa ainda"}
           </div>
         ) : (
-          <div className="divide-y divide-sidebar-border">
+          <div className="divide-y divide-sidebar-border w-full overflow-hidden">
             {filteredConversations.map((conversation) => {
               // Calcular se foi encontrado no histórico
               const searchLower = search.toLowerCase();
@@ -356,33 +291,44 @@ const ConversationsSidebar = ({ selectedId, onSelect, instanceId, isCollapsed, o
         )}
       </ScrollArea>
 
-      {/* Pagination Footer */}
+      {/* Pagination Footer with quick menu buttons */}
       <div className="p-3 border-t border-sidebar-border flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">
-          {totalCount} conversa{totalCount !== 1 ? 's' : ''}
-        </span>
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => setCurrentPage(p => p - 1)}
-            disabled={currentPage === 1 || isLoading}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm min-w-[60px] text-center">
-            {currentPage} / {totalPages || 1}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">
+            {totalCount} conversa{totalCount !== 1 ? 's' : ''}
           </span>
-          <Button 
-            variant="outline" 
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => setCurrentPage(p => p + 1)}
-            disabled={currentPage >= totalPages || isLoading}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setCurrentPage(p => p - 1)}
+              disabled={currentPage === 1 || isLoading}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm min-w-[60px] text-center">
+              {currentPage} / {totalPages || 1}
+            </span>
+            <Button 
+              variant="outline" 
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setCurrentPage(p => p + 1)}
+              disabled={currentPage >= totalPages || isLoading}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-1 ml-2">
+            <Button variant="ghost" size="icon" title="Sair" onClick={handleSignOut}>
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
 

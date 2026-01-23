@@ -9,6 +9,7 @@ type Contact = Tables<'whatsapp_contacts'>;
 interface ConversationWithContact extends Conversation {
   contact: Contact;
   isLastMessageFromMe?: boolean;
+  instance?: { id: string; name: string } | null;
 }
 
 interface ConversationsFilters {
@@ -45,7 +46,8 @@ export const useWhatsAppConversations = (filters?: ConversationsFilters) => {
         .select(`
           *,
           contact:whatsapp_contacts(*),
-          assigned_profile:profiles(id, full_name, avatar_url)
+          assigned_profile:profiles(id, full_name, avatar_url),
+          instance:whatsapp_instances(id, name)
         `)
         .order('last_message_at', { ascending: false, nullsFirst: false })
         .range(from, to);
@@ -198,19 +200,96 @@ export const useWhatsAppConversations = (filters?: ConversationsFilters) => {
   });
 
   useEffect(() => {
-    const channel = supabase
+    console.log('[useWhatsAppConversations] Setting up realtime subscriptions');
+    
+    let conversationInvalidateTimeout: NodeJS.Timeout;
+    let messageInvalidateTimeout: NodeJS.Timeout;
+    let contactInvalidateTimeout: NodeJS.Timeout;
+    
+    // Subscribe to conversation changes
+    const conversationsChannel = supabase
       .channel('conversations-changes')
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'whatsapp_conversations'
-      }, () => {
-        queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
+      }, (payload) => {
+        console.log('[useWhatsAppConversations] Conversation change:', payload.eventType, payload.new);
+        // Debounce invalidation to prevent excessive re-renders
+        clearTimeout(conversationInvalidateTimeout);
+        conversationInvalidateTimeout = setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
+        }, 100);
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[useWhatsAppConversations] Conversations subscription status:', status);
+      });
+
+    // Subscribe to new/updated messages to update conversation list in real-time
+    const messagesChannel = supabase
+      .channel('messages-for-conversations')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'whatsapp_messages'
+      }, (payload) => {
+        console.log('[useWhatsAppConversations] Message event:', payload.eventType, payload.new);
+        // Debounce invalidation to prevent excessive re-renders
+        clearTimeout(messageInvalidateTimeout);
+        messageInvalidateTimeout = setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
+        }, 100);
+      })
+      .subscribe((status) => {
+        console.log('[useWhatsAppConversations] Messages subscription status:', status);
+      });
+
+    // Subscribe to contact changes (name, photo updates)
+    const contactsChannel = supabase
+      .channel('contacts-for-conversations')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'whatsapp_contacts'
+      }, (payload) => {
+        console.log('[useWhatsAppConversations] Contact change:', payload.eventType, payload.new);
+        clearTimeout(contactInvalidateTimeout);
+        contactInvalidateTimeout = setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
+        }, 100);
+      })
+      .subscribe((status) => {
+        console.log('[useWhatsAppConversations] Contacts subscription status:', status);
+      });
+
+    // Subscribe to ticket changes
+    const ticketsChannel = supabase
+      .channel('tickets-for-conversations')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'tickets'
+      }, (payload) => {
+        console.log('[useWhatsAppConversations] Ticket change:', payload.eventType, payload.new);
+        clearTimeout(contactInvalidateTimeout);
+        contactInvalidateTimeout = setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
+          queryClient.invalidateQueries({ queryKey: ['tickets'] });
+        }, 100);
+      })
+      .subscribe((status) => {
+        console.log('[useWhatsAppConversations] Tickets subscription status:', status);
+      });
 
     return () => {
-      supabase.removeChannel(channel);
+      console.log('[useWhatsAppConversations] Removing realtime channels');
+      clearTimeout(conversationInvalidateTimeout);
+      clearTimeout(messageInvalidateTimeout);
+      clearTimeout(contactInvalidateTimeout);
+      supabase.removeChannel(conversationsChannel);
+      supabase.removeChannel(messagesChannel);
+      supabase.removeChannel(contactsChannel);
+      supabase.removeChannel(ticketsChannel);
     };
   }, [queryClient]);
 

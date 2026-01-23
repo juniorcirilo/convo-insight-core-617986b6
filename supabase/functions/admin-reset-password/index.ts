@@ -27,25 +27,36 @@ serve(async (req) => {
       );
     }
 
-    // Create client with user's token to verify they're an admin
+    // Create client with user's token to verify they're an admin (use REST to avoid local JWT verify)
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
+    const userResp = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: { Authorization: authHeader, apikey: supabaseAnonKey }
     });
 
-    // Get the requesting user
-    const { data: { user: requestingUser }, error: userError } = await userClient.auth.getUser();
-    if (userError || !requestingUser) {
+    if (!userResp.ok) {
+      return new Response(
+        JSON.stringify({ error: "Usuário não autenticado" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const userJson = await userResp.json();
+    const requestingUser = userJson?.user ?? userJson;
+
+    if (!requestingUser || !requestingUser.id) {
       return new Response(
         JSON.stringify({ error: "Usuário não autenticado" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Check if requesting user is an admin
+    // Check if requesting user is an admin (use client with user header for RPC/queries)
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
     const { data: roleData, error: roleError } = await userClient
       .from("user_roles")
       .select("role")

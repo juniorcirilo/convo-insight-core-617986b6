@@ -26,6 +26,7 @@ interface AssignAgentDialogProps {
   conversationId: string;
   currentAssignee?: string;
   isTransfer?: boolean;
+  onSuccess?: () => void;
 }
 
 export function AssignAgentDialog({
@@ -34,6 +35,7 @@ export function AssignAgentDialog({
   conversationId,
   currentAssignee,
   isTransfer = false,
+  onSuccess,
 }: AssignAgentDialogProps) {
   const { isAdmin, isSupervisor } = useAuth();
   const [conversationSectorId, setConversationSectorId] = useState<string | null>(null);
@@ -76,6 +78,7 @@ export function AssignAgentDialog({
             onOpenChange(false);
             setSelectedAgent(null);
             setReason('');
+            onSuccess?.();
           },
         }
       );
@@ -87,6 +90,7 @@ export function AssignAgentDialog({
             onOpenChange(false);
             setSelectedAgent(null);
             setReason('');
+            onSuccess?.();
           },
         }
       );
@@ -140,7 +144,7 @@ export function AssignAgentDialog({
             <div className="flex items-center gap-2">
               <Building2 className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
-                Mostrar agentes de todos os setores
+                Mostrar atendentes de todos os setores
               </span>
             </div>
             <Switch

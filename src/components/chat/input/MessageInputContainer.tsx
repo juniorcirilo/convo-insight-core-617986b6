@@ -1,12 +1,14 @@
 import { useState, useRef, KeyboardEvent, useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Send, Mic } from "lucide-react";
+import { Send, Mic, ChevronDown, ChevronUp } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EmojiPickerButton } from "./EmojiPickerButton";
 import { MediaUploadButton } from "./MediaUploadButton";
 import { AIComposerButton } from "./AIComposerButton";
 import { AudioRecorder } from "./AudioRecorder";
 import { MacroSuggestions } from "./MacroSuggestions";
+import { MacrosButton } from "./MacrosButton";
 import { SmartReplySuggestions } from "./SmartReplySuggestions";
 import { ReplyPreview } from "./ReplyPreview";
 import { QuoteButton } from "@/components/chat/QuoteButton";
@@ -50,6 +52,7 @@ export const MessageInputContainer = ({
   const [isRecording, setIsRecording] = useState(false);
   const [showMacroSuggestions, setShowMacroSuggestions] = useState(false);
   const [filteredMacros, setFilteredMacros] = useState<any[]>([]);
+  const [showSmartReplies, setShowSmartReplies] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   const { macros, incrementUsage } = useWhatsAppMacros();
@@ -116,6 +119,13 @@ export const MessageInputContainer = ({
     }, 0);
   };
 
+  const handleMacroButtonSelect = (content: string, macroId: string) => {
+    setMessage(content);
+    setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 0);
+  };
+
   const handleSmartReplySelect = (text: string) => {
     setMessage(text);
     setTimeout(() => {
@@ -143,73 +153,112 @@ export const MessageInputContainer = ({
         <ReplyPreview message={replyingTo} onCancel={onCancelReply} />
       )}
       
-      <SmartReplySuggestions
-        suggestions={suggestions}
-        isLoading={isLoadingSmartReplies}
-        isRefreshing={isRefreshing}
-        onSelectSuggestion={handleSmartReplySelect}
-        onRefresh={refresh}
-      />
+      {showSmartReplies && (
+        <SmartReplySuggestions
+          suggestions={suggestions}
+          isLoading={isLoadingSmartReplies}
+          isRefreshing={isRefreshing}
+          onSelectSuggestion={handleSmartReplySelect}
+          onRefresh={refresh}
+          onToggle={() => setShowSmartReplies(false)}
+        />
+      )}
       
       <div className="p-4">
-        <div className="relative flex gap-2 items-end">
-          {showMacroSuggestions && (
-            <MacroSuggestions
-              macros={filteredMacros}
-              onSelect={handleMacroSelect}
-            />
-          )}
-        
-        <EmojiPickerButton onEmojiSelect={handleEmojiSelect} disabled={disabled} />
-        
-        <MediaUploadButton 
-          conversationId={conversationId}
-          onSendMedia={onSendMedia}
-          disabled={disabled}
-        />
-        
-        <AIComposerButton
-          message={message}
-          onComposed={(newMessage) => setMessage(newMessage)}
-          disabled={disabled}
-        />
-        
-        <QuoteButton
-          conversationId={conversationId}
-          leadId={leadId}
-          sectorId={sectorId}
-          disabled={disabled}
-        />
-        
-        <Textarea
-          ref={textareaRef}
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Digite uma mensagem..."
-          className="min-h-[44px] max-h-32 resize-none"
-          disabled={disabled}
-        />
-        
-        {message.trim() ? (
-          <Button
-            onClick={handleSend}
-            size="icon"
-            disabled={disabled}
-          >
-            <Send className="w-4 h-4" />
-          </Button>
-        ) : (
-          <Button
-            onClick={() => setIsRecording(true)}
-            size="icon"
-            variant="outline"
-            disabled={disabled}
-          >
-            <Mic className="w-4 h-4" />
-          </Button>
+        {showMacroSuggestions && (
+          <MacroSuggestions
+            macros={filteredMacros}
+            onSelect={handleMacroSelect}
+          />
         )}
+        
+        <div className="flex gap-2 items-end">
+          <div className="relative flex-1 rounded-md border border-input bg-background">
+            <Textarea
+              ref={textareaRef}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Digite uma mensagem..."
+              className="min-h-[44px] max-h-96 resize-y border-0 pr-56 focus-visible:ring-0 focus-visible:ring-offset-0"
+              disabled={disabled}
+            />
+            
+            <div className="absolute right-2 bottom-2 flex gap-1 items-center bg-background">
+              <EmojiPickerButton onEmojiSelect={handleEmojiSelect} disabled={disabled} />
+              
+              <MacrosButton
+                onSelectMacro={handleMacroButtonSelect}
+                disabled={disabled}
+              />
+              
+              <MediaUploadButton 
+                conversationId={conversationId}
+                onSendMedia={onSendMedia}
+                disabled={disabled}
+              />
+              
+              <AIComposerButton
+                message={message}
+                onComposed={(newMessage) => setMessage(newMessage)}
+                disabled={disabled}
+              />
+              
+              <QuoteButton
+                conversationId={conversationId}
+                leadId={leadId}
+                sectorId={sectorId}
+                disabled={disabled}
+              />
+              
+              <Button
+                type="button"
+                onClick={() => setIsRecording(true)}
+                size="icon"
+                variant="ghost"
+                disabled={disabled}
+                className="h-9 w-9 shrink-0"
+              >
+                <Mic className="w-4 h-4" />
+              </Button>
+              
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      onClick={() => setShowSmartReplies(!showSmartReplies)}
+                      size="icon"
+                      variant="ghost"
+                      disabled={disabled}
+                      className="h-9 w-9 shrink-0 transition-all duration-200"
+                    >
+                      {showSmartReplies ? (
+                        <ChevronDown className="w-4 h-4" />
+                      ) : (
+                        <ChevronUp className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    {showSmartReplies ? 'Ocultar sugestões IA' : 'Mostrar sugestões IA'}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              
+              <Button
+                type="button"
+                onClick={handleSend}
+                size="icon"
+                disabled={disabled || !message.trim()}
+                className="h-9 w-9 shrink-0"
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
         </div>
+        
         <p className="text-xs text-muted-foreground mt-1">
           Enter para enviar, Shift+Enter para nova linha
         </p>

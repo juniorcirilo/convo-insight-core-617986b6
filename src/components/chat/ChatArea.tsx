@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useWhatsAppMessages, useWhatsAppSend, useWhatsAppSentiment } from "@/hooks/whatsapp";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,6 +22,38 @@ export const ChatArea = ({ conversationId }: ChatAreaProps) => {
   const sendMutation = useWhatsAppSend();
   const queryClient = useQueryClient();
   const { lead } = useConversationLead(conversationId);
+
+  // Real-time subscription for the active conversation
+  useEffect(() => {
+    if (!conversationId) return;
+
+    let conversationInvalidateTimeout: NodeJS.Timeout;
+
+    const channel = supabase
+      .channel(`active-conv-${conversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'whatsapp_conversations',
+          filter: `id=eq.${conversationId}`,
+        },
+        () => {
+          clearTimeout(conversationInvalidateTimeout);
+          conversationInvalidateTimeout = setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
+            queryClient.invalidateQueries({ queryKey: ['whatsapp', 'conversations'] });
+          }, 100);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      clearTimeout(conversationInvalidateTimeout);
+      supabase.removeChannel(channel);
+    };
+  }, [conversationId, queryClient]);
 
   // Fetch conversation details including contact
   const { data: conversation } = useQuery({
@@ -112,6 +144,7 @@ export const ChatArea = ({ conversationId }: ChatAreaProps) => {
         isLoading={messagesLoading}
         conversationId={conversationId}
         onReplyMessage={handleReply}
+        isGroupChat={conversation?.contact?.is_group || false}
       />
       
       <MessageInputContainer

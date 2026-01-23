@@ -39,12 +39,15 @@ export const useConversationTopics = (conversationId: string | null) => {
   useEffect(() => {
     if (!conversationId) return;
 
+    let topicsInvalidateTimeout: NodeJS.Timeout;
+
     const channel = supabase
       .channel(`topics-${conversationId}`)
       .on('postgres_changes', {
-        event: 'UPDATE',
+        event: '*',
         schema: 'public',
         table: 'whatsapp_conversations',
+        filter: `id=eq.${conversationId}`
       }, (payload) => {
         if (payload.new?.id === conversationId) {
           const newMetadata = payload.new?.metadata as any;
@@ -52,15 +55,20 @@ export const useConversationTopics = (conversationId: string | null) => {
           
           if (JSON.stringify(newMetadata?.topics) !== JSON.stringify(oldMetadata?.topics)) {
             console.log('[topics-realtime] Topics updated, invalidating query');
-            queryClient.invalidateQueries({ 
-              queryKey: ['conversation-topics', conversationId] 
-            });
+            // Debounce invalidation to prevent excessive re-renders
+            clearTimeout(topicsInvalidateTimeout);
+            topicsInvalidateTimeout = setTimeout(() => {
+              queryClient.invalidateQueries({ 
+                queryKey: ['conversation-topics', conversationId] 
+              });
+            }, 100);
           }
         }
       })
       .subscribe();
 
     return () => {
+      clearTimeout(topicsInvalidateTimeout);
       supabase.removeChannel(channel);
     };
   }, [conversationId, queryClient]);

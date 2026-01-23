@@ -1,14 +1,28 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
+import { useMarkMessagesRead } from './useMarkMessagesRead';
 
 type Message = Tables<'whatsapp_messages'>;
 
 export const useWhatsAppMessages = (conversationId: string | null) => {
   const queryClient = useQueryClient();
+  const markMessagesRead = useMarkMessagesRead();
+  const lastMarkedConversationRef = useRef<string | null>(null);
+  const markReadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { data: messages = [], isLoading, error } = useQuery({
+  // Debounced mark as read function
+  const debouncedMarkAsRead = useCallback((convId: string) => {
+    if (markReadTimeoutRef.current) {
+      clearTimeout(markReadTimeoutRef.current);
+    }
+    markReadTimeoutRef.current = setTimeout(() => {
+      markMessagesRead.mutate({ conversationId: convId });
+    }, 500); // 500ms debounce
+  }, [markMessagesRead.mutate]);
+
+  const { data: messages = [], isLoading, error, refetch } = useQuery({
     queryKey: ['whatsapp', 'messages', conversationId],
     queryFn: async () => {
       if (!conversationId) return [];
@@ -17,65 +31,113 @@ export const useWhatsAppMessages = (conversationId: string | null) => {
         .from('whatsapp_messages')
         .select('*')
         .eq('conversation_id', conversationId)
-        .order('timestamp', { ascending: true });
+        .order('timestamp', { ascending: true })
+        .order('created_at', { ascending: true });
 
       if (error) throw error;
       return data as Message[];
     },
     enabled: !!conversationId,
+    // Disable refetchInterval - rely on realtime subscriptions for updates
+    refetchInterval: false,
   });
 
-  // Mark conversation as read when opened
+  // Mark messages as read bidirectionally when conversation is opened
   useEffect(() => {
-    if (conversationId) {
-      supabase
-        .from('whatsapp_conversations')
-        .update({ unread_count: 0 })
-        .eq('id', conversationId)
-        .then();
+    if (conversationId && conversationId !== lastMarkedConversationRef.current) {
+      lastMarkedConversationRef.current = conversationId;
+      
+      // Call the edge function to mark messages as read (bidirectional with Evolution API)
+      debouncedMarkAsRead(conversationId);
     }
-  }, [conversationId]);
+    
+    return () => {
+      if (markReadTimeoutRef.current) {
+        clearTimeout(markReadTimeoutRef.current);
+      }
+    };
+  }, [conversationId, debouncedMarkAsRead]);
 
-  // Realtime subscription for new and edited messages
+  // Realtime subscription for new, updated and deleted messages
   useEffect(() => {
     if (!conversationId) return;
+
+    console.log('[useWhatsAppMessages] Setting up realtime subscription for:', conversationId);
 
     const channel = supabase
       .channel(`messages-${conversationId}`)
       .on('postgres_changes', {
-        event: 'INSERT',
+        event: '*',
         schema: 'public',
         table: 'whatsapp_messages',
         filter: `conversation_id=eq.${conversationId}`
       }, (payload) => {
-        queryClient.setQueryData(['whatsapp', 'messages', conversationId], (old: Message[] = []) => {
-          const exists = old.some(msg => msg.id === payload.new.id);
-          if (exists) return old;
-          return [...old, payload.new as Message];
-        });
+        console.log('[useWhatsAppMessages]', payload.eventType, 'event received:', payload.new || payload.old);
+        
+        if (payload.eventType === 'INSERT') {
+          queryClient.setQueryData(['whatsapp', 'messages', conversationId], (old: Message[] = []) => {
+            const newMessage = payload.new as Message;
+            const exists = old.some(msg => msg.id === newMessage.id || msg.message_id === newMessage.message_id);
+            if (exists) return old;
+            // Insert and sort by timestamp to maintain order
+            const updated = [...old, newMessage];
+            updated.sort((a, b) => {
+              const timeA = new Date(a.timestamp || a.created_at).getTime();
+              const timeB = new Date(b.timestamp || b.created_at).getTime();
+              
+              if (timeA !== timeB) return timeA - timeB;
+              
+              // Secondary sort by created_at to break ties (id is string so created_at is better)
+              const createdA = new Date(a.created_at).getTime();
+              const createdB = new Date(b.created_at).getTime();
+              return createdA - createdB;
+            });
+            return updated;
+          });
+          
+          // If message is from client (not from me), mark as read immediately
+          const newMessage = payload.new as Message;
+          if (!newMessage.is_from_me) {
+            debouncedMarkAsRead(conversationId);
+          }
+        } else if (payload.eventType === 'UPDATE') {
+          queryClient.setQueryData(['whatsapp', 'messages', conversationId], (old: Message[] = []) => {
+            const newRow = payload.new as Message;
+            const updated = old.map(msg => {
+              // Match by id
+              if (msg.id === newRow.id) {
+                console.log('[useWhatsAppMessages] Updating message by id:', msg.id, 'old status:', msg.status, 'new status:', newRow.status);
+                return { ...msg, ...newRow };
+              }
+              // Fallback: match by message_id (external provider id)
+              if (msg.message_id && msg.message_id === newRow.message_id) {
+                console.log('[useWhatsAppMessages] Updating message by message_id:', msg.message_id, 'old status:', msg.status, 'new status:', newRow.status);
+                return { ...msg, ...newRow };
+              }
+              return msg;
+            });
+            return updated;
+          });
+        } else if (payload.eventType === 'DELETE') {
+          queryClient.setQueryData(['whatsapp', 'messages', conversationId], (old: Message[] = []) => {
+            return old.filter(msg => msg.id !== (payload.old as any).id);
+          });
+        }
       })
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'whatsapp_messages',
-        filter: `conversation_id=eq.${conversationId}`
-      }, (payload) => {
-        queryClient.setQueryData(['whatsapp', 'messages', conversationId], (old: Message[] = []) => {
-          return old.map(msg => 
-            msg.id === payload.new.id ? { ...msg, ...payload.new as Message } : msg
-          );
-        });
-      })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[useWhatsAppMessages] Subscription status:', status);
+      });
 
     return () => {
+      console.log('[useWhatsAppMessages] Removing channel for:', conversationId);
       supabase.removeChannel(channel);
     };
-  }, [conversationId, queryClient]);
+  }, [conversationId, queryClient, debouncedMarkAsRead]);
 
   return {
     messages,
     isLoading,
     error,
+    refetch,
   };
 };

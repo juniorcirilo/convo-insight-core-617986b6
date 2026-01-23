@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import MediaPlayer from '@/components/ui/MediaPlayer';
 import { Button } from "@/components/ui/button";
 import { X, Send, StopCircle, Headphones, Trash2, RotateCcw } from "lucide-react";
 import { MediaSendParams } from "./MessageInputContainer";
@@ -144,11 +145,9 @@ export const AudioRecorder = ({ onSend, onCancel }: AudioRecorderProps) => {
           <span className="text-sm text-muted-foreground">{formatDuration(duration)}</span>
         </div>
         
-        <audio 
-          src={audioUrl} 
-          controls 
-          className="w-full h-10 rounded"
-        />
+        <div className="w-full">
+          <MediaPlayer src={audioUrl} type="audio" mimeType="audio/webm" isVoiceMessage={true} />
+        </div>
         
         <div className="flex gap-2 justify-end">
           <Button variant="outline" size="sm" onClick={handleCancel}>

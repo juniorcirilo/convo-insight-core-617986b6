@@ -1,24 +1,24 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, Settings, UserPlus, Repeat, Pencil, Building2 } from "lucide-react";
+import { Pencil, Building2 } from "lucide-react";
+import { formatPhoneForDisplay } from "@/utils/phoneUtils";
 import { SentimentCard } from "./SentimentCard";
 import { Tables } from "@/integrations/supabase/types";
-import { Link } from "react-router-dom";
 import { useConversationTopics } from "@/hooks/whatsapp/useConversationTopics";
 import { TopicBadges } from "./topics/TopicBadges";
 import { ChatHeaderMenu } from "./ChatHeaderMenu";
+import { useTickets } from '@/hooks/useTickets';
 import { QueueIndicator } from "@/components/conversations/QueueIndicator";
 import { AssignAgentDialog } from "@/components/conversations/AssignAgentDialog";
 import { EditContactModal } from "./EditContactModal";
 import { TicketIndicator } from "./TicketIndicator";
 import { ConversationModeControls } from "./ConversationModeControls";
 import { useState, useEffect } from "react";
-import { useAuth } from "@/contexts/AuthContext";
-import { useConversationAssignment } from "@/hooks/whatsapp/useConversationAssignment";
+import { supabase } from '@/integrations/supabase/client';
 import { isContactNameMissing } from "@/utils/contactUtils";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
+
 
 type Contact = Tables<'whatsapp_contacts'>;
 type Sentiment = Tables<'whatsapp_sentiment_analysis'>;
@@ -39,9 +39,8 @@ export const ChatHeader = ({ contact, sentiment, isAnalyzing, onAnalyze, convers
   const [isEditContactModalOpen, setIsEditContactModalOpen] = useState(false);
   const [sectorName, setSectorName] = useState<string | null>(null);
   const [sectorGeraTicket, setSectorGeraTicket] = useState<boolean>(false);
-  const { user, isAdmin, isSupervisor } = useAuth();
-  const { assignConversation } = useConversationAssignment();
-  
+  const { ticket, updateTicketStatus } = useTickets(conversationId);
+
   // Fetch sector name and gera_ticket
   useEffect(() => {
     if (conversation?.sector_id) {
@@ -66,15 +65,6 @@ export const ChatHeader = ({ contact, sentiment, isAnalyzing, onAnalyze, convers
   const displayName = nameIsMissing ? 'Sem nome' : contact.name;
 
   const isInQueue = !conversation?.assigned_to;
-  const canAssign = isAdmin || isSupervisor;
-  const isAssignedToMe = conversation?.assigned_to === user?.id;
-  const canTransfer = canAssign || isAssignedToMe;
-
-  const handleAssumeFromQueue = () => {
-    if (conversationId && user?.id) {
-      assignConversation({ conversationId, assignedTo: user.id });
-    }
-  };
 
   const getInitials = (name: string) => {
     return name
@@ -86,8 +76,8 @@ export const ChatHeader = ({ contact, sentiment, isAnalyzing, onAnalyze, convers
   };
 
   return (
-    <div className="p-4 border-b border-border bg-card">
-      <div className="flex items-center justify-between">
+    <div className="px-4 py-2 border-b border-border bg-card h-[60px] flex items-center">
+      <div className="flex items-center justify-between w-full">
         <div className="flex items-center gap-3">
           <Avatar className="w-10 h-10">
             <AvatarImage src={contact.profile_picture_url || undefined} />
@@ -115,93 +105,50 @@ export const ChatHeader = ({ contact, sentiment, isAnalyzing, onAnalyze, convers
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              {contact.phone_number}
+              {formatPhoneForDisplay(contact.phone_number)}
             </p>
             
             {/* Sector badge and topics */}
             <div className="flex items-center gap-2 mt-1 flex-wrap">
-              {sectorName && (
-                <Badge variant="secondary" className="text-xs flex items-center gap-1">
-                  <Building2 className="h-3 w-3" />
-                  {sectorName}
-                </Badge>
-              )}
               {topicsData?.topics && topicsData.topics.length > 0 && (
                 <TopicBadges topics={topicsData.topics} size="sm" showIcon={true} maxTopics={3} />
               )}
             </div>
             
-            {conversation && (
-              <div className="mt-1">
-                <QueueIndicator
-                  assignedTo={conversation.assigned_to}
-                  assignedToName={conversation.assigned_profile?.full_name}
-                />
-              </div>
-            )}
+            {/* QueueIndicator moved to footer */}
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* AI Mode Controls */}
-          {conversationId && (
-            <ConversationModeControls 
-              conversationId={conversationId}
-              conversationMode={conversation?.conversation_mode}
-            />
-          )}
-          
-          {/* Ticket Indicator */}
-          {conversationId && (
-            <TicketIndicator 
-              conversationId={conversationId} 
-              sectorGeraTicket={sectorGeraTicket} 
-            />
-          )}
-          {/* Assignment buttons */}
-          {conversation && isInQueue && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleAssumeFromQueue}
-            >
-              <UserPlus className="w-4 h-4 mr-2" />
-              Assumir
-            </Button>
-          )}
-
-          {conversation && !isInQueue && canTransfer && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsAssignDialogOpen(true)}
-            >
-              <Repeat className="w-4 h-4 mr-2" />
-              Transferir
-            </Button>
-          )}
-
-          <SentimentCard sentiment={sentiment} />
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onAnalyze}
-            disabled={isAnalyzing}
-          >
-            <RefreshCw className={`w-4 h-4 ${isAnalyzing ? 'animate-spin' : ''}`} />
-            <span className="ml-2">Analisar</span>
-          </Button>
-
+          {/* Footer badges moved here */}
           {conversation && (
-            <ChatHeaderMenu conversation={conversation} onRefresh={onRefresh} />
-          )}
+            <>
+              {/* First: sector + AI mode together */}
+              <div className="flex items-center gap-2">
+                {sectorName && (
+                  <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                    <Building2 className="h-3 w-3" />
+                    {sectorName}
+                  </Badge>
+                )}
+                <ConversationModeControls conversationId={conversationId || null} conversationMode={conversation?.conversation_mode} />
+              </div>
 
-          <Link to="/whatsapp/settings">
-            <Button variant="ghost" size="icon">
-              <Settings className="h-5 w-5" />
-            </Button>
-          </Link>
+              {/* Then queue and ticket */}
+              <div className="flex items-center gap-2">
+                <QueueIndicator
+                  assignedTo={conversation.assigned_to}
+                  assignedToName={conversation.assigned_profile?.full_name}
+                />
+                {conversationId && (
+                  <TicketIndicator conversationId={conversationId} sectorGeraTicket={sectorGeraTicket} />
+                )}
+              </div>
+              
+              {/* Menu dropdown */}
+              <ChatHeaderMenu conversation={conversation} onRefresh={onRefresh} onAnalyze={onAnalyze} isAnalyzing={isAnalyzing} />
+            </>
+          )}
         </div>
       </div>
 
@@ -232,3 +179,5 @@ export const ChatHeader = ({ contact, sentiment, isAnalyzing, onAnalyze, convers
     </div>
   );
 };
+
+

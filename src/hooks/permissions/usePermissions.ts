@@ -10,6 +10,7 @@ export interface PermissionType {
   default_for_admin: boolean;
   default_for_supervisor: boolean;
   default_for_agent: boolean;
+  default_for_manager?: boolean;
 }
 
 export interface UserEffectivePermission {
@@ -35,10 +36,67 @@ export const usePermissionTypes = () => {
       const { data, error } = await supabase
         .from('permission_types')
         .select('*')
-        .order('category', { ascending: true });
+        .order('category', { ascending: true })
+        .order('key', { ascending: true });
 
       if (error) throw error;
       return data as PermissionType[];
+    },
+  });
+};
+
+export const useUpdatePermissionDefault = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ permissionKey, roleKey, value }: { permissionKey: string; roleKey: string; value: boolean }) => {
+      const columnMap: Record<string, string> = {
+        admin: 'default_for_admin',
+        supervisor: 'default_for_supervisor',
+        agent: 'default_for_agent',
+        manager: 'default_for_manager',
+      };
+
+      const column = columnMap[roleKey];
+      if (!column) throw new Error('Unknown role');
+
+      const updates: Record<string, any> = {};
+      updates[column] = value;
+
+      const { error } = await supabase
+        .from('permission_types')
+        .update(updates)
+        .eq('key', permissionKey);
+
+      if (error) throw error;
+
+      // invalidate cache
+      return true;
+    },
+    onMutate: async ({ permissionKey, roleKey, value }: { permissionKey: string; roleKey: string; value: boolean }) => {
+      await queryClient.cancelQueries({ queryKey: ['permission-types'] });
+      const previous = queryClient.getQueryData<PermissionType[]>(['permission-types']);
+      if (previous) {
+        const columnMap: Record<string, string> = {
+          admin: 'default_for_admin',
+          supervisor: 'default_for_supervisor',
+          agent: 'default_for_agent',
+          manager: 'default_for_manager',
+        };
+        const column = columnMap[roleKey];
+        queryClient.setQueryData(['permission-types'], previous.map(pt => pt.key === permissionKey ? { ...pt, [column]: value } : pt));
+      }
+      return { previous };
+    },
+    onError: (err: any, vars, context: any) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['permission-types'], context.previous);
+      }
+      console.error('Permission update error:', err);
+      toast.error('Erro ao atualizar padrão: ' + (err?.message || err));
+    },
+    onSuccess: () => {
+      toast.success('Padrão de permissão atualizado');
     },
   });
 };

@@ -7,7 +7,7 @@ export interface Ticket {
   id: string;
   conversation_id: string;
   sector_id: string;
-  status: 'aberto' | 'em_atendimento' | 'finalizado';
+  status: 'aberto' | 'em_atendimento' | 'finalizado' | 'reaberto';
   created_at: string;
   closed_at: string | null;
   closed_by: string | null;
@@ -29,6 +29,47 @@ export interface Feedback {
   created_at: string;
 }
 
+// Helper function to insert ticket event marker in conversation
+const insertTicketEventMarker = async (
+  conversationId: string,
+  ticketNumber: number,
+  eventType: 'ticket_opened' | 'ticket_closed'
+) => {
+  // Get the timestamp of the last message to ensure marker appears after it
+  const { data: lastMessage } = await supabase
+    .from('whatsapp_messages')
+    .select('timestamp')
+    .eq('conversation_id', conversationId)
+    .order('timestamp', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  // Use a timestamp 1 second BEFORE the last message to ensure marker appears before it
+  const markerTimestamp = lastMessage?.timestamp 
+    ? new Date(new Date(lastMessage.timestamp).getTime() - 1000).toISOString()
+    : new Date().toISOString();
+
+  const markerId = `${eventType}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  const { error } = await supabase
+    .from('whatsapp_messages')
+    .insert({
+      conversation_id: conversationId,
+      message_id: markerId,
+      remote_jid: 'system',
+      content: `TICKET_EVENT:${ticketNumber}`,
+      message_type: eventType,
+      is_from_me: true,
+      status: 'sent',
+      timestamp: markerTimestamp,
+    });
+  
+  if (error) {
+    console.error(`Error inserting ${eventType} marker:`, error);
+  }
+  
+  return error;
+};
+
 export const useTickets = (conversationId?: string) => {
   const queryClient = useQueryClient();
 
@@ -37,24 +78,51 @@ export const useTickets = (conversationId?: string) => {
     queryFn: async () => {
       if (!conversationId) return null;
 
-      const { data, error } = await supabase
+      console.log('[useTickets] Fetching ticket for conversation:', conversationId);
+
+      // First try to find an ACTIVE ticket (not finalizado)
+      const { data: activeTicket, error: activeError } = await supabase
         .from('tickets')
         .select('*')
         .eq('conversation_id', conversationId)
-        .neq('status', 'finalizado')
+        .in('status', ['aberto', 'em_atendimento', 'reaberto'])
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (error) throw error;
-      return data as Ticket | null;
+      if (activeError) throw activeError;
+      
+      // If there's an active ticket, return it
+      if (activeTicket) {
+        console.log('[useTickets] Found active ticket:', activeTicket.id, 'status:', activeTicket.status);
+        return activeTicket as Ticket;
+      }
+      
+      // Otherwise, return the most recent ticket (even if finalizado)
+      const { data: latestTicket, error: latestError } = await supabase
+        .from('tickets')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (latestError) throw latestError;
+      console.log('[useTickets] Found latest ticket:', latestTicket?.id, 'status:', latestTicket?.status);
+      return latestTicket as Ticket | null;
     },
     enabled: !!conversationId,
+    staleTime: 0,
+    gcTime: 0, // Don't cache at all
+    refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
   });
 
   // Realtime subscription for ticket updates
   useEffect(() => {
     if (!conversationId) return;
+
+    let ticketInvalidateTimeout: NodeJS.Timeout;
 
     const channel = supabase
       .channel(`ticket-${conversationId}`)
@@ -67,18 +135,30 @@ export const useTickets = (conversationId?: string) => {
           filter: `conversation_id=eq.${conversationId}`,
         },
         () => {
-          queryClient.invalidateQueries({ queryKey: ['ticket', conversationId] });
+          // Debounce invalidation to prevent excessive re-renders
+          clearTimeout(ticketInvalidateTimeout);
+          ticketInvalidateTimeout = setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ['ticket', conversationId] });
+          }, 100);
         }
       )
       .subscribe();
 
     return () => {
+      clearTimeout(ticketInvalidateTimeout);
       supabase.removeChannel(channel);
     };
   }, [conversationId, queryClient]);
 
   const createTicket = useMutation({
     mutationFn: async ({ conversationId, sectorId }: { conversationId: string; sectorId: string }) => {
+      // Fetch sector details first to get the welcome message and sector name
+      const { data: sectorData } = await supabase
+        .from('sectors')
+        .select('mensagem_boas_vindas, name')
+        .eq('id', sectorId)
+        .single();
+
       const { data, error } = await supabase
         .from('tickets')
         .insert({
@@ -90,6 +170,62 @@ export const useTickets = (conversationId?: string) => {
         .single();
 
       if (error) throw error;
+
+      // Send welcome message if configured
+      if (sectorData?.mensagem_boas_vindas) {
+        try {
+          // Fetch conversation contact for template context
+          const { data: conv } = await supabase
+            .from('whatsapp_conversations')
+            .select('whatsapp_contacts(name, phone_number), assigned_to')
+            .eq('id', conversationId)
+            .maybeSingle();
+
+          const contact = (conv as any)?.whatsapp_contacts;
+
+          // Fetch agent name if assigned
+          let atendenteNome = 'Atendente';
+          if ((conv as any)?.assigned_to) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('full_name')
+              .eq('id', (conv as any).assigned_to)
+              .maybeSingle();
+            atendenteNome = profile?.full_name || 'Atendente';
+          }
+
+          const templateContext = {
+            clienteNome: contact?.name || contact?.phone_number || 'Cliente',
+            clienteTelefone: contact?.phone_number || '',
+            atendenteNome,
+            setorNome: sectorData?.name || '',
+            ticketNumero: data.numero,
+          } as any;
+
+          await supabase.functions.invoke('send-whatsapp-message', {
+            body: {
+              conversationId,
+              content: sectorData.mensagem_boas_vindas,
+              messageType: 'text',
+              skipAgentPrefix: true,
+              templateContext,
+            },
+          });
+          console.log('[useTickets] Welcome message sent for ticket:', data.id);
+        } catch (sendError) {
+          console.error('[useTickets] Error sending welcome message:', sendError);
+        }
+      }
+
+      // Insert ticket opened event marker
+      if (data.id && data.numero) {
+        await insertTicketEventMarker(
+          conversationId,
+          data.numero,
+          'ticket_opened'
+        );
+      }
+
       return data;
     },
     onSuccess: () => {
@@ -102,7 +238,19 @@ export const useTickets = (conversationId?: string) => {
   });
 
   const updateTicketStatus = useMutation({
-    mutationFn: async ({ ticketId, status }: { ticketId: string; status: 'aberto' | 'em_atendimento' | 'finalizado' }) => {
+    mutationFn: async ({ ticketId, status }: { ticketId: string; status: 'aberto' | 'em_atendimento' | 'finalizado' | 'reaberto' }) => {
+      // Fetch ticket and sector info to send messages if needed
+      const { data: ticketData } = await supabase
+        .from('tickets')
+        .select(`
+          status,
+          conversation_id,
+          sector_id,
+          sectors(mensagem_boas_vindas, mensagem_reabertura)
+        `)
+        .eq('id', ticketId)
+        .single();
+
       const updateData: any = { status };
       
       if (status === 'finalizado') {
@@ -119,6 +267,66 @@ export const useTickets = (conversationId?: string) => {
         .single();
 
       if (error) throw error;
+
+      // Send messages based on status transition
+      if (ticketData && ticketData.conversation_id) {
+        const sector = (ticketData as any)?.sectors;
+        let messageToSend: string | null = null;
+
+        if (status === 'em_atendimento' && ticketData.status === 'aberto') {
+          // Starting attendance - send welcome message if configured
+          messageToSend = sector?.mensagem_boas_vindas;
+        } else if (status === 'reaberto' && ticketData.status === 'finalizado') {
+          // Reopening - send reopen message or welcome message
+          messageToSend = sector?.mensagem_reabertura || sector?.mensagem_boas_vindas;
+        }
+
+        if (messageToSend) {
+          try {
+            // Fetch contact for template context
+            const { data: conv } = await supabase
+              .from('whatsapp_conversations')
+              .select('whatsapp_contacts(name, phone_number), assigned_to')
+              .eq('id', ticketData.conversation_id)
+              .maybeSingle();
+
+            const contact = (conv as any)?.whatsapp_contacts;
+
+            // Fetch agent name
+            let atendenteNome = 'Atendente';
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user?.id) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('full_name')
+                .eq('id', user.id)
+                .maybeSingle();
+              atendenteNome = profile?.full_name || 'Atendente';
+            }
+
+            const templateContext = {
+              clienteNome: contact?.name || contact?.phone_number || 'Cliente',
+              clienteTelefone: contact?.phone_number || '',
+              atendenteNome,
+              setorNome: sector?.name || '',
+              ticketNumero: ticketData.numero,
+            } as any;
+
+            await supabase.functions.invoke('send-whatsapp-message', {
+              body: {
+                conversationId: ticketData.conversation_id,
+                content: messageToSend,
+                messageType: 'text',
+                skipAgentPrefix: true,
+                templateContext,
+              },
+            });
+          } catch (sendError) {
+            console.error('[useTickets] Error sending status transition message:', sendError);
+          }
+        }
+      }
+
       return data;
     },
     onSuccess: (_, variables) => {
@@ -136,13 +344,14 @@ export const useTickets = (conversationId?: string) => {
     mutationFn: async (ticketId: string) => {
       const { data: { user } } = await supabase.auth.getUser();
       
-      // 1. Fetch ticket with sector data to get closing message
+      // 1. Fetch ticket with sector data to get closing message and ticket number
       const { data: ticketData, error: ticketError } = await supabase
         .from('tickets')
         .select(`
           id, 
           conversation_id, 
           sector_id,
+          numero,
           sectors!inner(mensagem_encerramento)
         `)
         .eq('id', ticketId)
@@ -157,14 +366,44 @@ export const useTickets = (conversationId?: string) => {
       const closingMessage = (ticketData as any)?.sectors?.mensagem_encerramento;
       if (closingMessage && ticketData.conversation_id) {
         try {
+          // Fetch contact for template context
+          const { data: conv } = await supabase
+            .from('whatsapp_conversations')
+            .select('whatsapp_contacts(name, phone_number)')
+            .eq('id', ticketData.conversation_id)
+            .maybeSingle();
+
+          const contact = (conv as any)?.whatsapp_contacts;
+
+          // Fetch agent name who is closing the ticket
+          let atendenteNome = 'Atendente';
+          if (user?.id) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('full_name')
+              .eq('id', user.id)
+              .maybeSingle();
+            atendenteNome = profile?.full_name || 'Atendente';
+          }
+
+          const templateContext = {
+            clienteNome: contact?.name || contact?.phone_number || 'Cliente',
+            clienteTelefone: contact?.phone_number || '',
+            atendenteNome,
+            setorNome: (ticketData as any)?.sectors?.name || '',
+            ticketNumero: ticketData.numero,
+          } as any;
+
           const { error: sendError } = await supabase.functions.invoke('send-whatsapp-message', {
             body: {
               conversationId: ticketData.conversation_id,
               content: closingMessage,
               messageType: 'text',
+              skipAgentPrefix: true,
+              templateContext,
             },
           });
-          
+
           if (sendError) {
             console.error('Error sending closing message:', sendError);
             // Continue with closing the ticket even if message fails
@@ -190,6 +429,33 @@ export const useTickets = (conversationId?: string) => {
         .single();
 
       if (error) throw error;
+      
+      // 4. Insert ticket closed event marker
+      if (ticketData.conversation_id && ticketData.numero) {
+        await insertTicketEventMarker(
+          ticketData.conversation_id,
+          ticketData.numero,
+          'ticket_closed'
+        );
+        
+        // 5. Dispatch webhook for ticket closed
+        try {
+          await supabase.functions.invoke('dispatch-webhook', {
+            body: {
+              event: 'ticket_closed',
+              data: {
+                ticket_id: ticketId,
+                ticket_number: ticketData.numero,
+                conversation_id: ticketData.conversation_id,
+                closed_by: user?.id
+              }
+            }
+          });
+        } catch (webhookError) {
+          console.error('Error dispatching ticket_closed webhook:', webhookError);
+        }
+      }
+      
       return data;
     },
     onSuccess: () => {
@@ -238,6 +504,8 @@ export const useTickets = (conversationId?: string) => {
 
 // Hook for listing all tickets (admin view)
 export const useTicketsList = (sectorId?: string, status?: string) => {
+  const queryClient = useQueryClient();
+  
   const { data: tickets = [], isLoading } = useQuery({
     queryKey: ['tickets-list', sectorId, status],
     queryFn: async () => {
@@ -266,6 +534,34 @@ export const useTicketsList = (sectorId?: string, status?: string) => {
       return data;
     },
   });
+
+  // Realtime subscription for ticket list updates
+  useEffect(() => {
+    let ticketInvalidateTimeout: NodeJS.Timeout;
+
+    const channel = supabase
+      .channel('tickets-list-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tickets',
+        },
+        () => {
+          clearTimeout(ticketInvalidateTimeout);
+          ticketInvalidateTimeout = setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ['tickets-list'] });
+          }, 100);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      clearTimeout(ticketInvalidateTimeout);
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   return { tickets, isLoading };
 };

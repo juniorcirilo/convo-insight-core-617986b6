@@ -29,6 +29,8 @@ export const useMessageReactions = (conversationId: string | null) => {
   useEffect(() => {
     if (!conversationId) return;
 
+    let reactionsInvalidateTimeout: NodeJS.Timeout;
+
     const channel = supabase
       .channel(`reactions-${conversationId}`)
       .on('postgres_changes', {
@@ -37,11 +39,16 @@ export const useMessageReactions = (conversationId: string | null) => {
         table: 'whatsapp_reactions',
         filter: `conversation_id=eq.${conversationId}`
       }, () => {
-        queryClient.invalidateQueries({ queryKey: ['whatsapp', 'reactions', conversationId] });
+        // Debounce invalidation to prevent excessive re-renders
+        clearTimeout(reactionsInvalidateTimeout);
+        reactionsInvalidateTimeout = setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ['whatsapp', 'reactions', conversationId] });
+        }, 100);
       })
       .subscribe();
 
     return () => {
+      clearTimeout(reactionsInvalidateTimeout);
       supabase.removeChannel(channel);
     };
   }, [conversationId, queryClient]);

@@ -52,10 +52,10 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+    const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
 
-    if (!lovableApiKey) {
-      return new Response(JSON.stringify({ error: 'AI not configured' }), {
+    if (!GROQ_API_KEY) {
+      return new Response(JSON.stringify({ error: 'AI not configured (GROQ_API_KEY missing)' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -104,7 +104,7 @@ serve(async (req) => {
 
     switch (action) {
       case 'detect':
-        return await detectSchedulingIntent(supabase, lovableApiKey, conversationId, message);
+        return await detectSchedulingIntent(supabase, GROQ_API_KEY, conversationId, message);
 
       case 'offer_slots':
         return await offerAvailableSlots(supabase, conversation, schedulingConfig, intentData);
@@ -138,7 +138,7 @@ serve(async (req) => {
 
 async function detectSchedulingIntent(
   supabase: any,
-  apiKey: string,
+  groqApiKey: string | undefined,
   conversationId: string,
   message: string
 ): Promise<Response> {
@@ -175,34 +175,43 @@ EXEMPLOS DE DETECÇÃO:
 
 Se o cliente selecionar uma opção numérica (1, 2, 3...) após oferta de horários, é confirm_selection.`;
 
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+  if (!groqApiKey) {
+    return new Response(JSON.stringify({ error: 'AI not configured (GROQ_API_KEY missing)' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
+
+  // Use GROQ (chat) to detect scheduling intent
+  const { getGroqModel } = await import('../groq-models.ts');
+  const model = getGroqModel('chat_fast');
+
+  const groqResp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${apiKey}`,
+      'Authorization': `Bearer ${groqApiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'google/gemini-3-flash-preview',
+      model,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: message }
       ],
       max_tokens: 500,
       temperature: 0.1,
+      n: 1,
     }),
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('[Schedule Meeting] AI error:', errorText);
-    return new Response(JSON.stringify({ error: 'AI detection failed' }), {
+  if (!groqResp.ok) {
+    const errorText = await groqResp.text();
+    console.error('[Schedule Meeting] GROQ error:', errorText);
+    return new Response(JSON.stringify({ error: 'AI detection failed', details: errorText }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 
-  const aiData = await response.json();
-  const content = aiData.choices?.[0]?.message?.content || '{}';
+  const contentJson = await groqResp.json();
+  const content = contentJson?.choices?.[0]?.message?.content ?? contentJson?.choices?.[0]?.text ?? '';
   
   try {
     // Clean up potential markdown formatting
