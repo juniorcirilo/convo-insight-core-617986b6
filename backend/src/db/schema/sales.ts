@@ -1,0 +1,85 @@
+import { pgTable, text, uuid, timestamp, boolean, integer, jsonb, real } from 'drizzle-orm/pg-core';
+import { profiles } from './auth';
+import { leads } from './leads';
+import { whatsappConversations } from './whatsapp';
+
+export const quotes = pgTable('quotes', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  quote_number: text('quote_number').notNull(),
+  lead_id: uuid('lead_id').references(() => leads.id),
+  conversation_id: uuid('conversation_id').references(() => whatsappConversations.id),
+  sector_id: uuid('sector_id'),
+  items: jsonb('items').notNull(),
+  subtotal: real('subtotal').notNull(),
+  discount_total: real('discount_total').notNull(),
+  total: real('total').notNull(),
+  notes: text('notes'),
+  payment_terms: text('payment_terms'),
+  valid_until: timestamp('valid_until'),
+  status: text('status').notNull(),
+  is_ai_generated: boolean('is_ai_generated').notNull().default(false),
+  sent_at: timestamp('sent_at'),
+  viewed_at: timestamp('viewed_at'),
+  responded_at: timestamp('responded_at'),
+  created_by: uuid('created_by').references(() => profiles.id),
+  created_at: timestamp('created_at').defaultNow(),
+  updated_at: timestamp('updated_at').defaultNow(),
+});
+
+export const orders = pgTable('orders', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  order_number: text('order_number').notNull(),
+  quote_id: uuid('quote_id').references(() => quotes.id),
+  lead_id: uuid('lead_id').references(() => leads.id),
+  conversation_id: uuid('conversation_id').references(() => whatsappConversations.id),
+  sector_id: uuid('sector_id'),
+  items: jsonb('items').notNull(),
+  subtotal: real('subtotal').notNull(),
+  discount: real('discount').notNull(),
+  total: real('total').notNull(),
+  status: text('status').notNull(),
+  payment_status: text('payment_status').notNull(),
+  payment_method: text('payment_method'),
+  payment_link: text('payment_link'),
+  payment_notes: text('payment_notes'),
+  payment_proof_url: text('payment_proof_url'),
+  paid_at: timestamp('paid_at'),
+  shipping_address: text('shipping_address'),
+  delivery_notes: text('delivery_notes'),
+  confirmed_by: uuid('confirmed_by').references(() => profiles.id),
+  created_at: timestamp('created_at').defaultNow(),
+  updated_at: timestamp('updated_at').defaultNow(),
+});
+
+export const paymentLinks = pgTable('payment_links', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  order_id: uuid('order_id').notNull().references(() => orders.id),
+  type: text('type').notNull(),
+  url: text('url'),
+  amount: real('amount').notNull(),
+  description: text('description'),
+  instructions: text('instructions'),
+  expires_at: timestamp('expires_at'),
+  is_active: boolean('is_active').notNull().default(true),
+  used_at: timestamp('used_at'),
+  created_by: uuid('created_by').references(() => profiles.id),
+  created_at: timestamp('created_at').defaultNow(),
+});
+
+export const negotiationLogs = pgTable('negotiation_logs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  quote_id: uuid('quote_id').references(() => quotes.id),
+  order_id: uuid('order_id').references(() => orders.id),
+  action: text('action').notNull(),
+  agent_type: text('agent_type').notNull(),
+  original_value: real('original_value'),
+  new_value: real('new_value'),
+  discount_percent: integer('discount_percent'),
+  reason: text('reason'),
+  customer_message: text('customer_message'),
+  requires_approval: boolean('requires_approval').notNull(),
+  approved_by: uuid('approved_by').references(() => profiles.id),
+  approved_at: timestamp('approved_at'),
+  created_by: uuid('created_by'),
+  created_at: timestamp('created_at').defaultNow(),
+});
