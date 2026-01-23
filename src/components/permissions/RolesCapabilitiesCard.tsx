@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Shield, Eye, MessageSquare, LayoutGrid, Users, Settings, ArrowRightLeft, MessageCircle } from 'lucide-react';
+import { Shield, Eye, MessageSquare, LayoutGrid, Users, Settings, ArrowRightLeft, MessageCircle, Edit2, Trash } from 'lucide-react';
 import { usePermissionTypes } from '@/hooks/permissions';
 
 const permissionIcons: Record<string, React.ElementType> = {
@@ -12,6 +12,12 @@ const permissionIcons: Record<string, React.ElementType> = {
   can_access_admin_panel: Settings,
   can_send_internal_messages: MessageSquare,
   can_transfer_conversations: ArrowRightLeft,
+  can_view_contacts: Eye,
+  can_edit_contacts: Edit2,
+  can_delete_contacts: Trash,
+  can_view_instances: Eye,
+  can_edit_instances: Edit2,
+  can_delete_instances: Trash,
 };
 
 const RolesCapabilitiesCard = () => {
@@ -28,6 +34,10 @@ const RolesCapabilitiesCard = () => {
     { key: 'sales', label: 'Vendas' },
     { key: 'admin', label: 'Administração' },
   ];
+
+  const contactPermissions = permissionTypes?.filter(pt => pt.key.includes('_contacts')) || [];
+  const instancePermissions = permissionTypes?.filter(pt => pt.key.includes('_instances')) || [];
+  const remainingPermissionTypes = permissionTypes?.filter(pt => !pt.key.includes('_contacts') && !pt.key.includes('_instances')) || [];
 
   if (isLoading) {
     return (
@@ -81,6 +91,67 @@ const RolesCapabilitiesCard = () => {
                 </tr>
               </thead>
               <tbody>
+                {/* Contacts group */}
+                {contactPermissions.length > 0 && (
+                  <>
+                    <tr className="bg-muted/50">
+                      <td colSpan={4} className="py-2 px-2 font-semibold text-muted-foreground">Contatos</td>
+                    </tr>
+                    {contactPermissions.map(pt => {
+                      const Icon = permissionIcons[pt.key] || Users;
+                      return (
+                        <tr key={pt.key} className="border-b">
+                          <td className="py-3 px-2">
+                            <div className="flex items-center gap-2">
+                              <Icon className="h-4 w-4 text-muted-foreground" />
+                              <div>
+                                <span className="font-medium">{pt.name}</span>
+                                {pt.description && (
+                                  <p className="text-xs text-muted-foreground">{pt.description}</p>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="text-center py-3 px-4">{pt.default_for_admin ? <span className="text-green-600">✓</span> : <span className="text-muted-foreground">—</span>}</td>
+                          <td className="text-center py-3 px-4">{pt.default_for_supervisor ? <span className="text-green-600">✓</span> : <span className="text-muted-foreground">—</span>}</td>
+                          <td className="text-center py-3 px-4">{pt.default_for_agent ? <span className="text-green-600">✓</span> : <span className="text-muted-foreground">—</span>}</td>
+                        </tr>
+                      );
+                    })}
+                  </>
+                )}
+
+                {/* Instances group */}
+                {instancePermissions.length > 0 && (
+                  <>
+                    <tr className="bg-muted/50">
+                      <td colSpan={4} className="py-2 px-2 font-semibold text-muted-foreground">Instâncias</td>
+                    </tr>
+                    {instancePermissions.map(pt => {
+                      const Icon = permissionIcons[pt.key] || Users;
+                      return (
+                        <tr key={pt.key} className="border-b">
+                          <td className="py-3 px-2">
+                            <div className="flex items-center gap-2">
+                              <Icon className="h-4 w-4 text-muted-foreground" />
+                              <div>
+                                <span className="font-medium">{pt.name}</span>
+                                {pt.description && (
+                                  <p className="text-xs text-muted-foreground">{pt.description}</p>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="text-center py-3 px-4">{pt.default_for_admin ? <span className="text-green-600">✓</span> : <span className="text-muted-foreground">—</span>}</td>
+                          <td className="text-center py-3 px-4">{pt.default_for_supervisor ? <span className="text-green-600">✓</span> : <span className="text-muted-foreground">—</span>}</td>
+                          <td className="text-center py-3 px-4">{pt.default_for_agent ? <span className="text-green-600">✓</span> : <span className="text-muted-foreground">—</span>}</td>
+                        </tr>
+                      );
+                    })}
+                  </>
+                )}
+
+                {/* Remaining categories */}
                 {categories.map(category => (
                   <React.Fragment key={category.key}>
                     <tr className="bg-muted/50">
@@ -88,8 +159,8 @@ const RolesCapabilitiesCard = () => {
                         {category.label}
                       </td>
                     </tr>
-                    {permissionTypes
-                      ?.filter(pt => pt.category === category.key)
+                    {remainingPermissionTypes
+                      .filter(pt => pt.category === category.key)
                       .map(pt => {
                         const Icon = permissionIcons[pt.key] || Users;
                         return (
