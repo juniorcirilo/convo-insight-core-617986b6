@@ -99,15 +99,19 @@ const start = async () => {
 
     // Start server
     server.listen(config.server.port, () => {
+      const port = config.server.port.toString();
+      const apiUrl = `http://localhost:${port}/api`;
+      const socketUrl = `http://localhost:${port}`;
+      
       console.log(`
 ╔═══════════════════════════════════════════════════════════╗
 ║                                                           ║
 ║  🚀 ConvoInsight Backend Server                          ║
 ║                                                           ║
 ║  Environment: ${config.server.nodeEnv.padEnd(42)}║
-║  Port:        ${config.server.port.toString().padEnd(42)}║
-║  API:         http://localhost:${config.server.port}/api${' '.repeat(21)}║
-║  Socket.IO:   http://localhost:${config.server.port}${' '.repeat(22)}║
+║  Port:        ${port.padEnd(42)}║
+║  API:         ${apiUrl.padEnd(42)}║
+║  Socket.IO:   ${socketUrl.padEnd(42)}║
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
       `);

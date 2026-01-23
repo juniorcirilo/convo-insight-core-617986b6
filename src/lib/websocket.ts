@@ -105,10 +105,11 @@ class SocketIOClient {
   private setupEventHandlers() {
     if (!this.socket) return;
 
+    const socket = this.socket;
     // Re-register all existing handlers
     this.messageHandlers.forEach((handlers, event) => {
       handlers.forEach((handler) => {
-        this.socket!.on(event, handler);
+        socket.on(event, handler);
       });
     });
   }
