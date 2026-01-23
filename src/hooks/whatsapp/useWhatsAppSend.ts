@@ -26,7 +26,13 @@ export const useWhatsAppSend = () => {
       // 1. Check if conversation is closed
       const { data: conv } = await supabase
         .from('whatsapp_conversations')
-        .select('status, sector_id, sectors(mensagem_boas_vindas, mensagem_reabertura, gera_ticket)')
+        .select(`
+          status, 
+          sector_id, 
+          contact_id,
+          sectors(name, mensagem_boas_vindas, mensagem_reabertura, gera_ticket),
+          whatsapp_contacts(name, phone_number)
+        `)
         .eq('id', params.conversationId)
         .single();
 
@@ -53,6 +59,16 @@ export const useWhatsAppSend = () => {
         let activeTicketNumber = lastTicket?.numero || 0;
         let markerType: 'ticket_opened' | 'conversation_reopened' = 'conversation_reopened';
 
+        // Build template context for automatic messages
+        const contact = (conv as any)?.whatsapp_contacts;
+        const sector = (conv as any)?.sectors;
+        const templateContext = {
+          clienteNome: contact?.name || contact?.phone_number || 'Cliente',
+          clienteTelefone: contact?.phone_number || '',
+          setorNome: sector?.name || '',
+          ticketNumero: activeTicketNumber,
+        };
+
         if (shouldCreateNewTicket) {
           console.log('[useWhatsAppSend] Creating new ticket as per sector config...');
           const { data: newTicket } = await supabase
@@ -67,6 +83,7 @@ export const useWhatsAppSend = () => {
           
           if (newTicket) {
             activeTicketNumber = newTicket.numero;
+            templateContext.ticketNumero = newTicket.numero;
             markerType = 'ticket_opened';
             
             // Send welcome message if configured
@@ -77,6 +94,8 @@ export const useWhatsAppSend = () => {
                   conversationId: params.conversationId,
                   content: welcomeMsg,
                   messageType: 'text',
+                  skipAgentPrefix: true,
+                  templateContext,
                 },
               });
             }
@@ -91,6 +110,8 @@ export const useWhatsAppSend = () => {
               closed_by: null,
             })
             .eq('id', lastTicket.id);
+          
+          templateContext.ticketNumero = lastTicket.numero;
             
           // Send reopen message if configured
           const reopenMsg = (conv as any)?.sectors?.mensagem_reabertura || (conv as any)?.sectors?.mensagem_boas_vindas;
@@ -100,6 +121,8 @@ export const useWhatsAppSend = () => {
                 conversationId: params.conversationId,
                 content: reopenMsg,
                 messageType: 'text',
+                skipAgentPrefix: true,
+                templateContext,
               },
             });
           }

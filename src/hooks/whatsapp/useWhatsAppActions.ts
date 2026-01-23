@@ -61,7 +61,11 @@ export const useWhatsAppActions = () => {
       // Fetch conversation and sector info to get closing message
       const { data: convData } = await supabase
         .from('whatsapp_conversations')
-        .select('sector_id, sectors(mensagem_encerramento)')
+        .select(`
+          sector_id, 
+          sectors(name, mensagem_encerramento),
+          whatsapp_contacts(name, phone_number)
+        `)
         .eq('id', conversationId)
         .single();
 
@@ -75,6 +79,16 @@ export const useWhatsAppActions = () => {
         .limit(1)
         .maybeSingle();
 
+      // Build template context for closing message
+      const contact = (convData as any)?.whatsapp_contacts;
+      const sector = (convData as any)?.sectors;
+      const templateContext = {
+        clienteNome: contact?.name || contact?.phone_number || 'Cliente',
+        clienteTelefone: contact?.phone_number || '',
+        setorNome: sector?.name || '',
+        ticketNumero: lastTicket?.numero || 0,
+      };
+
       // Send closing message if configured
       const closingMsg = (convData as any)?.sectors?.mensagem_encerramento;
       if (closingMsg) {
@@ -84,6 +98,8 @@ export const useWhatsAppActions = () => {
               conversationId: conversationId,
               content: closingMsg,
               messageType: 'text',
+              skipAgentPrefix: true,
+              templateContext,
             },
           });
           console.log('[useWhatsAppActions] Closing message sent');
