@@ -1,5 +1,24 @@
 project_id = "qddetjblszbvnmzxhiao"
 
+[api]
+enabled = true
+extra_search_path = ["public", "extensions"]
+
+[api.tls]
+enabled = false
+
+[auth]
+site_url = "https://livechat.ubva.com.br"
+additional_redirect_urls = ["http://192.168.3.100:8080", "http://127.0.0.1:8080", "https://livechat.ubva.com.br"]
+
+[auth.external]
+# Permitir origens específicas para CORS
+[studio]
+enabled = true
+
+# Configuração de CORS global
+[experimental]
+
 [functions.send-campaign-messages]
 verify_jwt = false
 
@@ -29,9 +48,6 @@ verify_jwt = false
 
 [functions.evolution-webhook]
 verify_jwt = false
-
-[functions.evolution-webhook.env]
-UPLOAD_API_URL = "http://192.168.3.100:8080/api/upload"
 
 [functions.dispatch-webhook]
 verify_jwt = false
