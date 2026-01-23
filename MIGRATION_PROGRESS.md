@@ -11,7 +11,7 @@ This PR implements the foundational infrastructure for migrating from Supabase t
 **Express Server Setup**
 - ✅ TypeScript configuration
 - ✅ Express app with middleware
-- ✅ WebSocket server for real-time features
+- ✅ Socket.IO server for real-time features
 - ✅ Environment configuration with Zod validation
 - ✅ Security middleware (helmet, CORS, rate limiting)
 - ✅ Error handling middleware
@@ -68,9 +68,10 @@ This PR implements the foundational infrastructure for migrating from Supabase t
 - ✅ Error handling
 - ✅ Type-safe API methods
 
-**WebSocket Client**
-- ✅ Auto-reconnecting WebSocket client
+**Socket.IO Client**
+- ✅ Auto-reconnecting Socket.IO client
 - ✅ Event-based message handling
+- ✅ Room management (join/leave)
 - ✅ Ready for real-time features
 
 **Dependencies**

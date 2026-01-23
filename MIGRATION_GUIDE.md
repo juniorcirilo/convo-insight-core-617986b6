@@ -11,7 +11,7 @@ This document provides a comprehensive guide for migrating from Supabase to the 
 - Drizzle ORM with PostgreSQL
 - MinIO for S3-compatible storage
 - JWT authentication system
-- WebSocket support for real-time features
+- Socket.IO for real-time communication
 
 ✅ **Database Schema**
 - All 64 Supabase tables converted to Drizzle schemas
@@ -28,7 +28,7 @@ This document provides a comprehensive guide for migrating from Supabase to the 
 ✅ **Frontend API Client**
 - Axios-based API client with interceptors
 - Automatic token refresh
-- WebSocket client for real-time updates
+- Socket.IO client for real-time updates
 - Error handling
 
 ### What Needs Migration

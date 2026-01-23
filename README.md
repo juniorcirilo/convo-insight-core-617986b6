@@ -10,14 +10,16 @@ This project has been migrated from Supabase to a custom backend stack:
 - React + Vite + TypeScript
 - shadcn-ui + Tailwind CSS
 - Axios for API communication
-- WebSocket for real-time updates
+- Socket.IO client for real-time updates
 
 **Backend:**
-- Express + TypeScript
-- Drizzle ORM with PostgreSQL
-- MinIO for S3-compatible storage
-- JWT authentication
-- WebSocket server
+- Express + TypeScript ✅
+- Drizzle ORM with PostgreSQL ✅
+- MinIO for S3-compatible storage ✅
+- JWT authentication ✅
+- Socket.IO for real-time communication ✅
+
+> **Migration Status:** Backend migration complete! See [SOCKET_IO_MIGRATION.md](./SOCKET_IO_MIGRATION.md) for details.
 
 ## 🚀 Quick Start
 

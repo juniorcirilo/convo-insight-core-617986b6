@@ -1,6 +1,6 @@
 import express from 'express';
 import helmet from 'helmet';
-import { WebSocketServer } from 'ws';
+import { Server as SocketIOServer } from 'socket.io';
 import { createServer } from 'http';
 import { config } from './config/env.js';
 import { initializeBuckets } from './config/minio.js';
@@ -11,7 +11,13 @@ import routes from './routes/index.js';
 
 const app = express();
 const server = createServer(app);
-const wss = new WebSocketServer({ server, path: '/ws' });
+const io = new SocketIOServer(server, {
+  cors: {
+    origin: config.cors.origin || '*',
+    methods: ['GET', 'POST']
+  },
+  path: '/socket.io'
+});
 
 // Middleware
 app.use(helmet());
@@ -27,28 +33,43 @@ app.use('/api', routes);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
-// WebSocket handling
-wss.on('connection', (ws, req) => {
-  console.log('WebSocket client connected');
+// Socket.IO handling
+io.on('connection', (socket) => {
+  console.log(`Socket.IO client connected: ${socket.id}`);
 
-  ws.on('message', (message) => {
-    try {
-      const data = JSON.parse(message.toString());
-      console.log('Received WebSocket message:', data);
-      
-      // Echo back for now - implement proper message handling later
-      ws.send(JSON.stringify({ type: 'pong', data }));
-    } catch (error) {
-      console.error('WebSocket message error:', error);
-    }
+  // Handle ping-pong for connection testing
+  socket.on('ping', (data) => {
+    console.log('Received ping:', data);
+    socket.emit('pong', { ...data, timestamp: Date.now() });
   });
 
-  ws.on('close', () => {
-    console.log('WebSocket client disconnected');
+  // Handle custom events
+  socket.on('message', (data) => {
+    console.log('Received message:', data);
+    // Broadcast to all clients except sender
+    socket.broadcast.emit('message', data);
   });
 
-  ws.on('error', (error) => {
-    console.error('WebSocket error:', error);
+  // Handle room joining
+  socket.on('join-room', (room: string) => {
+    console.log(`Client ${socket.id} joining room: ${room}`);
+    socket.join(room);
+    socket.emit('joined-room', room);
+  });
+
+  // Handle room leaving
+  socket.on('leave-room', (room: string) => {
+    console.log(`Client ${socket.id} leaving room: ${room}`);
+    socket.leave(room);
+    socket.emit('left-room', room);
+  });
+
+  socket.on('disconnect', (reason) => {
+    console.log(`Socket.IO client disconnected: ${socket.id}, reason: ${reason}`);
+  });
+
+  socket.on('error', (error) => {
+    console.error('Socket.IO error:', error);
   });
 });
 
@@ -56,12 +77,9 @@ wss.on('connection', (ws, req) => {
 const shutdown = async () => {
   console.log('\nShutting down gracefully...');
   
-  wss.clients.forEach((client) => {
-    client.close();
-  });
-  
-  wss.close(() => {
-    console.log('WebSocket server closed');
+  // Close all Socket.IO connections
+  io.close(() => {
+    console.log('Socket.IO server closed');
   });
   
   server.close(() => {
@@ -81,15 +99,19 @@ const start = async () => {
 
     // Start server
     server.listen(config.server.port, () => {
+      const port = config.server.port.toString();
+      const apiUrl = `http://localhost:${port}/api`;
+      const socketUrl = `http://localhost:${port}`;
+      
       console.log(`
 ╔═══════════════════════════════════════════════════════════╗
 ║                                                           ║
 ║  🚀 ConvoInsight Backend Server                          ║
 ║                                                           ║
 ║  Environment: ${config.server.nodeEnv.padEnd(42)}║
-║  Port:        ${config.server.port.toString().padEnd(42)}║
-║  API:         http://localhost:${config.server.port}/api${' '.repeat(21)}║
-║  WebSocket:   ws://localhost:${config.server.port}/ws${' '.repeat(23)}║
+║  Port:        ${port.padEnd(42)}║
+║  API:         ${apiUrl.padEnd(42)}║
+║  Socket.IO:   ${socketUrl.padEnd(42)}║
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
       `);
@@ -101,3 +123,6 @@ const start = async () => {
 };
 
 start();
+
+// Export io instance for use in other modules
+export { io };

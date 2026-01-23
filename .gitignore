@@ -25,3 +25,4 @@ supabase/*
 *.sln
 *.sw?
 bun.lockb
+test-socketio.html
