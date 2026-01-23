@@ -34,7 +34,7 @@ const RolesCapabilitiesCard = () => {
   const roleColorClass: Record<string, string> = {
     admin: 'bg-red-500 text-white',
     supervisor: 'bg-emerald-500 text-white',
-    manager: 'bg-teal-500 text-white',
+    manager: 'bg-blue-500 text-white',
     agent: 'bg-slate-100 text-slate-800',
   };
 
