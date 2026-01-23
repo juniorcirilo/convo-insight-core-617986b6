@@ -1,126 +1,133 @@
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3001/ws';
+import { io, Socket } from 'socket.io-client';
+
+const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 type MessageHandler = (data: any) => void;
 
-class WebSocketClient {
-  private ws: WebSocket | null = null;
-  private reconnectInterval: number = 5000;
-  private reconnectTimeoutId: NodeJS.Timeout | null = null;
+class SocketIOClient {
+  private socket: Socket | null = null;
   private messageHandlers: Map<string, Set<MessageHandler>> = new Map();
-  private isConnecting: boolean = false;
 
   connect() {
-    if (this.ws?.readyState === WebSocket.OPEN || this.isConnecting) {
+    if (this.socket?.connected) {
       return;
     }
 
-    this.isConnecting = true;
-
     try {
-      this.ws = new WebSocket(WS_URL);
+      this.socket = io(SOCKET_URL, {
+        path: '/socket.io',
+        reconnection: true,
+        reconnectionDelay: 5000,
+        reconnectionAttempts: Infinity,
+        transports: ['websocket', 'polling'],
+      });
 
-      this.ws.onopen = () => {
-        console.log('WebSocket connected');
-        this.isConnecting = false;
-        if (this.reconnectTimeoutId) {
-          clearTimeout(this.reconnectTimeoutId);
-          this.reconnectTimeoutId = null;
-        }
-      };
+      this.socket.on('connect', () => {
+        console.log('Socket.IO connected:', this.socket?.id);
+      });
 
-      this.ws.onmessage = (event) => {
-        try {
-          const message = JSON.parse(event.data);
-          this.handleMessage(message);
-        } catch (error) {
-          console.error('Failed to parse WebSocket message:', error);
-        }
-      };
+      this.socket.on('disconnect', (reason) => {
+        console.log('Socket.IO disconnected:', reason);
+      });
 
-      this.ws.onclose = () => {
-        console.log('WebSocket disconnected');
-        this.isConnecting = false;
-        this.scheduleReconnect();
-      };
+      this.socket.on('connect_error', (error) => {
+        console.error('Socket.IO connection error:', error);
+      });
 
-      this.ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        this.isConnecting = false;
-      };
+      // Setup event handlers
+      this.setupEventHandlers();
     } catch (error) {
-      console.error('Failed to create WebSocket:', error);
-      this.isConnecting = false;
-      this.scheduleReconnect();
+      console.error('Failed to create Socket.IO connection:', error);
     }
   }
 
   disconnect() {
-    if (this.reconnectTimeoutId) {
-      clearTimeout(this.reconnectTimeoutId);
-      this.reconnectTimeoutId = null;
-    }
-
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
     }
   }
 
-  send(data: any) {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(data));
+  emit(event: string, data: any) {
+    if (this.socket?.connected) {
+      this.socket.emit(event, data);
     } else {
-      console.warn('WebSocket is not connected');
+      console.warn('Socket.IO is not connected');
     }
   }
 
-  on(eventType: string, handler: MessageHandler) {
-    if (!this.messageHandlers.has(eventType)) {
-      this.messageHandlers.set(eventType, new Set());
+  on(event: string, handler: MessageHandler) {
+    if (!this.messageHandlers.has(event)) {
+      this.messageHandlers.set(event, new Set());
     }
-    this.messageHandlers.get(eventType)!.add(handler);
+    this.messageHandlers.get(event)!.add(handler);
+
+    // Register the handler with socket if connected
+    if (this.socket) {
+      this.socket.on(event, handler);
+    }
   }
 
-  off(eventType: string, handler: MessageHandler) {
-    const handlers = this.messageHandlers.get(eventType);
-    if (handlers) {
-      handlers.delete(handler);
-      if (handlers.size === 0) {
-        this.messageHandlers.delete(eventType);
+  off(event: string, handler?: MessageHandler) {
+    if (handler) {
+      const handlers = this.messageHandlers.get(event);
+      if (handlers) {
+        handlers.delete(handler);
+        if (handlers.size === 0) {
+          this.messageHandlers.delete(event);
+        }
+      }
+      // Remove from socket
+      if (this.socket) {
+        this.socket.off(event, handler);
+      }
+    } else {
+      // Remove all handlers for the event
+      this.messageHandlers.delete(event);
+      if (this.socket) {
+        this.socket.off(event);
       }
     }
   }
 
-  private handleMessage(message: any) {
-    const { type, data } = message;
-    const handlers = this.messageHandlers.get(type);
-    if (handlers) {
-      handlers.forEach((handler) => handler(data));
+  joinRoom(room: string) {
+    if (this.socket?.connected) {
+      this.socket.emit('join-room', room);
     }
   }
 
-  private scheduleReconnect() {
-    if (!this.reconnectTimeoutId) {
-      this.reconnectTimeoutId = setTimeout(() => {
-        console.log('Attempting to reconnect WebSocket...');
-        this.reconnectTimeoutId = null;
-        this.connect();
-      }, this.reconnectInterval);
+  leaveRoom(room: string) {
+    if (this.socket?.connected) {
+      this.socket.emit('leave-room', room);
     }
   }
 
-  getReadyState(): number {
-    return this.ws?.readyState ?? WebSocket.CLOSED;
+  private setupEventHandlers() {
+    if (!this.socket) return;
+
+    // Re-register all existing handlers
+    this.messageHandlers.forEach((handlers, event) => {
+      handlers.forEach((handler) => {
+        this.socket!.on(event, handler);
+      });
+    });
   }
 
   isConnected(): boolean {
-    return this.ws?.readyState === WebSocket.OPEN;
+    return this.socket?.connected ?? false;
+  }
+
+  getSocketId(): string | undefined {
+    return this.socket?.id;
   }
 }
 
-export const wsClient = new WebSocketClient();
+export const socketClient = new SocketIOClient();
 
 // Auto-connect on import
 if (typeof window !== 'undefined') {
-  wsClient.connect();
+  socketClient.connect();
 }
+
+// Export alias for backward compatibility
+export const wsClient = socketClient;
