@@ -7,7 +7,7 @@ Express + TypeScript + Drizzle ORM backend for ConvoInsight.
 - 🔐 JWT Authentication with refresh tokens
 - 📦 MinIO S3-compatible storage
 - 🗄️ PostgreSQL database with Drizzle ORM
-- 🔌 WebSocket support for real-time updates
+- 🔌 Socket.IO for real-time communication
 - 🛡️ Security middleware (helmet, rate limiting, CORS)
 - 📝 Full TypeScript support
 - 🔄 Auto-generated database migrations
@@ -94,9 +94,45 @@ The server will start at http://localhost:3001
 
 - `GET /api/health` - Server health check
 
-## WebSocket
+## Socket.IO
 
-Connect to `ws://localhost:3001/ws` for real-time updates.
+Connect to `http://localhost:3001` with Socket.IO client for real-time communication.
+
+### Events
+
+**Client → Server:**
+- `ping` - Test connection (returns `pong` event)
+- `message` - Send a message (broadcasts to other clients)
+- `join-room` - Join a room (receives `joined-room` confirmation)
+- `leave-room` - Leave a room (receives `left-room` confirmation)
+
+**Server → Client:**
+- `pong` - Response to ping
+- `message` - Broadcast message from other clients
+- `joined-room` - Confirmation of room join
+- `left-room` - Confirmation of room leave
+
+### Example Usage
+
+```javascript
+import { io } from 'socket.io-client';
+
+const socket = io('http://localhost:3001');
+
+socket.on('connect', () => {
+  console.log('Connected:', socket.id);
+  
+  // Join a room
+  socket.emit('join-room', 'chat-123');
+  
+  // Send a message
+  socket.emit('message', { text: 'Hello!' });
+});
+
+socket.on('message', (data) => {
+  console.log('Received message:', data);
+});
+```
 
 ## Database Schema
 
