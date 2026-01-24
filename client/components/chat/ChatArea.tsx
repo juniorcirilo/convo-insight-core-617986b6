@@ -60,7 +60,7 @@ export const ChatArea = ({ conversationId }: ChatAreaProps) => {
     queryKey: ['conversation', conversationId],
     queryFn: async () => {
       if (!conversationId) return null;
-      
+
       const { data, error } = await supabase
         .from('whatsapp_conversations')
         .select(`
@@ -84,7 +84,7 @@ export const ChatArea = ({ conversationId }: ChatAreaProps) => {
 
   const handleSendText = (content: string, quotedMessageId?: string) => {
     if (!conversationId || !content.trim()) return;
-    
+
     sendMutation.mutate({
       conversationId,
       content,
@@ -104,7 +104,7 @@ export const ChatArea = ({ conversationId }: ChatAreaProps) => {
 
   const handleSendMedia = (params: MediaSendParams) => {
     if (!conversationId) return;
-    
+
     sendMutation.mutate({
       conversationId,
       ...params,
@@ -113,8 +113,8 @@ export const ChatArea = ({ conversationId }: ChatAreaProps) => {
 
   if (!conversationId) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-muted/20">
-        <div className="text-center space-y-3">
+      <div className="flex-1 flex items-center justify-center bg-muted/20 h-full">
+        <div className="flex flex-col items-center text-center space-y-3">
           <MessageCircle className="w-24 h-24 mx-auto text-muted-foreground/40" />
           <h3 className="text-lg font-semibold text-foreground">
             Selecione uma conversa
@@ -138,15 +138,15 @@ export const ChatArea = ({ conversationId }: ChatAreaProps) => {
         conversation={conversation}
         onRefresh={handleRefresh}
       />
-      
-      <MessagesContainer 
-        messages={messages} 
+
+      <MessagesContainer
+        messages={messages}
         isLoading={messagesLoading}
         conversationId={conversationId}
         onReplyMessage={handleReply}
         isGroupChat={conversation?.contact?.is_group || false}
       />
-      
+
       <MessageInputContainer
         conversationId={conversationId}
         replyingTo={replyingTo}
