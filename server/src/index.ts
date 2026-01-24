@@ -21,6 +21,7 @@ import knowledgeRoutes from './routes/knowledge';
 import adminRoutes from './routes/admin';
 import teamRoutes from './routes/team';
 import setupRoutes from './routes/setup';
+import tablesRoutes from './routes/tables';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -116,6 +117,8 @@ app.use('/api/knowledge', knowledgeRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/team', teamRoutes);
 app.use('/api/setup', setupRoutes);
+// Generic lightweight table endpoints used by the local API client
+app.use('/api', tablesRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
