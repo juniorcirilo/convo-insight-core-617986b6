@@ -85,113 +85,100 @@ const WhatsApp = () => {
     <div className="flex flex-col h-screen w-full overflow-hidden bg-background">
       {/* Disconnected Instances Banner */}
       <DisconnectedInstancesBanner instances={disconnectedInstances} />
-      
+
       <div className="flex flex-1 overflow-hidden">
-      {/* Mobile Layout */}
-      {isMobile ? (
-        <>
-          {showSidebar && (
-            <div className="w-full border-r border-border">
-              <ConversationsSidebar
-                selectedId={selectedConversation}
-                onSelect={handleSelectConversation}
-                instanceId={selectedInstanceId}
-                isCollapsed={false}
-                onToggleCollapse={() => {}}
-              />
-            </div>
-          )}
-          {showChat && (
-            <div className="flex-1 flex flex-col">
-              {selectedConversation && (
-                <div className="border-b border-border p-2">
-                  <Button variant="ghost" size="sm" onClick={handleBackToSidebar}>
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Voltar
-                  </Button>
-                </div>
-              )}
-              <ChatArea conversationId={selectedConversation} />
-            </div>
-          )}
-        </>
-      ) : (
-        /* Desktop Layout with Resizable Panels */
-        <ResizablePanelGroup 
-          direction="horizontal" 
-          onLayout={handleSidebarResize}
-          className="flex-1"
-        >
-          {/* Conversations Sidebar */}
-          <ResizablePanel 
-            defaultSize={sidebarSize} 
-            minSize={MIN_SIDEBAR_SIZE} 
-            maxSize={MAX_SIDEBAR_SIZE}
-            className="border-r border-border"
-          >
-            {isConversationsSidebarCollapsed ? (
-              <div className="w-14 h-full">
+        {/* Mobile Layout */}
+        {isMobile ? (
+          <>
+            {showSidebar && (
+              <div className="w-full border-r border-border">
                 <ConversationsSidebar
                   selectedId={selectedConversation}
                   onSelect={handleSelectConversation}
                   instanceId={selectedInstanceId}
-                  isCollapsed={true}
-                  onToggleCollapse={() => setIsConversationsSidebarCollapsed(false)}
+                  isCollapsed={false}
+                  onToggleCollapse={() => { }}
                 />
               </div>
-            ) : (
-              <ConversationsSidebar
-                selectedId={selectedConversation}
-                onSelect={handleSelectConversation}
-                instanceId={selectedInstanceId}
-                isCollapsed={false}
-                onToggleCollapse={() => setIsConversationsSidebarCollapsed(true)}
-              />
             )}
-          </ResizablePanel>
-
-          <ResizableHandle withHandle />
-
-          {/* Chat Area */}
-          <ResizablePanel defaultSize={100 - sidebarSize - (isDetailsSidebarCollapsed ? 3 : 20)} minSize={30}>
-            <ChatArea conversationId={selectedConversation} />
-          </ResizablePanel>
-
-          {/* Details Sidebar */}
-          <ResizableHandle withHandle />
-          <ResizablePanel 
-            defaultSize={isDetailsSidebarCollapsed ? 3 : 20} 
-            minSize={3} 
-            maxSize={35}
-            collapsible
-            collapsedSize={3}
+            {showChat && (
+              <div className="flex-1 flex flex-col">
+                {selectedConversation && (
+                  <div className="border-b border-border p-2">
+                    <Button variant="ghost" size="sm" onClick={handleBackToSidebar}>
+                      <ArrowLeft className="h-4 w-4 mr-2" />
+                      Voltar
+                    </Button>
+                  </div>
+                )}
+                <ChatArea conversationId={selectedConversation} />
+              </div>
+            )}
+          </>
+        ) : (
+          /* Desktop Layout with Resizable Panels */
+          <ResizablePanelGroup
+            direction="horizontal"
+            onLayout={handleSidebarResize}
+            className="flex-1"
           >
-            <ConversationDetailsSidebar
-              conversationId={selectedConversation}
-              contactName={selectedConv?.contact?.name}
-              isCollapsed={isDetailsSidebarCollapsed}
-              onToggleCollapse={() => setIsDetailsSidebarCollapsed(!isDetailsSidebarCollapsed)}
-            />
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      )}
+            {/* Conversations Sidebar */}
+            <ResizablePanel
+              defaultSize={sidebarSize}
+              minSize={MIN_SIDEBAR_SIZE}
+              maxSize={MAX_SIDEBAR_SIZE}
+              className="border-r border-border"
+            >
+              {isConversationsSidebarCollapsed ? (
+                <div className="w-14 h-full">
+                  <ConversationsSidebar
+                    selectedId={selectedConversation}
+                    onSelect={handleSelectConversation}
+                    instanceId={selectedInstanceId}
+                    isCollapsed={true}
+                    onToggleCollapse={() => setIsConversationsSidebarCollapsed(false)}
+                  />
+                </div>
+              ) : (
+                <ConversationsSidebar
+                  selectedId={selectedConversation}
+                  onSelect={handleSelectConversation}
+                  instanceId={selectedInstanceId}
+                  isCollapsed={false}
+                  onToggleCollapse={() => setIsConversationsSidebarCollapsed(true)}
+                />
+              )}
+            </ResizablePanel>
 
-      {/* No instance state */}
-      {instances.length === 0 && !selectedConversation && (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center space-y-4">
-            <p className="text-muted-foreground">Nenhuma instância configurada</p>
-            <Link to="/whatsapp/settings">
-              <Button>
-                <Settings className="mr-2 h-4 w-4" />
-                Configurar Instância
-              </Button>
-            </Link>
-          </div>
-        </div>
-      )}
+            <ResizableHandle withHandle />
+
+            {/* Chat Area */}
+            <ResizablePanel defaultSize={100 - sidebarSize - (isDetailsSidebarCollapsed ? 3 : 20)} minSize={30}>
+              <ChatArea conversationId={selectedConversation} />
+            </ResizablePanel>
+
+            {/* Details Sidebar */}
+            <ResizableHandle withHandle />
+            <ResizablePanel
+              defaultSize={isDetailsSidebarCollapsed ? 3 : 20}
+              minSize={3}
+              maxSize={35}
+              collapsible
+              collapsedSize={3}
+            >
+              <ConversationDetailsSidebar
+                conversationId={selectedConversation}
+                contactName={selectedConv?.contact?.name}
+                isCollapsed={isDetailsSidebarCollapsed}
+                onToggleCollapse={() => setIsDetailsSidebarCollapsed(!isDetailsSidebarCollapsed)}
+              />
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        )}
+
+        {/* No instance state removed - instances list handles empty state */}
       </div>
-      
+
       {/* Escalation Alert */}
       <EscalationAlert onOpenQueue={() => navigate('/admin/conversas')} />
     </div>

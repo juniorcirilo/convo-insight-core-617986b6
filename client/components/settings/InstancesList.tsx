@@ -14,20 +14,7 @@ export const InstancesList = () => {
   }
 
   if (instances.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12 text-center space-y-6">
-        <div className="text-6xl">📱</div>
-        <div className="space-y-2">
-          <h3 className="text-xl font-semibold">Nenhuma instância configurada</h3>
-          <p className="text-muted-foreground max-w-md">
-            Adicione sua primeira instância para começar a usar o WhatsApp.
-          </p>
-        </div>
-        <p className="text-sm text-muted-foreground max-w-md">
-          Primeira vez configurando? Veja nosso guia passo a passo para facilitar o processo.
-        </p>
-      </div>
-    );
+    return null;
   }
 
   return (
