@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently --names \"FRONTEND,API\" \"bun run dev\" \"cd server && npm run dev\"",
+    "dev": "concurrently --names \"CLIENT,SERVER\" --prefix-colors \"blue,yellow\" \"dotenv -e .env -- vite --host\" \"cd server && bun run dev\"",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "build:api": "cd server && npm run build",
