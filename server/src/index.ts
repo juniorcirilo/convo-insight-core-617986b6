@@ -76,7 +76,9 @@ if (!enableCors) {
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
-  skip: (req) => req.path.includes('/auth/'), // Skip rate limit for auth routes
+  // Skip rate limiting for auth routes and all GET requests (frontend polling can be frequent).
+  // In production you may want to tighten this rule or whitelist specific endpoints instead.
+  skip: (req) => req.path.includes('/auth/') || req.method === 'GET',
 });
 app.use('/api/', limiter);
 

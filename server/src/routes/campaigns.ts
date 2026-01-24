@@ -52,7 +52,8 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
       .from(campaigns)
       .orderBy(sql`${campaigns.createdAt} DESC`);
 
-    res.json({ campaigns: allCampaigns });
+    // Return array directly to match client expectations
+    res.json(allCampaigns);
   } catch (error) {
     console.error('Error fetching campaigns:', error);
     res.status(500).json({ error: 'Internal server error' });

@@ -190,41 +190,67 @@ export const apiClient = {
 
   from: (table: string) => ({
     select: (columns = '*') => {
-      const query: any = {
-        eq: async (column: string, value: any) => {
-          try {
-            const data = await request(`/${table}?${column}=${value}`);
-            return { data, error: null };
-          } catch (error: any) {
-            return { data: null, error: { message: error.message } };
-          }
-        },
-        single: async () => {
-          try {
-            const data = await request(`/${table}`);
-            return { data, error: null };
-          } catch (error: any) {
-            return { data: null, error: { message: error.message } };
-          }
-        },
-        maybeSingle: async () => {
-          try {
-            const data = await request(`/${table}`);
-            return { data, error: null };
-          } catch (error: any) {
-            // maybeSingle returns null instead of error when not found
-            if (error.status === 404) {
-              return { data: null, error: null };
-            }
-            return { data: null, error: { message: error.message } };
-          }
-        },
-        order: (column: string, options?: any) => query,
-        limit: (count: number) => query,
-        range: (from: number, to: number) => query,
-        in: (column: string, values: any[]) => query,
+      // Internal builder state
+      const state: any = {
+        columns,
+        filters: [],
+        inFilters: [],
+        orders: [],
+        limit: undefined,
+        range: undefined,
       };
-      return query;
+
+      const buildQueryString = () => {
+        const params = new URLSearchParams();
+        for (const f of state.filters) {
+          params.append(f.column, String(f.value));
+        }
+        for (const f of state.inFilters) {
+          // join values with comma
+          params.append(f.column, f.values.join(','));
+        }
+        if (state.limit) params.append('limit', String(state.limit));
+        if (state.range) params.append('range', `${state.range[0]}:${state.range[1]}`);
+        return params.toString();
+      };
+
+      const builder: any = {
+        eq: (column: string, value: any) => {
+          state.filters.push({ column, value });
+          return builder;
+        },
+        in: (column: string, values: any[]) => {
+          state.inFilters.push({ column, values });
+          return builder;
+        },
+        order: (column: string, _options?: any) => {
+          state.orders.push(column);
+          return builder;
+        },
+        limit: (count: number) => {
+          state.limit = count;
+          return builder;
+        },
+        range: (from: number, to: number) => {
+          state.range = [from, to];
+          return builder;
+        },
+        // thenable so `await query` works like official supabase client
+        then: async (resolve: any, _reject: any) => {
+          try {
+            const q = buildQueryString();
+            const path = q ? `/${table}?${q}` : `/${table}`;
+            const data = await request(path);
+            const result = { data, error: null };
+            return resolve ? resolve(result) : result;
+          } catch (err: any) {
+            const result = { data: null, error: { message: err.message || String(err) } };
+            return resolve ? resolve(result) : result;
+          }
+        },
+      };
+
+      return builder;
     },
 
     insert: (values: any) => ({

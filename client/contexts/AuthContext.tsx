@@ -116,67 +116,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } as Profile);
 
       setRole('admin');
-
-      return;
-
-      // Original code (commented out until API is ready):
-      // const { data: profileData, error: profileError } = await supabase
-      //   .from('profiles')
-      //   .select('*')
-      //   .eq('id', userId)
-      //   .maybeSingle();
-
-      if (roleError) {
-        console.error('❌ [AuthContext] Error loading role:', roleError);
-      } else if (roleData) {
-        console.log('✅ [AuthContext] Role loaded:', roleData.role);
-        setRole(roleData.role as AppRole);
-      } else {
-        console.warn('⚠️ [AuthContext] No role found for user:', userId);
-      }
-
-      // Load user sectors
-      const { data: sectorsData, error: sectorsError } = await supabase
-        .from('user_sectors')
-        .select(`
-          id,
-          sector_id,
-          is_primary,
-          sectors!inner(name, instance_id)
-        `)
-        .eq('user_id', userId);
-
-      if (sectorsError) {
-        console.error('❌ [AuthContext] Error loading user sectors:', sectorsError);
-      } else if (sectorsData) {
-        const mappedSectors: UserSector[] = sectorsData.map((us: any) => ({
-          id: us.id,
-          sector_id: us.sector_id,
-          is_primary: us.is_primary,
-          sector_name: us.sectors?.name,
-          instance_id: us.sectors?.instance_id,
-        }));
-        console.log('✅ [AuthContext] User sectors loaded:', mappedSectors);
-        setUserSectors(mappedSectors);
-      }
-
-      // If profile OR role is missing, try to auto-create them
-      if (!profileData || !roleData) {
-        console.log('⚠️ [AuthContext] Profile or role missing, attempting auto-creation...');
-
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.access_token) {
-          const wasCreated = await ensureUserProfile(userId, session.access_token);
-          if (wasCreated) {
-            // Reload user data after creation
-            console.log('🔄 [AuthContext] Reloading user data after auto-creation...');
-            setTimeout(() => {
-              loadUserData(userId);
-            }, 500);
-            return;
-          }
-        }
-      }
+      // Using a stubbed profile/role until backend APIs are implemented.
+      // TODO: Replace with real profile/role loading when API endpoints exist.
     } catch (error) {
       console.error('❌ [AuthContext] Error in loadUserData:', error);
     }
