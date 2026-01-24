@@ -100,19 +100,6 @@ export const knowledgeOptimizationLog = pgTable('knowledge_optimization_log', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
-export const slaViolations = pgTable('sla_violations', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  conversationId: uuid('conversation_id').notNull(),
-  violationType: varchar('violation_type', { length: 100 }).notNull(), // first_response, response_time, resolution_time
-  expectedTime: integer('expected_time'), // minutes
-  actualTime: integer('actual_time'), // minutes
-  severity: varchar('severity', { length: 50 }).default('medium'), // low, medium, high
-  notificationSent: boolean('notification_sent').default(false),
-  acknowledgedBy: uuid('acknowledged_by'),
-  acknowledgedAt: timestamp('acknowledged_at'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-});
-
 export const teamInvites = pgTable('team_invites', {
   id: uuid('id').defaultRandom().primaryKey(),
   email: varchar('email', { length: 255 }).notNull(),

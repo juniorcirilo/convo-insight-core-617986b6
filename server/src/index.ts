@@ -22,6 +22,9 @@ import adminRoutes from './routes/admin';
 import teamRoutes from './routes/team';
 import setupRoutes from './routes/setup';
 import tablesRoutes from './routes/tables';
+import ticketsRoutes from './routes/tickets';
+import integrationsRoutes from './routes/integrations';
+import audioRoutes from './routes/audio';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -119,6 +122,9 @@ app.use('/api/knowledge', knowledgeRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/team', teamRoutes);
 app.use('/api/setup', setupRoutes);
+app.use('/api/tickets', ticketsRoutes);
+app.use('/api/integrations', integrationsRoutes);
+app.use('/api/audio', audioRoutes);
 // Generic lightweight table endpoints used by the local API client
 app.use('/api', tablesRoutes);
 
