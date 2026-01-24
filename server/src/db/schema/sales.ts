@@ -60,3 +60,15 @@ export const salesTargets = pgTable('sales_targets', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const kanbanColumnsConfig = pgTable('kanban_columns_config', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => profiles.id, { onDelete: 'cascade' }),
+  columnId: text('column_id').notNull(),
+  name: text('name').notNull(),
+  color: text('color'),
+  position: integer('position').default(0),
+  isVisible: boolean('is_visible').default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+});
