@@ -7,11 +7,45 @@ import { TeamMemberRow } from "./TeamMemberRow";
 import { InviteMemberDialog } from "./InviteMemberDialog";
 
 export const TeamMembersList = () => {
-  const { members, isLoading } = useTeamManagement();
+  const { members, isLoading, error } = useTeamManagement();
   const [showInviteDialog, setShowInviteDialog] = useState(false);
 
   if (isLoading) {
     return <div className="text-muted-foreground">Carregando membros...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="text-red-500">
+        Erro ao carregar membros: {error instanceof Error ? error.message : String(error)}
+      </div>
+    );
+  }
+
+  if (!members || members.length === 0) {
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-xl font-semibold">Membros da Equipe</h2>
+            <p className="text-sm text-muted-foreground">
+              Gerencie os membros, roles e permissões
+            </p>
+          </div>
+          <Button onClick={() => setShowInviteDialog(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Convidar Membro
+          </Button>
+        </div>
+        <div className="text-muted-foreground text-center py-8">
+          Nenhum membro encontrado.
+        </div>
+        <InviteMemberDialog
+          open={showInviteDialog}
+          onOpenChange={setShowInviteDialog}
+        />
+      </div>
+    );
   }
 
   return (

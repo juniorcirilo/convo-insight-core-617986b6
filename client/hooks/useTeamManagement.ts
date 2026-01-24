@@ -20,7 +20,7 @@ export interface TeamMember {
 export const useTeamManagement = () => {
   const queryClient = useQueryClient();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['team-members'],
     queryFn: async () => {
       // Get all profiles
@@ -29,14 +29,20 @@ export const useTeamManagement = () => {
         .select('id, full_name, email, avatar_url, status, is_active, is_approved, created_at')
         .order('created_at', { ascending: false });
 
-      if (profilesError) throw profilesError;
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+        throw profilesError;
+      }
 
       // Get roles for each profile
       const { data: rolesData, error: rolesError } = await supabase
         .from('user_roles')
         .select('user_id, role');
 
-      if (rolesError) throw rolesError;
+      if (rolesError) {
+        console.error('Error fetching user_roles:', rolesError);
+        throw rolesError;
+      }
 
       // Get active conversations count for each user
       const { data: conversationsData, error: conversationsError } = await supabase
@@ -45,10 +51,13 @@ export const useTeamManagement = () => {
         .eq('status', 'active')
         .not('assigned_to', 'is', null);
 
-      if (conversationsError) throw conversationsError;
+      // Don't throw on conversation errors, just continue with empty counts
+      if (conversationsError) {
+        console.warn('Error fetching conversations for counts:', conversationsError);
+      }
 
       // Count conversations per user
-      const conversationCounts = conversationsData.reduce((acc, conv) => {
+      const conversationCounts = (conversationsData || []).reduce((acc, conv) => {
         const userId = conv.assigned_to;
         if (userId) {
           acc[userId] = (acc[userId] || 0) + 1;
@@ -57,8 +66,8 @@ export const useTeamManagement = () => {
       }, {} as Record<string, number>);
 
       // Merge data
-      const members: TeamMember[] = profilesData.map(profile => {
-        const roleData = rolesData.find(r => r.user_id === profile.id);
+      const members: TeamMember[] = (profilesData || []).map(profile => {
+        const roleData = (rolesData || []).find(r => r.user_id === profile.id);
         return {
           id: profile.id,
           full_name: profile.full_name,
@@ -152,6 +161,7 @@ export const useTeamManagement = () => {
   return {
     members: data || [],
     isLoading,
+    error,
     updateRole: updateRoleMutation.mutateAsync,
     toggleActive: toggleActiveMutation.mutateAsync,
     inviteMember: inviteMemberMutation.mutateAsync,

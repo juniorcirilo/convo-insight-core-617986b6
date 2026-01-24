@@ -219,6 +219,19 @@ export const apiClient = {
           state.filters.push({ column, value });
           return builder;
         },
+        neq: (column: string, value: any) => {
+          state.filters.push({ column, value, op: 'neq' });
+          return builder;
+        },
+        not: (column: string, operator: string, value: any) => {
+          // Handle .not('column', 'is', null) => filter out nulls
+          state.filters.push({ column, value, op: 'not' });
+          return builder;
+        },
+        is: (column: string, value: any) => {
+          state.filters.push({ column, value, op: 'is' });
+          return builder;
+        },
         in: (column: string, values: any[]) => {
           state.inFilters.push({ column, values });
           return builder;

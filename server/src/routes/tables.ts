@@ -188,8 +188,6 @@ router.get('/sectors', async (req: Request, res: Response) => {
   }
 });
 
-export default router;
-
 // Generic fallback for lightweight table queries (prevents 404s for missing optional tables)
 // Matches simple table names composed of letters, numbers and underscores.
 router.get('/:table', async (req: Request, res: Response) => {
@@ -199,10 +197,23 @@ router.get('/:table', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Invalid table name' });
     }
 
-    // Basic paging support
-    const { limit, range } = req.query;
-    let sql = `SELECT * FROM ${table}`;
+    // Basic paging and filter support
+    const { limit, range, ...filters } = req.query;
     const params: any[] = [];
+    const whereClauses: string[] = [];
+
+    // Build WHERE clauses from query parameters (simple equality filters)
+    for (const [key, value] of Object.entries(filters)) {
+      if (typeof value === 'string' && /^[a-z0-9_]+$/i.test(key)) {
+        params.push(value);
+        whereClauses.push(`${key} = $${params.length}`);
+      }
+    }
+
+    let sql = `SELECT * FROM ${table}`;
+    if (whereClauses.length > 0) {
+      sql += ` WHERE ${whereClauses.join(' AND ')}`;
+    }
 
     if (range && typeof range === 'string') {
       const [fromStr, toStr] = range.split(':');
@@ -214,7 +225,7 @@ router.get('/:table', async (req: Request, res: Response) => {
       const lim = parseInt(String(limit), 10) || 20;
       sql += ` ORDER BY created_at DESC LIMIT ${lim}`;
     } else {
-      sql += ' ORDER BY created_at DESC LIMIT 50';
+      sql += ' ORDER BY created_at DESC LIMIT 100';
     }
 
     try {
@@ -234,3 +245,4 @@ router.get('/:table', async (req: Request, res: Response) => {
   }
 });
 
+export default router;
