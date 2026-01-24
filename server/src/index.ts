@@ -136,9 +136,12 @@ app.use((req: Request, res: Response) => {
 // Error handler
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error('Error:', err);
+  // Include stack trace in development for easier debugging
+  const isDev = process.env.NODE_ENV !== 'production';
   res.status(500).json({ 
     error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? err.message : undefined,
+    message: isDev ? (err.message || 'No message') : undefined,
+    stack: isDev && (err as any).stack ? (err as any).stack.split('\n').slice(0,10) : undefined,
   });
 });
 

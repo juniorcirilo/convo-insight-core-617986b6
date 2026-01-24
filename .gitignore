@@ -14,12 +14,13 @@ dist-ssr
 
 .env
 server/.env
-
+*.mp3
 # Legacy Supabase
 supabase/*
 backup/
 scripts/
-
+tests/
+data/
 # Temporary files
 *.sh
 *.sql

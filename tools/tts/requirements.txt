@@ -1,0 +1,11 @@
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+edge-tts>=6.1.12
+python-multipart==0.0.6
+aiofiles==23.2.1
+pydantic==2.5.3
+pydub==0.25.1
+vosk==0.3.45
+soundfile>=0.12.1
+faster-whisper>=0.8.0
+numpy>=1.25.0

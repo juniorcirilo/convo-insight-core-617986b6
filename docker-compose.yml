@@ -1,17 +1,24 @@
-version: '3.8'
+name: livechat
+
+# If you want to supply your own CLIENT_ID/HMAC_SECRET set them here.
+# Otherwise the proxy will generate `CLIENT_ID` (time-based UUID uppercase),
+# compute `CLIENT_TOKEN = HMAC-SHA256(HMAC_SECRET, CLIENT_ID)` and
+# `CLIENT_SECRET = HMAC-SHA512(HMAC_SECRET, CLIENT_TOKEN)` at startup.
+
 
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: convo-insight-db
+    container_name: livechat-db
     environment:
       POSTGRES_DB: convo_insight
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: mNloQEWQA3wpBfhYK50HlbIrQgT8mKy7
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./scripts/pgsql-initdb.sql:/docker-entrypoint-initdb.d/pgsql-initdb.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -20,11 +27,11 @@ services:
 
   minio:
     image: minio/minio:latest
-    container_name: convo-insight-minio
+    container_name: livechat-minio
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: minio_0e6628d4
+      MINIO_ROOT_PASSWORD: L6ogbWvQTAdk8N2DG6ESIX1MuDRaVQMH7GZgTDJL
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -42,32 +49,32 @@ services:
       - minio
     entrypoint: >
       /bin/sh -c "
-      /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin;
-      /usr/bin/mc mb myminio/convo-insight --ignore-existing;
-      /usr/bin/mc anonymous set download myminio/convo-insight;
+      /usr/bin/mc alias set myminio http://minio:9000 minio_0e6628d4 L6ogbWvQTAdk8N2DG6ESIX1MuDRaVQMH7GZgTDJL;
+      /usr/bin/mc mb myminio/livechat --ignore-existing;
+      /usr/bin/mc anonymous set download myminio/livechat;
       exit 0;
       "
 
   evolution-api:
     image: atendai/evolution-api:latest
-    container_name: convo-insight-evolution
+    container_name: livechat-evolution
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "8082:8080"
     environment:
       SERVER_URL: http://localhost:8080
       AUTHENTICATION_TYPE: apikey
-      AUTHENTICATION_API_KEY: your-evolution-api-key-change-me
+      AUTHENTICATION_API_KEY: 87ade66a2f20641f884003736de93d4284e9cbe33efb66de747a33b89a7b3698
       AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES: true
       DATABASE_ENABLED: true
       DATABASE_PROVIDER: postgresql
-      DATABASE_CONNECTION_URI: postgresql://postgres:postgres@postgres:5432/convo_insight
+      DATABASE_CONNECTION_URI: postgresql://postgres:mNloQEWQA3wpBfhYK50HlbIrQgT8mKy7@postgres:5432/evolution_api
       DATABASE_CONNECTION_CLIENT_NAME: evolution_api
       CACHE_REDIS_ENABLED: false
       S3_ENABLED: true
-      S3_ACCESS_KEY: minioadmin
-      S3_SECRET_KEY: minioadmin
-      S3_BUCKET: convo-insight
+      S3_ACCESS_KEY: minio_0e6628d4
+      S3_SECRET_KEY: L6ogbWvQTAdk8N2DG6ESIX1MuDRaVQMH7GZgTDJL
+      S3_BUCKET: livechat
       S3_PORT: 9000
       S3_ENDPOINT: minio
       S3_USE_SSL: false
@@ -91,7 +98,7 @@ services:
 
   n8n:
     image: n8nio/n8n:latest
-    container_name: convo-insight-n8n
+    container_name: livechat-n8n
     restart: unless-stopped
     ports:
       - "5678:5678"
@@ -99,11 +106,11 @@ services:
       DB_TYPE: postgresdb
       DB_POSTGRESDB_HOST: postgres
       DB_POSTGRESDB_PORT: 5432
-      DB_POSTGRESDB_DATABASE: convo_insight
+      DB_POSTGRESDB_DATABASE: n8n_workflows
       DB_POSTGRESDB_USER: postgres
-      DB_POSTGRESDB_PASSWORD: postgres
+      DB_POSTGRESDB_PASSWORD: mNloQEWQA3wpBfhYK50HlbIrQgT8mKy7
       DB_POSTGRESDB_SCHEMA: n8n
-      N8N_ENCRYPTION_KEY: your-n8n-encryption-key-change-me-32chars
+      N8N_ENCRYPTION_KEY: fILNIKQlb9pG43DB1LIluZcnhwNJGIHq
       WEBHOOK_URL: http://localhost:5678/
       N8N_HOST: localhost
       N8N_PORT: 5678
@@ -114,7 +121,7 @@ services:
       EXECUTIONS_DATA_MAX_AGE: 168
       N8N_BASIC_AUTH_ACTIVE: "true"
       N8N_BASIC_AUTH_USER: admin
-      N8N_BASIC_AUTH_PASSWORD: admin
+      N8N_BASIC_AUTH_PASSWORD: ri4ZDUzCUpsYDNxlNCJCg62W
     volumes:
       - n8n_data:/home/node/.n8n
     depends_on:
@@ -125,24 +132,24 @@ services:
 
   typebot-builder:
     image: baptistearno/typebot-builder:latest
-    container_name: convo-insight-typebot-builder
+    container_name: livechat-typebot-builder
     restart: unless-stopped
     ports:
       - "3001:3000"
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/convo_insight?schema=typebot
-      ENCRYPTION_SECRET: your-typebot-encryption-secret32
+      DATABASE_URL: postgresql://postgres:mNloQEWQA3wpBfhYK50HlbIrQgT8mKy7@postgres:5432/typebot_automations?schema=typebot
+      ENCRYPTION_SECRET: b67JIqufieto607jfrIWIm6mBDH8NntD
       NEXTAUTH_URL: http://localhost:3001
       NEXT_PUBLIC_VIEWER_URL: http://localhost:3002
-      NEXTAUTH_SECRET: your-nextauth-secret-change-me
-      S3_ACCESS_KEY: minioadmin
-      S3_SECRET_KEY: minioadmin
-      S3_BUCKET: convo-insight
+      NEXTAUTH_SECRET: U9CL5JjdpHP46sYjuvf6iB3U9i97TNVNpdDRXDLyo
+      S3_ACCESS_KEY: minio_0e6628d4
+      S3_SECRET_KEY: L6ogbWvQTAdk8N2DG6ESIX1MuDRaVQMH7GZgTDJL
+      S3_BUCKET: livechat
       S3_PORT: 9000
       S3_ENDPOINT: minio
       S3_SSL: "false"
       S3_REGION: us-east-1
-      ADMIN_EMAIL: admin@convo-insight.com
+      ADMIN_EMAIL: admin@livechat.app
       DISABLE_SIGNUP: "false"
       NEXT_PUBLIC_DISABLE_SIGNUP: "false"
     depends_on:
@@ -155,19 +162,19 @@ services:
 
   typebot-viewer:
     image: baptistearno/typebot-viewer:latest
-    container_name: convo-insight-typebot-viewer
+    container_name: livechat-typebot-viewer
     restart: unless-stopped
     ports:
       - "3002:3000"
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/convo_insight?schema=typebot
-      ENCRYPTION_SECRET: your-typebot-encryption-secret32
+      DATABASE_URL: postgresql://postgres:mNloQEWQA3wpBfhYK50HlbIrQgT8mKy7@postgres:5432/typebot_automations?schema=typebot
+      ENCRYPTION_SECRET: b67JIqufieto607jfrIWIm6mBDH8NntD
       NEXTAUTH_URL: http://localhost:3001
       NEXT_PUBLIC_VIEWER_URL: http://localhost:3002
-      NEXTAUTH_SECRET: your-nextauth-secret-change-me
-      S3_ACCESS_KEY: minioadmin
-      S3_SECRET_KEY: minioadmin
-      S3_BUCKET: convo-insight
+      NEXTAUTH_SECRET: U9CL5JjdpHP46sYjuvf6iB3U9i97TNVNpdDRXDLyo
+      S3_ACCESS_KEY: minio_0e6628d4
+      S3_SECRET_KEY: L6ogbWvQTAdk8N2DG6ESIX1MuDRaVQMH7GZgTDJL
+      S3_BUCKET: livechat
       S3_PORT: 9000
       S3_ENDPOINT: minio
       S3_SSL: "false"
@@ -180,8 +187,91 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
+  tts:
+    build:
+      context: ./tools/tts
+      dockerfile: Dockerfile
+    container_name: livechat-tts
+    restart: unless-stopped
+    ports:
+      - "5050:5000"
+    environment:
+      TZ: America/Sao_Paulo
+      TTS_API_KEY: 2C9393A4-F944-11F0-BAE8-00155DBB8257
+      TTS_CLIENT_SECRET: 907b832f256d763d0406405f7d89c0f5d1fb6ee66475c6777fc7c8c0462959eb6e0a3dd245bf949d70d8263669706c30b9327f17e4c6b7c9ee763732a811757e
+    volumes:
+      - tts_cache:/tmp/tts_cache
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: livechat-ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      OLLAMA_HOST: 0.0.0.0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  ai-proxy:
+    build:
+      context: ./tools/ai-proxy
+      dockerfile: Dockerfile
+    container_name: livechat-ai-proxy
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    environment:
+      OLLAMA_URL: http://ollama:11434
+      CLIENT_ID: D799FA47-F94C-11F0-ACD7-00155DBB8257
+      HMAC_SECRET: "ff137154f8bbb66a4d2d77c2cf38675bc7e17c83614195119161bd77c8ee6c10"
+      CLIENT_TOKEN: "8ece8ffa26bd172dbea2e93432902215176095af4c307a1c2edecbae8e6ab958"
+      CLIENT_SECRET: "97e88bc99d296fa1ea032ba1aab2a97b5d1be4f6aca46aba8efdf7c61f1a09b0467b7c59dc0b45089a0c03d31a9a8ec507ed165cdf12867e3dfaa50567665d4a"
+    depends_on:
+      - ollama
+
 volumes:
   postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./data/postgres_data
+      o: bind
   minio_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./data/minio_data
+      o: bind
   evolution_instances:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./data/evolution_instances
+      o: bind
   n8n_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./data/n8n_data
+      o: bind
+  tts_cache:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./data/tts_cache
+      o: bind
+  ollama_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./data/ollama_data
+      o: bind

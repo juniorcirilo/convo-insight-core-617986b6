@@ -13,6 +13,7 @@ Este documento detalha todos os containers Docker utilizados no projeto Convo In
 | n8n | 5678 | http://localhost:5678 | Automação de workflows |
 | Typebot Builder | 3001 | http://localhost:3001 | Editor de chatbots |
 | Typebot Viewer | 3002 | http://localhost:3002 | Interface pública dos bots |
+| TTS Service | 5050 | http://localhost:5050 | Text-to-Speech pt-BR |
 
 ---
 
@@ -283,6 +284,82 @@ openssl rand -base64 32
 
 ---
 
+## � TTS Service (Text-to-Speech)
+
+**Container:** `convo-insight-tts`  
+**Build:** `./tools/tts`  
+**Porta:** `5050`
+
+Serviço de síntese de voz em Português Brasileiro usando edge-tts (Microsoft Edge TTS).
+
+### Acesso
+- **URL:** http://localhost:5050
+- **Docs:** http://localhost:5050/docs
+
+### Vozes Disponíveis
+
+| ID | Nome | Locale | Gênero |
+|----|------|--------|--------|
+| `francisca` | Francisca | pt-BR | Feminino (padrão) |
+| `antonio` | Antonio | pt-BR | Masculino |
+| `fernanda` | Fernanda | pt-PT | Feminino |
+| `duarte` | Duarte | pt-PT | Masculino |
+
+### Endpoints
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/` | Health check |
+| GET | `/voices` | Lista vozes pt-BR/pt-PT |
+| GET | `/voices/all` | Lista todas as vozes edge-tts |
+| POST | `/synthesize` | Gera áudio (stream) |
+| POST | `/synthesize/save` | Gera e salva áudio |
+| GET | `/speak?text=...` | Síntese via GET |
+| GET | `/audio/{file_id}` | Download de áudio salvo |
+| DELETE | `/cache/clear` | Limpa cache |
+
+### Exemplos de Uso
+
+**Síntese simples (GET):**
+```bash
+curl "http://localhost:5050/speak?text=Olá, como vai você?&voice=francisca" --output audio.mp3
+```
+
+**Síntese com POST:**
+```bash
+curl -X POST "http://localhost:5050/synthesize" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Olá, como vai você?", "voice": "antonio", "rate": "+10%"}' \
+  --output audio.mp3
+```
+
+**HTML (integração direta):**
+```html
+<audio controls>
+  <source src="http://localhost:5050/speak?text=Bem-vindo ao sistema" type="audio/mpeg">
+</audio>
+```
+
+### Parâmetros de Síntese
+
+| Parâmetro | Tipo | Padrão | Descrição |
+|-----------|------|--------|-----------|
+| `text` | string | - | Texto para converter (max 5000 chars) |
+| `voice` | string | `francisca` | ID da voz |
+| `rate` | string | `+0%` | Velocidade (ex: `+20%`, `-10%`) |
+| `volume` | string | `+0%` | Volume (ex: `+10%`, `-20%`) |
+| `pitch` | string | `+0Hz` | Tom (ex: `+50Hz`, `-30Hz`) |
+
+### Volume
+- `tts_cache` - Cache de arquivos de áudio gerados
+
+### Notas
+- Usa Microsoft Edge TTS (gratuito, sem API key)
+- Requer conexão com internet para síntese
+- Qualidade neural de alta fidelidade
+
+---
+
 ## 🔗 Comunicação entre Serviços
 
 ```
@@ -297,17 +374,22 @@ openssl rand -base64 32
 │       │               │                    │ webhook            │
 │       │               │                    ▼                    │
 │       │               │         ┌──────────────────┐           │
-│       │               │         │  Convo Insight   │           │
-│       │               │         │  Backend :3000   │           │
-│       │               │         │ (host.docker.    │           │
-│       │               │         │  internal)       │           │
-│       │               │         └──────────────────┘           │
-│       │               │                                         │
-│  ┌────┴─────┐    ┌────┴─────┐    ┌──────────────────┐          │
-│  │   n8n    │    │ Typebot  │    │  Typebot Viewer  │          │
-│  │  :5678   │    │ Builder  │    │     :3002        │          │
-│  │          │    │  :3001   │    │                  │          │
-│  └──────────┘    └──────────┘    └──────────────────┘          │
+│       │               │         │  Convo Insight   │◄──┐       │
+│       │               │         │  Backend :3000   │   │       │
+│       │               │         │ (host.docker.    │   │       │
+│       │               │         │  internal)       │   │       │
+│       │               │         └──────────────────┘   │       │
+│       │               │                                │       │
+│  ┌────┴─────┐    ┌────┴─────┐    ┌──────────────────┐ │       │
+│  │   n8n    │    │ Typebot  │    │  Typebot Viewer  │ │       │
+│  │  :5678   │    │ Builder  │    │     :3002        │ │       │
+│  │          │    │  :3001   │    │                  │ │       │
+│  └──────────┘    └──────────┘    └──────────────────┘ │       │
+│                                                        │       │
+│                                   ┌──────────────────┐│       │
+│                                   │   TTS Service    ││       │
+│                                   │     :5050        │┘       │
+│                                   └──────────────────┘        │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
