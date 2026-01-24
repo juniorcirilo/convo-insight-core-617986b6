@@ -1,0 +1,141 @@
+import express, { Request, Response, NextFunction } from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import cookieParser from 'cookie-parser';
+import rateLimit from 'express-rate-limit';
+import 'dotenv/config';
+
+// Import routes
+import authRoutes from './routes/auth';
+import userRoutes from './routes/users';
+import conversationRoutes from './routes/conversations';
+import storageRoutes from './routes/storage';
+import whatsappRoutes from './routes/whatsapp';
+import aiRoutes from './routes/ai';
+import campaignRoutes from './routes/campaigns';
+import leadRoutes from './routes/leads';
+import escalationRoutes from './routes/escalations';
+import meetingRoutes from './routes/meetings';
+import knowledgeRoutes from './routes/knowledge';
+import adminRoutes from './routes/admin';
+import teamRoutes from './routes/team';
+import setupRoutes from './routes/setup';
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Security middleware
+app.use(helmet());
+
+// CORS configuration
+const enableCors = process.env.ENABLE_CORS !== 'false';
+
+if (!enableCors) {
+  // CORS disabled - allow all origins
+  app.use(cors({
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  }));
+  console.log('🔓 CORS is DISABLED - allowing all origins');
+} else {
+  // CORS enabled - restrict to allowed origins
+  const allowedOrigins = [
+    'http://localhost:8080',
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:8080',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:3000',
+    process.env.FRONTEND_URL,
+  ].filter(Boolean) as string[];
+
+  app.use(cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, Postman, etc.)
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.warn(`CORS blocked origin: ${origin}`);
+        callback(null, true); // Still allow, but log warning
+      }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  }));
+  console.log('🔒 CORS is ENABLED - allowed origins:', allowedOrigins);
+}
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  skip: (req) => req.path.includes('/auth/'), // Skip rate limit for auth routes
+});
+app.use('/api/', limiter);
+
+// Body parsing middleware - MUST come before routes
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(cookieParser());
+
+// Debug middleware to log all requests
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`, {
+    body: req.body,
+    contentType: req.headers['content-type'],
+  });
+  next();
+});
+
+// Logging
+app.use(morgan('combined'));
+
+// Health check
+app.get('/health', (req: Request, res: Response) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/conversations', conversationRoutes);
+app.use('/api/storage', storageRoutes);
+app.use('/api/whatsapp', whatsappRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/campaigns', campaignRoutes);
+app.use('/api/leads', leadRoutes);
+app.use('/api/escalations', escalationRoutes);
+app.use('/api/meetings', meetingRoutes);
+app.use('/api/knowledge', knowledgeRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/team', teamRoutes);
+app.use('/api/setup', setupRoutes);
+
+// 404 handler
+app.use((req: Request, res: Response) => {
+  res.status(404).json({ error: 'Not found' });
+});
+
+// Error handler
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  console.error('Error:', err);
+  res.status(500).json({ 
+    error: 'Internal server error',
+    message: process.env.NODE_ENV === 'development' ? err.message : undefined,
+  });
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
+});
+
+export default app;

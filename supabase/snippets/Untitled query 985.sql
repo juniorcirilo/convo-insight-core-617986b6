@@ -1,1 +1,0 @@
-DELETE FROM public.whatsapp_conversations where phone = '5541984146402';

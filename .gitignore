@@ -13,7 +13,21 @@ dist-ssr
 *.local
 
 .env
+server/.env
+
+# Legacy Supabase
 supabase/*
+backup/
+scripts/
+
+# Temporary files
+*.sh
+*.sql
+*.cjs
+FILES_CREATED.md
+REORGANIZACAO_ESTRUTURA.md
+VERIFICACAO_FINAL.md
+bun.lockb
 
 .vscode/*
 !.vscode/extensions.json
