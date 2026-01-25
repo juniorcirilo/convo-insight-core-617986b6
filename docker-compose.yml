@@ -87,7 +87,7 @@ services:
       retries: 3
 
   evolution-api:
-    image: evoapicloud/evolution-api:homolog
+    image: evoapicloud/evolution-api:v2.3.0
     container_name: livechat-evolution
     restart: unless-stopped
     ports:

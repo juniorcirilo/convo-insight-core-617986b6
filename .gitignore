@@ -25,6 +25,7 @@ data/
 *.sh
 *.sql
 *.cjs
+
 FILES_CREATED.md
 REORGANIZACAO_ESTRUTURA.md
 VERIFICACAO_FINAL.md
@@ -40,3 +41,6 @@ bun.lockb
 *.sln
 *.sw?
 bun.lockb
+bun.lock
+server/bun.lock
+bun.lock
