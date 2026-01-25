@@ -7,6 +7,48 @@ name: livechat
 
 
 services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: livechat-app
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "3000:3000"
+    depends_on:
+      - postgres
+      - minio
+    volumes:
+      - ./:/app
+    environment:
+      - VITE_API_URL=http://localhost:3000/api
+      - VITE_ENABLE_CORS=false
+      - NODE_ENV=development
+      - PORT=3000
+      - FRONTEND_URL=http://localhost:8080
+      - ENABLE_CORS=false
+      - DATABASE_URL=postgresql://postgres:mNloQEWQA3wpBfhYK50HlbIrQgT8mKy7@postgres:5432/convo_insight?sslmode=disable
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=mNloQEWQA3wpBfhYK50HlbIrQgT8mKy7
+      - DB_NAME=convo_insight
+      - JWT_SECRET=YpsLqT3YsdtspudfT3hJsTNtNYigfuVNKnFaqTaUENEFdPMTqWbqWuEKHiRbfCAL
+      - JWT_REFRESH_SECRET=Vs4zJhbFxTgqRmdcxvNgzRUtVq9dYimmCYnMrhywezyMstX3xN9iqibaczLR4F3M
+      - JWT_EXPIRES_IN=1h
+      - JWT_REFRESH_EXPIRES_IN=7d
+      - S3_ENDPOINT=http://minio:9000
+      - S3_REGION=us-east-1
+      - S3_ACCESS_KEY=minioadmin
+      - S3_SECRET_KEY=minioadmin
+      - S3_BUCKET=convo-insight
+      - GROQ_API_KEY=your-groq-api-key-here
+      - ENDPOINT_URL=http://tts:5050
+      - API_KEY=2C9393A4-F944-11F0-BAE8-00155DBB8257
+      - CLIENT_SECRET=907b832f256d763d0406405f7d89c0f5d1fb6ee66475c6777fc7c8c0462959eb6e0a3dd245bf949d70d8263669706c30b9327f17e4c6b7c9ee763732a811757e
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
   postgres:
     image: postgres:16-alpine
     container_name: livechat-db
@@ -18,7 +60,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/pgsql-initdb.sql:/docker-entrypoint-initdb.d/pgsql-initdb.sql:ro
+      - /var/run/postgres:/var/run/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -28,7 +70,8 @@ services:
   minio:
     image: minio/minio:latest
     container_name: livechat-minio
-    command: server /data --console-address ":9001"
+    command: server /data --console-address ":9001" --address ":9000"
+    restart: unless-stopped
     environment:
       MINIO_ROOT_USER: minio_0e6628d4
       MINIO_ROOT_PASSWORD: L6ogbWvQTAdk8N2DG6ESIX1MuDRaVQMH7GZgTDJL
@@ -43,51 +86,109 @@ services:
       timeout: 20s
       retries: 3
 
-  createbuckets:
-    image: minio/mc:latest
-    depends_on:
-      - minio
-    entrypoint: >
-      /bin/sh -c "
-      /usr/bin/mc alias set myminio http://minio:9000 minio_0e6628d4 L6ogbWvQTAdk8N2DG6ESIX1MuDRaVQMH7GZgTDJL;
-      /usr/bin/mc mb myminio/livechat --ignore-existing;
-      /usr/bin/mc anonymous set download myminio/livechat;
-      exit 0;
-      "
-
   evolution-api:
-    image: atendai/evolution-api:latest
+    image: evoapicloud/evolution-api:homolog
     container_name: livechat-evolution
     restart: unless-stopped
     ports:
       - "8082:8080"
     environment:
-      SERVER_URL: http://localhost:8080
-      AUTHENTICATION_TYPE: apikey
-      AUTHENTICATION_API_KEY: 87ade66a2f20641f884003736de93d4284e9cbe33efb66de747a33b89a7b3698
-      AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES: true
-      DATABASE_ENABLED: true
-      DATABASE_PROVIDER: postgresql
-      DATABASE_CONNECTION_URI: postgresql://postgres:mNloQEWQA3wpBfhYK50HlbIrQgT8mKy7@postgres:5432/evolution_api
-      DATABASE_CONNECTION_CLIENT_NAME: evolution_api
-      CACHE_REDIS_ENABLED: false
-      S3_ENABLED: true
-      S3_ACCESS_KEY: minio_0e6628d4
-      S3_SECRET_KEY: L6ogbWvQTAdk8N2DG6ESIX1MuDRaVQMH7GZgTDJL
-      S3_BUCKET: livechat
-      S3_PORT: 9000
-      S3_ENDPOINT: minio
-      S3_USE_SSL: false
-      WEBHOOK_GLOBAL_URL: http://host.docker.internal:3000/api/whatsapp/webhooks/evolution
-      WEBHOOK_GLOBAL_ENABLED: true
-      WEBHOOK_GLOBAL_WEBHOOK_BY_EVENTS: false
-      QRCODE_LIMIT: 30
-      QRCODE_COLOR: "#198754"
-      LOG_LEVEL: ERROR
-      LOG_COLOR: true
-      DEL_INSTANCE: false
+      - SERVER_URL=https://evolution.easydev.com.br
+      - LOG_LEVEL=ERROR,WARN,DEBUG,INFO,LOG,VERBOSE,DARK,WEBHOOKS,WEBSOCKET
+      - LOG_COLOR=true
+      - LOG_BAILEYS=error
+      - EVENT_EMITTER_MAX_LISTENERS=50
+      - DEL_INSTANCE=false
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://postgres:mNloQEWQA3wpBfhYK50HlbIrQgT8mKy7@postgres:5432/evolution_api?schema=public
+      - DATABASE_CONNECTION_CLIENT_NAME=easydev_evolution_premium
+      - DATABASE_SAVE_DATA_INSTANCE=true
+      - DATABASE_SAVE_DATA_NEW_MESSAGE=true
+      - DATABASE_SAVE_MESSAGE_UPDATE=true
+      - DATABASE_SAVE_DATA_CONTACTS=true
+      - DATABASE_SAVE_DATA_CHATS=true
+      - DATABASE_SAVE_DATA_LABELS=true
+      - DATABASE_SAVE_DATA_HISTORIC=true
+      - DATABASE_SAVE_IS_ON_WHATSAPP=true
+      - DATABASE_SAVE_IS_ON_WHATSAPP_DAYS=90
+      - DATABASE_DELETE_MESSAGE=true
+      - RABBITMQ_ENABLED=false
+      - RABBITMQ_GLOBAL_ENABLED=false
+      - SQS_ENABLED=false
+      - CONFIG_SESSION_PHONE_CLIENT=EvolutionAPI
+      - CONFIG_SESSION_PHONE_NAME=EvolutionAPI
+      - QRCODE_LIMIT=60
+      - QRCODE_COLOR=#175197
+      - WEBSOCKET_ENABLED=true
+      - ENABLE_WEBSOCKET_EVENTS=true
+      - TYPEBOT_ENABLED=true
+      - TYPEBOT_API_VERSION=latest
+      - CHATWOOT_ENABLED=true
+      - OPENAI_ENABLED=true
+      - DIFY_ENABLED=true
+      - N8N_ENABLED=true
+      - EVOAI_ENABLED=true
+      - CACHE_REDIS_ENABLED=false
+      - CACHE_LOCAL_ENABLED=false
+      - S3_ENABLED=true
+      - S3_ACCESS_KEY=minio_0e6628d4
+      - S3_SECRET_KEY=L6ogbWvQTAdk8N2DG6ESIX1MuDRaVQMH7GZgTDJL
+      - S3_BUCKET=evolution
+      - S3_PORT=9000
+      - S3_ENDPOINT=minio
+      - S3_USE_SSL=false
+      - VIDEO_UPLOAD_ENABLED=true
+      - MEDIA_VIDEO_ENABLED=true
+      - S3_SKIP_POLICY=true
+      - S3_SAVE_VIDEO=true
+      - S3_SAVE_AUDIO=true
+      - MAX_FILE_SIZE=51200000
+      - LANGUAGE=pt-BR
+      - AUTHENTICATION_API_KEY=D92B7926-F96A-11F0-BAE8-00155DFA78AB
+      - SERVER_PORT=8080
+      - WEBHOOK_GLOBAL_URL=http://localhost:5678/webhook/livechat
+      - WEBHOOK_GLOBAL_ENABLED=false
+      - WEBHOOK_EVENTS_APPLICATION_STARTUP=false
+      - WEBHOOK_EVENTS_QRCODE_UPDATED=false
+      - WEBHOOK_EVENTS_MESSAGES_SET=false
+      - WEBHOOK_EVENTS_MESSAGES_UPSERT=true
+      - WEBHOOK_EVENTS_MESSAGES_UPDATE=false
+      - WEBHOOK_EVENTS_MESSAGES_DELETE=true
+      - WEBHOOK_EVENTS_SEND_MESSAGE=false
+      - WEBHOOK_EVENTS_CONTACTS_SET=false
+      - WEBHOOK_EVENTS_CONTACTS_UPSERT=false
+      - WEBHOOK_EVENTS_CONTACTS_UPDATE=false
+      - WEBHOOK_EVENTS_PRESENCE_UPDATE=false
+      - WEBHOOK_EVENTS_CHATS_SET=false
+      - WEBHOOK_EVENTS_CHATS_UPSERT=false
+      - WEBHOOK_EVENTS_CHATS_UPDATE=false
+      - WEBHOOK_EVENTS_CHATS_DELETE=false
+      - WEBHOOK_EVENTS_GROUPS_UPSERT=false
+      - WEBHOOK_EVENTS_GROUPS_UPDATE=false
+      - WEBHOOK_EVENTS_GROUP_PARTICIPANTS_UPDATE=false
+      - WEBHOOK_EVENTS_CONNECTION_UPDATE=false
+      - WEBHOOK_EVENTS_LABELS_EDIT=false
+      - WEBHOOK_EVENTS_LABELS_ASSOCIATION=false
+      - WEBHOOK_EVENTS_CALL=true
+      - WEBHOOK_EVENTS_NEW_JWT_TOKEN=false
+      - WEBHOOK_EVENTS_TYPEBOT_START=false
+      - WEBHOOK_EVENTS_TYPEBOT_CHANGE_STATUS=false
+      - WEBHOOK_EVENTS_CHAMA_AI_ACTION=false
+      - WEBHOOK_EVENTS_ERRORS=false
+      - WEBHOOK_EVENTS_ERRORS_WEBHOOK=false
+      - MEDIA_UPLOAD=true
+      - WA_BUSINESS_URL=https://graph.facebook.com
+      - WA_BUSINESS_VERSION=v22.0
+      - WA_BUSINESS_LANGUAGE=pt_BR
+      - TELEMETRY=false
     volumes:
       - evolution_instances:/evolution/instances
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
     depends_on:
       postgres:
         condition: service_healthy
@@ -97,7 +198,7 @@ services:
       - "host.docker.internal:host-gateway"
 
   n8n:
-    image: n8nio/n8n:latest
+    image: n8nio/n8n:nightly
     container_name: livechat-n8n
     restart: unless-stopped
     ports:
@@ -111,7 +212,7 @@ services:
       DB_POSTGRESDB_PASSWORD: mNloQEWQA3wpBfhYK50HlbIrQgT8mKy7
       DB_POSTGRESDB_SCHEMA: n8n
       N8N_ENCRYPTION_KEY: fILNIKQlb9pG43DB1LIluZcnhwNJGIHq
-      WEBHOOK_URL: http://localhost:5678/
+      WEBHOOK_URL: http://n8n:5678/
       N8N_HOST: localhost
       N8N_PORT: 5678
       N8N_PROTOCOL: http
@@ -124,6 +225,12 @@ services:
       N8N_BASIC_AUTH_PASSWORD: ri4ZDUzCUpsYDNxlNCJCg62W
     volumes:
       - n8n_data:/home/node/.n8n
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:5678/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
     depends_on:
       postgres:
         condition: service_healthy
@@ -131,7 +238,7 @@ services:
       - "host.docker.internal:host-gateway"
 
   typebot-builder:
-    image: baptistearno/typebot-builder:latest
+    image: elestio/typebot-builder:v3.15.2
     container_name: livechat-typebot-builder
     restart: unless-stopped
     ports:
@@ -159,9 +266,15 @@ services:
         condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
 
   typebot-viewer:
-    image: baptistearno/typebot-viewer:latest
+    image: elestio/typebot-viewer:v3.15.2
     container_name: livechat-typebot-viewer
     restart: unless-stopped
     ports:
@@ -186,10 +299,16 @@ services:
         condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
 
   tts:
     build:
-      context: ./tools/tts
+      context: /srv/convo-insight-core-617986b6/tools/tts
       dockerfile: Dockerfile
     container_name: livechat-tts
     restart: unless-stopped
@@ -208,7 +327,9 @@ services:
       retries: 3
 
   ollama:
-    image: ollama/ollama:latest
+    build:
+      context: ./tools/wrapper-ollama
+      dockerfile: Dockerfile
     container_name: livechat-ollama
     restart: unless-stopped
     volumes:
@@ -223,7 +344,7 @@ services:
 
   ai-proxy:
     build:
-      context: ./tools/ai-proxy
+      context: /srv/convo-insight-core-617986b6/tools/ai-proxy
       dockerfile: Dockerfile
     container_name: livechat-ai-proxy
     restart: unless-stopped
@@ -237,41 +358,67 @@ services:
       CLIENT_SECRET: "97e88bc99d296fa1ea032ba1aab2a97b5d1be4f6aca46aba8efdf7c61f1a09b0467b7c59dc0b45089a0c03d31a9a8ec507ed165cdf12867e3dfaa50567665d4a"
     depends_on:
       - ollama
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:11434/api/tags || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
+  # Documentation - Yaade (local docs preview)
+  yaade:
+    image: esperotech/yaade:nightly
+    container_name: livechat-yaade
+    restart: unless-stopped
+    volumes:
+      - yaade_data:/app/data
+    ports:
+      - "9339:9339"
+    environment:
+      YADE_DOCS_DIR: /docs
+      YAADE_ADMIN_USERNAME: admin
+      YAADE_ADMIN_PASSWORD: "b3f945005fceda41673d90298cf52994"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9339"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   postgres_data:
     driver: local
     driver_opts:
       type: none
-      device: ./data/postgres_data
+      device: /srv/convo-insight-core-617986b6/data/postgres_data
       o: bind
   minio_data:
     driver: local
     driver_opts:
       type: none
-      device: ./data/minio_data
+      device: /srv/convo-insight-core-617986b6/data/minio_data
       o: bind
   evolution_instances:
     driver: local
     driver_opts:
       type: none
-      device: ./data/evolution_instances
+      device: /srv/convo-insight-core-617986b6/data/evolution_instances
       o: bind
   n8n_data:
     driver: local
     driver_opts:
       type: none
-      device: ./data/n8n_data
+      device: /srv/convo-insight-core-617986b6/data/n8n_data
       o: bind
   tts_cache:
-    driver: local
-    driver_opts:
-      type: none
-      device: ./data/tts_cache
-      o: bind
   ollama_data:
     driver: local
     driver_opts:
       type: none
-      device: ./data/ollama_data
+      device: /srv/convo-insight-core-617986b6/data/ollama_data
+      o: bind
+  yaade_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /srv/convo-insight-core-617986b6/data/yaade_data
       o: bind

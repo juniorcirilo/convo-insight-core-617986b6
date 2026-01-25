@@ -35,7 +35,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/api/client";
 
 const formSchema = z.object({
-  name: z.string().min(1, "Nome obrigatório"),
+  name: z.string().optional(), // Will default to instance_name if not provided
   instance_name: z
     .string()
     .min(1, "Nome da instância obrigatório")
@@ -132,8 +132,9 @@ export const AddInstanceDialog = ({ open, onOpenChange }: AddInstanceDialogProps
   const onSubmit = async (values: FormValues) => {
     try {
       // Create instance with secrets and provider_type
+      // Use instance_name as name if not provided
       const result = await createInstance.mutateAsync({
-        name: values.name,
+        name: values.name || values.instance_name,
         instance_name: values.instance_name,
         instance_id_external: values.provider_type === 'cloud' ? values.instance_id_external : undefined,
         api_url: values.api_url,
@@ -381,30 +382,6 @@ export const AddInstanceDialog = ({ open, onOpenChange }: AddInstanceDialogProps
 
                       <FormField
                         control={form.control}
-                        name="name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <div className="flex items-center gap-1.5">
-                              <FormLabel>Nome</FormLabel>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                                </TooltipTrigger>
-                                <TooltipContent side="right" className="max-w-[250px]">
-                                  <p>Nome para identificar a instância na plataforma (ex: 'WhatsApp Vendas', 'Suporte Técnico')</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </div>
-                            <FormControl>
-                              <Input placeholder="Minha Instância" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
                         name="instance_name"
                         render={({ field }) => (
                           <FormItem>
@@ -548,227 +525,6 @@ export const AddInstanceDialog = ({ open, onOpenChange }: AddInstanceDialogProps
                     </div>
                   </TabsContent>
                 </Tabs>
-                <FormField
-                  control={form.control}
-                  name="provider_type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-center gap-1.5">
-                        <FormLabel>Tipo de Provedor</FormLabel>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-[250px]">
-                            <p>Selecione <strong>Self-Hosted</strong> se você instalou o Evolution API em seu próprio servidor. Selecione <strong>Cloud</strong> se usa Evolution Cloud (evoapicloud.com ou similar).</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione o tipo" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="self_hosted">Baileys</SelectItem>
-                          <SelectItem value="cloud">WhatsApp Cloud API</SelectItem>
-                          <SelectItem value="evolution_bot">Evolution</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-center gap-1.5">
-                        <FormLabel>Nome</FormLabel>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-[250px]">
-                            <p>Nome para identificar a instância na plataforma (ex: 'WhatsApp Vendas', 'Suporte Técnico')</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                      <FormControl>
-                        <Input placeholder="Minha Instância" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="instance_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-center gap-1.5">
-                        <FormLabel>Nome da Instância</FormLabel>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-[250px]">
-                            <p>Nome exato da instância configurada no Evolution API. Encontre no painel do Evolution em 'Instances'.</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                      <FormControl>
-                        <Input placeholder="my-instance" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {providerType === 'cloud' && (
-                  <FormField
-                    control={form.control}
-                    name="instance_id_external"
-                    render={({ field }) => (
-                      <FormItem>
-                        <div className="flex items-center gap-1.5">
-                          <FormLabel>ID da Instância (UUID)</FormLabel>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                            </TooltipTrigger>
-                            <TooltipContent side="right" className="max-w-[250px]">
-                              <p>ID único da instância no Evolution Cloud (UUID). Encontre em "Definições → Referência de API" no painel da instância.</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
-                        <FormControl>
-                          <Input placeholder="ead6f2f2-7633-4e41-a08d-7272300a6ba1" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                <FormField
-                  control={form.control}
-                  name="api_url"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-center gap-1.5">
-                        <FormLabel>URL da API</FormLabel>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-[250px]">
-                            <p>
-                              {providerType === 'cloud'
-                                ? 'URL do Evolution Cloud (ex: https://api.evoapicloud.com)'
-                                : 'URL de acesso ao seu Evolution API. É a mesma URL que você usa no navegador para acessar o painel.'}
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                      <FormControl>
-                        <Input
-                          placeholder={providerType === 'cloud'
-                            ? "https://api.evoapicloud.com"
-                            : "https://api.evolution.com"
-                          }
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="api_key"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-center gap-1.5">
-                        <FormLabel>
-                          {providerType === 'cloud' ? 'Token da Instância' : 'API Key'}
-                        </FormLabel>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                          </TooltipTrigger>
-                          <TooltipContent side="right" className="max-w-[250px]">
-                            <p>
-                              {providerType === 'cloud'
-                                ? 'Token de autenticação da instância. No Evolution Cloud, encontre nas configurações da instância ou ao criá-la.'
-                                : 'Chave de autenticação da API. Se usa Cloudfy, encontre em "Infraestrutura" no painel da ferramenta.'}
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                      <FormControl>
-                        <Input type="password" placeholder="••••••••" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Events selection and apply button */}
-                <div className="space-y-2">
-                  <FormItem>
-                    <FormLabel>Eventos (Evolution)</FormLabel>
-                    <div className="flex gap-2 flex-wrap">
-                      {['MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'CONNECTION_UPDATE', 'MESSAGES_DELETE'].map(ev => (
-                        <Button
-                          key={ev}
-                          size="sm"
-                          variant={selectedEvents.includes(ev) ? 'default' : 'outline'}
-                          onClick={() => setSelectedEvents(prev => prev.includes(ev) ? prev.filter(p => p !== ev) : [...prev, ev])}
-                        >
-                          {ev}
-                        </Button>
-                      ))}
-                    </div>
-                  </FormItem>
-                  <div className="flex gap-2">
-                    <Button type="button" variant="outline" onClick={() => handleApplyToEvolution(false)} disabled={isApplying}>
-                      {isApplying ? 'Aplicando...' : 'Configurar no Evolution'}
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleTestConnection}
-                    disabled={isTestingConnection}
-                  >
-                    {isTestingConnection ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : connectionTested ? (
-                      <Check className="mr-2 h-4 w-4" />
-                    ) : null}
-                    Testar Conexão
-                  </Button>
-
-                  <Button
-                    type="submit"
-                    disabled={!connectionTested || createInstance.isPending}
-                    className="ml-auto"
-                  >
-                    {createInstance.isPending ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : null}
-                    Salvar
-                  </Button>
-                </div>
               </form>
             </Form>
           </>
