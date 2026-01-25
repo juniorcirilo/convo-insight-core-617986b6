@@ -203,7 +203,12 @@ export const apiClient = {
       const buildQueryString = () => {
         const params = new URLSearchParams();
         for (const f of state.filters) {
-          params.append(f.column, String(f.value));
+          // Handle 'is null' operator specially for unassigned filter
+          if (f.op === 'is' && f.value === null && f.column === 'assigned_to') {
+            params.append('unassigned', 'true');
+          } else if (f.op !== 'is' || f.value !== null) {
+            params.append(f.column, String(f.value));
+          }
         }
         for (const f of state.inFilters) {
           // join values with comma
@@ -221,6 +226,22 @@ export const apiClient = {
         },
         neq: (column: string, value: any) => {
           state.filters.push({ column, value, op: 'neq' });
+          return builder;
+        },
+        gt: (column: string, value: any) => {
+          state.filters.push({ column, value, op: 'gt' });
+          return builder;
+        },
+        gte: (column: string, value: any) => {
+          state.filters.push({ column, value, op: 'gte' });
+          return builder;
+        },
+        lt: (column: string, value: any) => {
+          state.filters.push({ column, value, op: 'lt' });
+          return builder;
+        },
+        lte: (column: string, value: any) => {
+          state.filters.push({ column, value, op: 'lte' });
           return builder;
         },
         not: (column: string, operator: string, value: any) => {
@@ -248,6 +269,33 @@ export const apiClient = {
           state.range = [from, to];
           return builder;
         },
+        // Return single result or throw if not found
+        single: async () => {
+          try {
+            const q = buildQueryString();
+            const path = q ? `/${table}?${q}` : `/${table}`;
+            const data = await request(path);
+            const arr = Array.isArray(data) ? data : [data];
+            if (arr.length === 0) {
+              return { data: null, error: { message: 'No rows found' } };
+            }
+            return { data: arr[0], error: null };
+          } catch (err: any) {
+            return { data: null, error: { message: err.message || String(err) } };
+          }
+        },
+        // Return single result or null if not found (no error)
+        maybeSingle: async () => {
+          try {
+            const q = buildQueryString();
+            const path = q ? `/${table}?${q}` : `/${table}`;
+            const data = await request(path);
+            const arr = Array.isArray(data) ? data : [data];
+            return { data: arr[0] || null, error: null };
+          } catch (err: any) {
+            return { data: null, error: { message: err.message || String(err) } };
+          }
+        },
         // thenable so `await query` works like official supabase client
         then: async (resolve: any, _reject: any) => {
           try {
@@ -266,48 +314,272 @@ export const apiClient = {
       return builder;
     },
 
-    insert: (values: any) => ({
-      select: async () => {
-        try {
-          const data = await request(`/${table}`, {
-            method: 'POST',
-            body: JSON.stringify(values),
-          });
-          return { data, error: null };
-        } catch (error: any) {
-          return { data: null, error: { message: error.message } };
-        }
-      },
-    }),
-
-    update: (values: any) => ({
-      eq: (column: string, value: any) => ({
-        select: async () => {
+    insert: (values: any) => {
+      const insertBuilder = {
+        select: () => ({
+          single: async () => {
+            try {
+              const data = await request(`/${table}`, {
+                method: 'POST',
+                body: JSON.stringify(values),
+              });
+              // Return first item if array, otherwise the object itself
+              const single = Array.isArray(data) ? data[0] : data;
+              return { data: single, error: null };
+            } catch (error: any) {
+              return { data: null, error: { message: error.message } };
+            }
+          },
+          maybeSingle: async () => {
+            try {
+              const data = await request(`/${table}`, {
+                method: 'POST',
+                body: JSON.stringify(values),
+              });
+              const single = Array.isArray(data) ? data[0] : data;
+              return { data: single || null, error: null };
+            } catch (error: any) {
+              return { data: null, error: { message: error.message } };
+            }
+          },
+          then: async (resolve: any) => {
+            try {
+              const data = await request(`/${table}`, {
+                method: 'POST',
+                body: JSON.stringify(values),
+              });
+              const result = { data: Array.isArray(data) ? data : [data], error: null };
+              return resolve ? resolve(result) : result;
+            } catch (error: any) {
+              const result = { data: null, error: { message: error.message } };
+              return resolve ? resolve(result) : result;
+            }
+          },
+        }),
+        then: async (resolve: any) => {
           try {
-            const data = await request(`/${table}/${value}`, {
-              method: 'PUT',
+            const data = await request(`/${table}`, {
+              method: 'POST',
               body: JSON.stringify(values),
             });
-            return { data, error: null };
+            const result = { data, error: null };
+            return resolve ? resolve(result) : result;
           } catch (error: any) {
-            return { data: null, error: { message: error.message } };
+            const result = { data: null, error: { message: error.message } };
+            return resolve ? resolve(result) : result;
           }
         },
-      }),
-    }),
+      };
+      return insertBuilder;
+    },
 
-    delete: () => ({
-      eq: async (column: string, value: any) => {
-        try {
-          await request(`/${table}/${value}`, {
-            method: 'DELETE',
-          });
-          return { error: null };
-        } catch (error: any) {
-          return { error: { message: error.message } };
-        }
-      },
-    }),
+    upsert: (values: any, options?: { onConflict?: string }) => {
+      const upsertBuilder = {
+        select: () => ({
+          single: async () => {
+            try {
+              const data = await request(`/${table}/upsert`, {
+                method: 'POST',
+                body: JSON.stringify({ 
+                  data: values, 
+                  onConflict: options?.onConflict 
+                }),
+              });
+              const single = Array.isArray(data) ? data[0] : data;
+              return { data: single, error: null };
+            } catch (error: any) {
+              return { data: null, error: { message: error.message } };
+            }
+          },
+          maybeSingle: async () => {
+            try {
+              const data = await request(`/${table}/upsert`, {
+                method: 'POST',
+                body: JSON.stringify({ 
+                  data: values, 
+                  onConflict: options?.onConflict 
+                }),
+              });
+              const single = Array.isArray(data) ? data[0] : data;
+              return { data: single || null, error: null };
+            } catch (error: any) {
+              return { data: null, error: { message: error.message } };
+            }
+          },
+          then: async (resolve: any) => {
+            try {
+              const data = await request(`/${table}/upsert`, {
+                method: 'POST',
+                body: JSON.stringify({ 
+                  data: values, 
+                  onConflict: options?.onConflict 
+                }),
+              });
+              const result = { data: Array.isArray(data) ? data : [data], error: null };
+              return resolve ? resolve(result) : result;
+            } catch (error: any) {
+              const result = { data: null, error: { message: error.message } };
+              return resolve ? resolve(result) : result;
+            }
+          },
+        }),
+        then: async (resolve: any) => {
+          try {
+            const data = await request(`/${table}/upsert`, {
+              method: 'POST',
+              body: JSON.stringify({ 
+                data: values, 
+                onConflict: options?.onConflict 
+              }),
+            });
+            const result = { data, error: null };
+            return resolve ? resolve(result) : result;
+          } catch (error: any) {
+            const result = { data: null, error: { message: error.message } };
+            return resolve ? resolve(result) : result;
+          }
+        },
+      };
+      return upsertBuilder;
+    },
+
+    update: (values: any) => {
+      const state = { filters: [] as Array<{column: string; value: any}> };
+      
+      const builder: any = {
+        eq: (column: string, value: any) => {
+          state.filters.push({ column, value });
+          return builder;
+        },
+        select: () => ({
+          single: async () => {
+            try {
+              // Build query params from filters
+              const params = new URLSearchParams();
+              for (const f of state.filters) {
+                params.append(f.column, String(f.value));
+              }
+              const queryString = params.toString();
+              
+              // If single filter on id, use PUT /:table/:id
+              if (state.filters.length === 1 && state.filters[0].column === 'id') {
+                const data = await request(`/${table}/${state.filters[0].value}`, {
+                  method: 'PUT',
+                  body: JSON.stringify(values),
+                });
+                return { data, error: null };
+              }
+              
+              // Otherwise use PATCH with query params
+              const data = await request(`/${table}?${queryString}`, {
+                method: 'PATCH',
+                body: JSON.stringify(values),
+              });
+              return { data, error: null };
+            } catch (error: any) {
+              return { data: null, error: { message: error.message } };
+            }
+          },
+          then: async (resolve: any) => {
+            try {
+              const params = new URLSearchParams();
+              for (const f of state.filters) {
+                params.append(f.column, String(f.value));
+              }
+              const queryString = params.toString();
+              
+              if (state.filters.length === 1 && state.filters[0].column === 'id') {
+                const data = await request(`/${table}/${state.filters[0].value}`, {
+                  method: 'PUT',
+                  body: JSON.stringify(values),
+                });
+                const result = { data, error: null };
+                return resolve ? resolve(result) : result;
+              }
+              
+              const data = await request(`/${table}?${queryString}`, {
+                method: 'PATCH',
+                body: JSON.stringify(values),
+              });
+              const result = { data, error: null };
+              return resolve ? resolve(result) : result;
+            } catch (error: any) {
+              const result = { data: null, error: { message: error.message } };
+              return resolve ? resolve(result) : result;
+            }
+          },
+        }),
+        then: async (resolve: any) => {
+          try {
+            const params = new URLSearchParams();
+            for (const f of state.filters) {
+              params.append(f.column, String(f.value));
+            }
+            const queryString = params.toString();
+            
+            if (state.filters.length === 1 && state.filters[0].column === 'id') {
+              const data = await request(`/${table}/${state.filters[0].value}`, {
+                method: 'PUT',
+                body: JSON.stringify(values),
+              });
+              const result = { data, error: null };
+              return resolve ? resolve(result) : result;
+            }
+            
+            const data = await request(`/${table}?${queryString}`, {
+              method: 'PATCH',
+              body: JSON.stringify(values),
+            });
+            const result = { data, error: null };
+            return resolve ? resolve(result) : result;
+          } catch (error: any) {
+            const result = { data: null, error: { message: error.message } };
+            return resolve ? resolve(result) : result;
+          }
+        },
+      };
+      
+      return builder;
+    },
+
+    delete: () => {
+      const state = { filters: [] as Array<{column: string; value: any}> };
+      
+      const builder: any = {
+        eq: (column: string, value: any) => {
+          state.filters.push({ column, value });
+          return builder;
+        },
+        then: async (resolve: any) => {
+          try {
+            const params = new URLSearchParams();
+            for (const f of state.filters) {
+              params.append(f.column, String(f.value));
+            }
+            const queryString = params.toString();
+            
+            // If single filter on id, use DELETE /:table/:id
+            if (state.filters.length === 1 && state.filters[0].column === 'id') {
+              await request(`/${table}/${state.filters[0].value}`, {
+                method: 'DELETE',
+              });
+            } else {
+              // Otherwise use DELETE with query params
+              await request(`/${table}?${queryString}`, {
+                method: 'DELETE',
+              });
+            }
+            const result = { error: null };
+            return resolve ? resolve(result) : result;
+          } catch (error: any) {
+            const result = { error: { message: error.message } };
+            return resolve ? resolve(result) : result;
+          }
+        },
+      };
+      
+      return builder;
+    },
   }),
 
   storage: {

@@ -68,7 +68,6 @@ export const useWhatsAppInstances = () => {
           instance_id: instanceResult.id,
           api_url,
           api_key,
-          webhook_endpoint: webhook_endpoint || null,
         })
         .select()
         .maybeSingle();
@@ -202,6 +201,35 @@ export const useWhatsAppInstances = () => {
     },
   });
 
+  const syncStatuses = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke(
+        'sync-instance-statuses',
+        { body: {} }
+      );
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      // Invalidate to fetch updated statuses
+      queryClient.invalidateQueries({ queryKey: ['whatsapp', 'instances'] });
+    },
+  });
+
+  const updateStatus = useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await supabase.functions.invoke(
+        'update-instance-status',
+        { body: { instanceId: id } }
+      );
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['whatsapp', 'instances'] });
+    },
+  });
+
   return {
     instances,
     isLoading,
@@ -210,5 +238,7 @@ export const useWhatsAppInstances = () => {
     updateInstance,
     deleteInstance,
     testConnection,
+    syncStatuses,
+    updateStatus,
   };
 };

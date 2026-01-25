@@ -25,55 +25,30 @@ import tablesRoutes from './routes/tables';
 import ticketsRoutes from './routes/tickets';
 import integrationsRoutes from './routes/integrations';
 import audioRoutes from './routes/audio';
+import functionsRoutes from './routes/functions';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Security middleware
-app.use(helmet());
+// CORS - MUST come BEFORE any other middleware
+// Disable CORS restrictions entirely for development
+app.use(cors({
+  origin: true,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Range', 'apikey'],
+  exposedHeaders: ['Content-Range', 'X-Total-Count'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
+}));
 
-// CORS configuration
-const enableCors = process.env.ENABLE_CORS !== 'false';
+console.log('🔓 CORS is DISABLED - allowing all origins');
 
-if (!enableCors) {
-  // CORS disabled - allow all origins
-  app.use(cors({
-    origin: true,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  }));
-  console.log('🔓 CORS is DISABLED - allowing all origins');
-} else {
-  // CORS enabled - restrict to allowed origins
-  const allowedOrigins = [
-    'http://localhost:8080',
-    'http://localhost:5173',
-    'http://localhost:3000',
-    'http://127.0.0.1:8080',
-    'http://127.0.0.1:5173',
-    'http://127.0.0.1:3000',
-    process.env.FRONTEND_URL,
-  ].filter(Boolean) as string[];
-
-  app.use(cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, Postman, etc.)
-      if (!origin) return callback(null, true);
-      
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        console.warn(`CORS blocked origin: ${origin}`);
-        callback(null, true); // Still allow, but log warning
-      }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  }));
-  console.log('🔒 CORS is ENABLED - allowed origins:', allowedOrigins);
-}
+// Security middleware (with relaxed settings for CORS)
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  crossOriginOpenerPolicy: { policy: 'unsafe-none' },
+}))
 
 // Rate limiting
 const limiter = rateLimit({
@@ -125,6 +100,7 @@ app.use('/api/setup', setupRoutes);
 app.use('/api/tickets', ticketsRoutes);
 app.use('/api/integrations', integrationsRoutes);
 app.use('/api/audio', audioRoutes);
+app.use('/api/functions', functionsRoutes);
 // Generic lightweight table endpoints used by the local API client
 app.use('/api', tablesRoutes);
 

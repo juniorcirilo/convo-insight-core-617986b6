@@ -3,7 +3,8 @@ import { db } from '../db';
 import { 
   whatsappInstances, 
   whatsappInstanceSecrets,
-  whatsappContacts, 
+  whatsappContacts,
+  whatsappConversations,
   whatsappConversationNotes, 
   whatsappMessages,
   whatsappSentimentAnalysis,
@@ -39,11 +40,18 @@ router.post('/messages/send', authenticate, async (req: Request, res: Response) 
     }
 
     // Get conversation and instance details
-    const [conversation] = await db
-      .select()
-      .from(whatsappConversationNotes)
-      .where(eq(whatsappConversationNotes.id, conversationId))
-      .limit(1);
+    const conversationResult = await db.execute(sql`
+      SELECT 
+        c.*,
+        ct.phone_number as contact_phone,
+        ct.name as contact_name
+      FROM whatsapp_conversations c
+      JOIN whatsapp_contacts ct ON ct.id = c.contact_id
+      WHERE c.id = ${conversationId}
+      LIMIT 1
+    `);
+    
+    const conversation = conversationResult.rows?.[0] || conversationResult[0];
 
     if (!conversation) {
       return res.status(404).json({ error: 'Conversation not found' });
@@ -52,7 +60,7 @@ router.post('/messages/send', authenticate, async (req: Request, res: Response) 
     const [instance] = await db
       .select()
       .from(whatsappInstances)
-      .where(eq(whatsappInstances.id, conversation.instanceId))
+      .where(eq(whatsappInstances.id, conversation.instance_id))
       .limit(1);
 
     if (!instance) {
@@ -89,7 +97,7 @@ router.post('/messages/send', authenticate, async (req: Request, res: Response) 
 
     // Send message via Evolution API
     const evolutionPayload: any = {
-      number: conversation.contactPhone,
+      number: conversation.contact_phone,
       text: finalContent,
     };
 
@@ -133,6 +141,7 @@ router.post('/messages/send', authenticate, async (req: Request, res: Response) 
     // Save message to database
     const [message] = await db.insert(whatsappMessages).values({
       conversationId,
+      remoteJid: `${conversation.contact_phone}@s.whatsapp.net`,
       content: finalContent,
       isFromMe: true,
       messageType,
@@ -143,15 +152,15 @@ router.post('/messages/send', authenticate, async (req: Request, res: Response) 
     }).returning();
 
     // Update conversation last message
-    await db
-      .update(whatsappConversationNotes)
-      .set({
-        lastMessageAt: new Date(),
-        lastMessagePreview: finalContent.substring(0, 100),
-        unreadCount: 0,
-        updatedAt: new Date(),
-      })
-      .where(eq(whatsappConversationNotes.id, conversationId));
+    await db.execute(sql`
+      UPDATE whatsapp_conversations
+      SET 
+        last_message_at = NOW(),
+        last_message_preview = ${finalContent.substring(0, 100)},
+        unread_count = 0,
+        updated_at = NOW()
+      WHERE id = ${conversationId}
+    `);
 
     res.json({ success: true, message, evolutionResponse: result });
   } catch (error) {
@@ -621,7 +630,138 @@ function replaceTemplateVariables(content: string, context: any): string {
 
 async function handleMessageUpsert(instance: any, data: any) {
   // Implementation for message upsert webhook
-  console.log('Handling message upsert:', data);
+  console.log('Handling message upsert for instance:', instance.instanceName);
+  
+  try {
+    const key = data.key;
+    const message = data.message;
+    const pushName = data.pushName || 'Unknown';
+    const messageTimestamp = data.messageTimestamp;
+    const messageType = data.messageType || 'text';
+    const isFromMe = key?.fromMe || false;
+    
+    // Extract phone number from remoteJid
+    let remoteJid = key?.remoteJid || '';
+    let phoneNumber = remoteJid.replace(/@.*$/, '');
+    
+    // Handle LID format (e.g., 6623259013353@lid)
+    // The actual phone number might be in senderPn
+    if (remoteJid.includes('@lid') && key?.senderPn) {
+      phoneNumber = key.senderPn.replace(/@.*$/, '');
+    }
+    
+    // Get message content based on message type
+    let content = '';
+    if (message?.conversation) {
+      content = message.conversation;
+    } else if (message?.extendedTextMessage?.text) {
+      content = message.extendedTextMessage.text;
+    } else if (message?.imageMessage?.caption) {
+      content = message.imageMessage.caption || '[Image]';
+    } else if (message?.videoMessage?.caption) {
+      content = message.videoMessage.caption || '[Video]';
+    } else if (message?.audioMessage) {
+      content = '[Audio]';
+    } else if (message?.documentMessage) {
+      content = message.documentMessage.fileName || '[Document]';
+    } else if (message?.stickerMessage) {
+      content = '[Sticker]';
+    } else if (message?.locationMessage) {
+      content = '[Location]';
+    } else if (message?.contactMessage) {
+      content = '[Contact]';
+    } else {
+      content = JSON.stringify(message).substring(0, 500);
+    }
+
+    // Skip if no phone number
+    if (!phoneNumber) {
+      console.log('No phone number found, skipping message');
+      return;
+    }
+
+    // 1. Upsert contact
+    const contactResult = await db.execute(sql`
+      INSERT INTO whatsapp_contacts (instance_id, phone_number, name, is_group, created_at, updated_at)
+      VALUES (${instance.id}, ${phoneNumber}, ${pushName}, false, NOW(), NOW())
+      ON CONFLICT (instance_id, phone_number) DO UPDATE SET
+        name = COALESCE(EXCLUDED.name, whatsapp_contacts.name),
+        updated_at = NOW()
+      RETURNING *
+    `);
+    
+    const contact = contactResult.rows?.[0] || contactResult[0];
+    if (!contact) {
+      console.error('Failed to upsert contact');
+      return;
+    }
+
+    // 2. Find or create conversation
+    const existingConvResult = await db.execute(sql`
+      SELECT * FROM whatsapp_conversations 
+      WHERE instance_id = ${instance.id} AND contact_id = ${contact.id}
+      LIMIT 1
+    `);
+    
+    let conversation = existingConvResult.rows?.[0] || existingConvResult[0];
+    
+    if (!conversation) {
+      // Get default sector for this instance
+      const sectorResult = await db.execute(sql`
+        SELECT id FROM sectors 
+        WHERE instance_id = ${instance.id} AND is_default = true AND is_active = true
+        LIMIT 1
+      `);
+      const defaultSector = sectorResult.rows?.[0] || sectorResult[0];
+      
+      const newConvResult = await db.execute(sql`
+        INSERT INTO whatsapp_conversations (instance_id, contact_id, status, unread_count, sector_id, last_message_at, last_message_preview, created_at, updated_at)
+        VALUES (${instance.id}, ${contact.id}, 'active', 1, ${defaultSector?.id || null}, NOW(), ${content.substring(0, 100)}, NOW(), NOW())
+        RETURNING *
+      `);
+      conversation = newConvResult.rows?.[0] || newConvResult[0];
+    } else {
+      // Update conversation
+      const unreadIncrement = isFromMe ? 0 : 1;
+      await db.execute(sql`
+        UPDATE whatsapp_conversations
+        SET 
+          last_message_at = NOW(),
+          last_message_preview = ${content.substring(0, 100)},
+          unread_count = unread_count + ${unreadIncrement},
+          status = 'active',
+          updated_at = NOW()
+        WHERE id = ${conversation.id}
+      `);
+    }
+
+    if (!conversation) {
+      console.error('Failed to get/create conversation');
+      return;
+    }
+
+    // 3. Insert message (check if already exists by message_id)
+    const messageId = key?.id || `msg_${Date.now()}`;
+    const timestamp = messageTimestamp 
+      ? new Date(messageTimestamp * 1000).toISOString()
+      : new Date().toISOString();
+
+    await db.execute(sql`
+      INSERT INTO whatsapp_messages (
+        conversation_id, remote_jid, message_id, content, message_type, 
+        is_from_me, status, timestamp, created_at
+      )
+      VALUES (
+        ${conversation.id}, ${remoteJid}, ${messageId}, ${content}, ${messageType},
+        ${isFromMe}, 'received', ${timestamp}, NOW()
+      )
+      ON CONFLICT (message_id) DO NOTHING
+    `);
+
+    console.log(`Message saved: ${messageId} from ${phoneNumber}`);
+  } catch (error) {
+    console.error('Error handling message upsert:', error);
+  }
 }
 
 async function handleMessageUpdate(instance: any, data: any) {
