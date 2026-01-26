@@ -60,6 +60,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - /livechat/app-entrypoint.sh:/usr/local/entrypoint.sh
       - /var/run/postgres:/var/run/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
@@ -308,7 +309,7 @@ services:
 
   tts:
     build:
-      context: /srv/convo-insight-core-617986b6/tools/tts
+      context: /livechat/tools/tts
       dockerfile: Dockerfile
     container_name: livechat-tts
     restart: unless-stopped
@@ -344,7 +345,7 @@ services:
 
   ai-proxy:
     build:
-      context: /srv/convo-insight-core-617986b6/tools/ai-proxy
+      context: /livechat/tools/ai-proxy
       dockerfile: Dockerfile
     container_name: livechat-ai-proxy
     restart: unless-stopped
@@ -389,36 +390,36 @@ volumes:
     driver: local
     driver_opts:
       type: none
-      device: /srv/convo-insight-core-617986b6/data/postgres_data
+      device: /livechat/data/postgres_data
       o: bind
   minio_data:
     driver: local
     driver_opts:
       type: none
-      device: /srv/convo-insight-core-617986b6/data/minio_data
+      device: /livechat/data/minio_data
       o: bind
   evolution_instances:
     driver: local
     driver_opts:
       type: none
-      device: /srv/convo-insight-core-617986b6/data/evolution_instances
+      device: /livechat/data/evolution_instances
       o: bind
   n8n_data:
     driver: local
     driver_opts:
       type: none
-      device: /srv/convo-insight-core-617986b6/data/n8n_data
+      device: /livechat/data/n8n_data
       o: bind
   tts_cache:
   ollama_data:
     driver: local
     driver_opts:
       type: none
-      device: /srv/convo-insight-core-617986b6/data/ollama_data
+      device: /livechat/data/ollama_data
       o: bind
   yaade_data:
     driver: local
     driver_opts:
       type: none
-      device: /srv/convo-insight-core-617986b6/data/yaade_data
+      device: /livechat/data/yaade_data
       o: bind

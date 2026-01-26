@@ -59,7 +59,7 @@
     "date-fns": "^3.6.0",
     "dotenv": "^17.2.3",
     "dotenv-cli": "^11.0.0",
-    "drizzle-kit": "^0.31.8",
+    "drizzle-kit": "^0.18.1",
     "drizzle-orm": "^0.45.1",
     "embla-carousel-react": "^8.6.0",
     "emoji-picker-react": "^4.15.2",

@@ -44,4 +44,4 @@ EXPOSE 3000
 
 VOLUME ["/app"]
 ENTRYPOINT [ "/usr/local/entrypoint.sh" ]
-CMD ["bun", "run", "dev"]
+CMD ["npm", "run", "dev"]
